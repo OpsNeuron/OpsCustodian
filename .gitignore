@@ -1,0 +1,25 @@
+# Build output
+/bin/
+/dist/
+*.exe
+*.test
+
+# Coverage and profiling
+coverage.out
+*.prof
+
+# Local OpsCustodian output
+agentbom.json
+agentbom.yaml
+.opscustodian-cache/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local environment
+.env
+.env.*
+!.env.example

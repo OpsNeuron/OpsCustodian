@@ -1,0 +1,19 @@
+name: incident-remediator
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      KUBECONFIG: ${{ secrets.PROD_KUBECONFIG }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create remediation proposal
+        run: ./scripts/remediate --pull-request-only

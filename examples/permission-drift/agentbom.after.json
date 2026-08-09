@@ -1,0 +1,51 @@
+{
+  "apiVersion": "opscustodian.dev/v1alpha1",
+  "kind": "AgentBOM",
+  "metadata": {
+    "source": "github:acme/platform",
+    "revision": "feature/expand-remediator",
+    "generator": "example",
+    "normalizationVersion": "v1alpha1"
+  },
+  "agents": [
+    {
+      "id": "github:acme/platform:incident-remediator",
+      "name": "incident-remediator",
+      "owner": "platform-team",
+      "source": {
+        "repository": "acme/platform",
+        "path": ".github/workflows/remediator.yml"
+      },
+      "runtime": {
+        "type": "github-actions",
+        "reference": ".github/workflows/remediator.yml"
+      },
+      "credentials": [
+        {
+          "type": "github-actions-secret",
+          "reference": "PROD_KUBECONFIG",
+          "valueCaptured": false
+        }
+      ],
+      "capabilities": [
+        {
+          "action": "kubernetes.namespaces.delete",
+          "resource": "kubernetes:production/*",
+          "effect": "delete",
+          "environment": "production",
+          "evidenceIds": ["workflow-permissions"]
+        }
+      ],
+      "controls": [],
+      "evidence": [
+        {
+          "id": "workflow-permissions",
+          "path": ".github/workflows/remediator.yml",
+          "line": 38,
+          "parser": "github-actions",
+          "confidence": "high"
+        }
+      ]
+    }
+  ]
+}

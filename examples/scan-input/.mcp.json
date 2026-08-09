@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "production-observer": {
+      "command": "production-observer",
+      "args": ["--read-only"],
+      "env": {
+        "OBSERVABILITY_TOKEN": "${OBSERVABILITY_TOKEN}"
+      }
+    }
+  }
+}

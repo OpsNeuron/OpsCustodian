@@ -32,13 +32,14 @@ repository configuration
 opscustodian scan . --output agentbom.json
 opscustodian diff --baseline main
 opscustodian check --policy ./policies
-opscustodian explain <finding-id>
+opscustodian explain --report drift.json <finding-id>
 ```
 
 The first pre-alpha implementation now includes offline artifact discovery,
-GitHub Actions and MCP configuration parsing, Agent BOM JSON/YAML output, and a
-semantic `diff` command. Policy enforcement and CI integration remain planned
-for the next milestones.
+GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
+parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
+severity thresholds, and finding explanations. Policy enforcement and hosted CI
+integration remain planned for the next milestones.
 
 ## Build prerequisites
 
@@ -57,6 +58,20 @@ Example:
   examples/permission-drift/agentbom.before.json \
   examples/permission-drift/agentbom.after.json
 ```
+
+For CI, request JSON and fail at a chosen severity threshold:
+
+```bash
+./bin/opscustodian diff --format json --fail-on high \
+  baseline.json proposed.json > drift.json
+```
+
+Exit codes are stable: `0` means successful execution below the configured
+threshold, `1` means an operational or input error, and `2` means semantic drift
+met the `--fail-on` threshold.
+
+Malformed supported artifacts are emitted as Agent BOM diagnostics. One bad
+workflow does not hide successfully parsed assets elsewhere in the scan.
 
 ## Principles
 

@@ -1,0 +1,88 @@
+package model
+
+const (
+	APIVersion = "opscustodian.dev/v1alpha1"
+	Kind       = "AgentBOM"
+)
+
+type AgentBOM struct {
+	APIVersion string           `json:"apiVersion" yaml:"apiVersion"`
+	Kind       string           `json:"kind" yaml:"kind"`
+	Metadata   DocumentMetadata `json:"metadata" yaml:"metadata"`
+	Agents     []Agent          `json:"agents" yaml:"agents"`
+	Diagnostics []Diagnostic    `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
+}
+
+type Diagnostic struct {
+	Severity string `json:"severity" yaml:"severity"`
+	Code     string `json:"code" yaml:"code"`
+	Path     string `json:"path,omitempty" yaml:"path,omitempty"`
+	Parser   string `json:"parser,omitempty" yaml:"parser,omitempty"`
+	Message  string `json:"message" yaml:"message"`
+}
+
+type DocumentMetadata struct {
+	Source               string `json:"source" yaml:"source"`
+	Revision             string `json:"revision" yaml:"revision"`
+	GeneratedAt          string `json:"generatedAt,omitempty" yaml:"generatedAt,omitempty"`
+	Generator            string `json:"generator,omitempty" yaml:"generator,omitempty"`
+	NormalizationVersion string `json:"normalizationVersion,omitempty" yaml:"normalizationVersion,omitempty"`
+}
+
+type Agent struct {
+	ID           string                `json:"id" yaml:"id"`
+	Name         string                `json:"name" yaml:"name"`
+	Owner        string                `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Source       Source                `json:"source" yaml:"source"`
+	Runtime      *Runtime              `json:"runtime,omitempty" yaml:"runtime,omitempty"`
+	Identities   []Reference           `json:"identities,omitempty" yaml:"identities,omitempty"`
+	Credentials  []CredentialReference `json:"credentials,omitempty" yaml:"credentials,omitempty"`
+	Tools        []Reference           `json:"tools,omitempty" yaml:"tools,omitempty"`
+	Capabilities []Capability          `json:"capabilities" yaml:"capabilities"`
+	Controls     []Control             `json:"controls,omitempty" yaml:"controls,omitempty"`
+	Evidence     []Evidence            `json:"evidence" yaml:"evidence"`
+}
+
+type Source struct {
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+	Path       string `json:"path" yaml:"path"`
+}
+
+type Runtime struct {
+	Type      string `json:"type" yaml:"type"`
+	Reference string `json:"reference,omitempty" yaml:"reference,omitempty"`
+}
+
+type Reference struct {
+	Type      string `json:"type" yaml:"type"`
+	Reference string `json:"reference" yaml:"reference"`
+}
+
+type CredentialReference struct {
+	Type          string `json:"type" yaml:"type"`
+	Reference     string `json:"reference" yaml:"reference"`
+	ValueCaptured bool   `json:"valueCaptured" yaml:"valueCaptured"`
+}
+
+type Capability struct {
+	Action      string   `json:"action" yaml:"action"`
+	Resource    string   `json:"resource" yaml:"resource"`
+	Effect      string   `json:"effect" yaml:"effect"`
+	Environment string   `json:"environment,omitempty" yaml:"environment,omitempty"`
+	EvidenceIDs []string `json:"evidenceIds,omitempty" yaml:"evidenceIds,omitempty"`
+}
+
+type Control struct {
+	Type  string `json:"type" yaml:"type"`
+	Value any    `json:"value" yaml:"value"`
+}
+
+type Evidence struct {
+	ID          string `json:"id" yaml:"id"`
+	Path        string `json:"path" yaml:"path"`
+	Line        int    `json:"line,omitempty" yaml:"line,omitempty"`
+	Column      int    `json:"column,omitempty" yaml:"column,omitempty"`
+	Parser      string `json:"parser" yaml:"parser"`
+	Confidence  string `json:"confidence" yaml:"confidence"`
+	Observation string `json:"observation,omitempty" yaml:"observation,omitempty"`
+}

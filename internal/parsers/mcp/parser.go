@@ -71,10 +71,10 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		}
 		evidenceID := stableID(a.RelPath + ":" + name)
 		agent := model.Agent{
-			ID: "mcp:" + a.RelPath + ":" + name, Name: name,
-			Source: model.Source{Path: a.RelPath},
+			ID: "mcp:" + a.RelPath + ":" + name, Type: "mcp-server", Name: name,
+			Source:  model.Source{Path: a.RelPath},
 			Runtime: &model.Runtime{Type: "mcp-server", Reference: reference},
-			Tools: []model.Reference{{Type: "mcp-server", Reference: name}},
+			Tools:   []model.Reference{{Type: "mcp-server", Reference: name}},
 			Capabilities: []model.Capability{{
 				Action: "mcp.tools.invoke", Resource: "mcp:" + name, Effect: "execute",
 				EvidenceIDs: []string{evidenceID},

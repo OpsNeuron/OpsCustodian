@@ -11,12 +11,12 @@ import (
 )
 
 type Options struct {
-	Root         string
-	Source       string
-	Revision     string
-	Generator    string
-	MaxFileSize  int64
-	Parsers      []parsers.Parser
+	Root        string
+	Source      string
+	Revision    string
+	Generator   string
+	MaxFileSize int64
+	Parsers     []parsers.Parser
 }
 
 func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
@@ -24,7 +24,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 	if err != nil {
 		return model.AgentBOM{}, err
 	}
-	var agents []model.Agent
+	var assets []model.Asset
 	var diagnostics []model.Diagnostic
 	for _, artifact := range artifacts {
 		for _, parser := range opts.Parsers {
@@ -39,18 +39,18 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 				})
 				continue
 			}
-			agents = append(agents, parsed...)
+			assets = append(assets, parsed...)
 		}
 	}
-	sort.Slice(agents, func(i, j int) bool { return agents[i].ID < agents[j].ID })
+	sort.Slice(assets, func(i, j int) bool { return assets[i].ID < assets[j].ID })
 	return model.AgentBOM{
 		APIVersion: model.APIVersion,
-		Kind: model.Kind,
+		Kind:       model.Kind,
 		Metadata: model.DocumentMetadata{
 			Source: opts.Source, Revision: opts.Revision,
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-			Generator: opts.Generator, NormalizationVersion: "v1alpha1",
+			Generator:   opts.Generator, NormalizationVersion: "v1alpha1",
 		},
-		Agents: agents, Diagnostics: diagnostics,
+		Assets: assets, Diagnostics: diagnostics,
 	}, nil
 }

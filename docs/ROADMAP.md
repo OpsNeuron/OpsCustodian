@@ -31,9 +31,9 @@ Exit condition: a local demo reliably identifies production permission drift.
 
 ## v0.2 — CI guardrail
 
-- OPA/Rego policy adapter and open starter policy pack.
+- OPA/Rego policy adapter and open starter policy pack. *(implemented, pending validation)*
 - GitHub Action packaging.
-- SARIF and pull-request annotations.
+- SARIF and pull-request annotations. *(initial SARIF and Action implemented, pending validation)*
 - Stable exit-code contract.
 - Git baseline comparison and approval-aware findings.
 - Actionable remediation messages.
@@ -43,7 +43,7 @@ blocked with correct evidence and remediation.
 
 ## v0.3 — Useful inventory
 
-- Codex, Claude, and Cursor asset discovery.
+- Codex, Claude, and Cursor asset discovery. *(initial Markdown/frontmatter discovery implemented, pending validation)*
 - CODEOWNERS and Backstage ownership correlation.
 - Local relationship graph and HTML report.
 - Monorepo support and configurable boundaries.

@@ -12,6 +12,7 @@ coverage.out
 agentbom.json
 agentbom.yaml
 .opscustodian-cache/
+.opscustodian/current.*
 
 # Editors and operating systems
 .idea/

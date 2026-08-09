@@ -15,6 +15,10 @@ OpsCustodian answers one operational question:
 > Which agent, using which identity, can access which tool, credential,
 > repository, and environment—and did that access become more dangerous?
 
+Agent BOM inventories typed `assets`: agents, workflows, MCP servers, skills,
+and instruction sets. Different ecosystem objects remain distinct while still
+participating in one evidence and access graph.
+
 The initial product wedge is GitHub-first permission drift detection:
 
 ```text
@@ -30,16 +34,16 @@ repository configuration
 
 ```bash
 opscustodian scan . --output agentbom.json
-opscustodian diff --baseline main
-opscustodian check --policy ./policies
+opscustodian diff baseline.json proposed.json
+opscustodian check --baseline baseline.json --bom proposed.json --policy ./policies
 opscustodian explain --report drift.json <finding-id>
 ```
 
 The first pre-alpha implementation now includes offline artifact discovery,
 GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
 parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
-severity thresholds, and finding explanations. Policy enforcement and hosted CI
-integration remain planned for the next milestones.
+severity thresholds, finding explanations, and OPA/Rego policy evaluation.
+Hosted CI integration remains planned for the next milestones.
 
 ## Build prerequisites
 
@@ -70,6 +74,13 @@ Exit codes are stable: `0` means successful execution below the configured
 threshold, `1` means an operational or input error, and `2` means semantic drift
 met the `--fail-on` threshold.
 
+SARIF output is available for GitHub and other compatible consumers:
+
+```bash
+./bin/opscustodian diff --format sarif --output opscustodian.sarif \
+  --fail-on high baseline.json proposed.json
+```
+
 Malformed supported artifacts are emitted as Agent BOM diagnostics. One bad
 workflow does not hide successfully parsed assets elsewhere in the scan.
 
@@ -87,8 +98,12 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 
 - [Vision](docs/VISION.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Agentic asset model](docs/ASSET_MODEL.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Policy enforcement](docs/POLICY.md)
+- [GitHub Action integration](docs/GITHUB_ACTION.md)
 - [Agent BOM v1alpha1 schema](schemas/agentbom-v1alpha1.schema.json)
+- [Policy decision schema](schemas/policy-decision-v1alpha1.schema.json)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 

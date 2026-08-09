@@ -40,9 +40,10 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 	}
 	evidenceID := stableID("gha", a.RelPath)
 	agent := model.Agent{
-		ID:   "github-actions:" + a.RelPath,
-		Name: name,
-		Source: model.Source{Path: a.RelPath},
+		ID:      "github-actions:" + a.RelPath,
+		Type:    "workflow",
+		Name:    name,
+		Source:  model.Source{Path: a.RelPath},
 		Runtime: &model.Runtime{Type: "github-actions", Reference: a.RelPath},
 		Evidence: []model.Evidence{{
 			ID: evidenceID, Path: a.RelPath, Line: doc.Line, Column: doc.Column,
@@ -115,7 +116,7 @@ func permissionCapabilities(node *yaml.Node, evidenceID string) []model.Capabili
 			continue
 		}
 		result = append(result, model.Capability{
-			Action: "github." + strings.ReplaceAll(scope, "-", ".") + ".*",
+			Action:   "github." + strings.ReplaceAll(scope, "-", ".") + ".*",
 			Resource: "github:repository", Effect: level, EvidenceIDs: []string{evidenceID},
 		})
 	}

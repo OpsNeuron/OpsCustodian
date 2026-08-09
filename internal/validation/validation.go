@@ -28,17 +28,20 @@ func Validate(bom model.AgentBOM) []Issue {
 	}
 
 	agentIDs := map[string]struct{}{}
-	for agentIndex, agent := range bom.Agents {
-		base := fmt.Sprintf("agents[%d]", agentIndex)
+	for agentIndex, agent := range bom.Assets {
+		base := fmt.Sprintf("assets[%d]", agentIndex)
 		if agent.ID == "" {
-			issues = append(issues, issue(base+".id", "required", "agent id is required"))
+			issues = append(issues, issue(base+".id", "required", "asset id is required"))
 		} else if _, exists := agentIDs[agent.ID]; exists {
-			issues = append(issues, issue(base+".id", "duplicate", "agent id must be unique"))
+			issues = append(issues, issue(base+".id", "duplicate", "asset id must be unique"))
 		} else {
 			agentIDs[agent.ID] = struct{}{}
 		}
 		if agent.Name == "" {
-			issues = append(issues, issue(base+".name", "required", "agent name is required"))
+			issues = append(issues, issue(base+".name", "required", "asset name is required"))
+		}
+		if !validAssetType(agent.Type) {
+			issues = append(issues, issue(base+".type", "unsupported-asset-type", "type must identify a supported agentic asset"))
 		}
 		if agent.Source.Path == "" {
 			issues = append(issues, issue(base+".source.path", "required", "source path is required"))
@@ -88,4 +91,13 @@ func Validate(bom model.AgentBOM) []Issue {
 
 func issue(path, code, message string) Issue {
 	return Issue{Path: path, Code: code, Message: message}
+}
+
+func validAssetType(value string) bool {
+	switch value {
+	case "agent", "workflow", "mcp-server", "skill", "instruction-set":
+		return true
+	default:
+		return false
+	}
 }

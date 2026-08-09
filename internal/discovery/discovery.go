@@ -96,14 +96,27 @@ func isCandidate(path, root string) bool {
 		return false
 	}
 	rel = filepath.ToSlash(rel)
+	lowerRel := strings.ToLower(rel)
 	base := strings.ToLower(filepath.Base(path))
 	ext := strings.ToLower(filepath.Ext(path))
 
-	if strings.HasPrefix(rel, ".github/workflows/") && (ext == ".yml" || ext == ".yaml") {
+	if strings.HasPrefix(lowerRel, ".github/workflows/") && (ext == ".yml" || ext == ".yaml") {
 		return true
 	}
 	if base == "mcp.json" || base == ".mcp.json" || base == "mcp.yaml" || base == "mcp.yml" {
 		return true
+	}
+	if base == "agents.md" || base == "claude.md" {
+		return true
+	}
+	if strings.HasPrefix(lowerRel, ".github/agents/") && (ext == ".md" || ext == ".mdc") {
+		return true
+	}
+	if strings.HasPrefix(lowerRel, ".cursor/rules/") && (ext == ".md" || ext == ".mdc") {
+		return true
+	}
+	if (strings.Contains(lowerRel, "/skills/") || strings.HasPrefix(lowerRel, "skills/")) && base == "skill.md" {
+		return strings.Contains(lowerRel, ".claude/") || strings.Contains(lowerRel, ".codex/") || strings.Contains(lowerRel, ".agents/")
 	}
 	return false
 }

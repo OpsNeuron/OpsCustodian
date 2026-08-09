@@ -17,6 +17,13 @@ type Change struct {
 	Before   string `json:"before,omitempty"`
 	After    string `json:"after,omitempty"`
 	Reason   string `json:"reason"`
+	Locations []Location `json:"locations,omitempty"`
+}
+
+type Location struct {
+	Path   string `json:"path"`
+	Line   int    `json:"line,omitempty"`
+	Column int    `json:"column,omitempty"`
 }
 
 type Report struct {
@@ -27,13 +34,14 @@ type Report struct {
 
 func Compare(before, after model.AgentBOM) Report {
 	report := Report{BeforeRevision: before.Metadata.Revision, AfterRevision: after.Metadata.Revision}
-	oldAgents, newAgents := indexAgents(before.Agents), indexAgents(after.Agents)
+	oldAgents, newAgents := indexAgents(before.Assets), indexAgents(after.Assets)
 	for id, current := range newAgents {
 		previous, exists := oldAgents[id]
 		if !exists {
 			report.Changes = append(report.Changes, Change{
-				Type: "agent-added", Severity: "medium", AgentID: id, Subject: current.Name,
-				Reason: "a new agentic principal was introduced",
+				Type: "asset-added", Severity: "medium", AgentID: id, Subject: current.Name,
+				Reason: "a new agentic asset was introduced",
+				Locations: agentLocations(current, nil),
 			})
 			continue
 		}
@@ -44,8 +52,9 @@ func Compare(before, after model.AgentBOM) Report {
 	for id, previous := range oldAgents {
 		if _, exists := newAgents[id]; !exists {
 			report.Changes = append(report.Changes, Change{
-				Type: "agent-removed", Severity: "info", AgentID: id, Subject: previous.Name,
-				Reason: "an agentic principal was removed",
+				Type: "asset-removed", Severity: "info", AgentID: id, Subject: previous.Name,
+				Reason: "an agentic asset was removed",
+				Locations: agentLocations(previous, nil),
 			})
 		}
 	}
@@ -76,6 +85,7 @@ func compareCapabilities(before, after model.Agent) []Change {
 			Type: "capability-added", Severity: severity, AgentID: after.ID,
 			Subject: capability.Action, After: capability.Resource + " (" + capability.Effect + ")",
 			Reason: "the agent gained a capability not present in the baseline",
+			Locations: agentLocations(after, capability.EvidenceIDs),
 		})
 	}
 	for _, capability := range oldValues {
@@ -83,6 +93,7 @@ func compareCapabilities(before, after model.Agent) []Change {
 			Type: "capability-removed", Severity: "info", AgentID: after.ID,
 			Subject: capability.Action, Before: capability.Resource + " (" + capability.Effect + ")",
 			Reason: "a baseline capability is no longer present",
+			Locations: agentLocations(before, capability.EvidenceIDs),
 		})
 	}
 	return changes
@@ -103,6 +114,7 @@ func compareCredentials(before, after model.Agent) []Change {
 			Type: "credential-added", Severity: "high", AgentID: after.ID,
 			Subject: value.Reference, After: value.Type,
 			Reason: "the agent gained a new credential reference",
+			Locations: agentLocations(after, nil),
 		})
 	}
 	return changes
@@ -124,6 +136,7 @@ func compareControls(before, after model.Agent) []Change {
 				Type: "control-changed", Severity: "high", AgentID: after.ID,
 				Subject: value.Type, Before: fmt.Sprint(value.Value), After: newValue,
 				Reason: "a baseline safety control changed value",
+				Locations: agentLocations(after, nil),
 			})
 			continue
 		}
@@ -131,6 +144,7 @@ func compareControls(before, after model.Agent) []Change {
 			Type: "control-removed", Severity: "high", AgentID: after.ID,
 			Subject: value.Type, Before: fmt.Sprint(value.Value),
 			Reason: "a baseline safety control is no longer present",
+			Locations: agentLocations(before, nil),
 		})
 	}
 	return changes
@@ -149,6 +163,33 @@ func changeID(change Change) string {
 	value := change.Type + "\x00" + change.AgentID + "\x00" + change.Subject + "\x00" + change.Before + "\x00" + change.After
 	sum := sha256.Sum256([]byte(value))
 	return fmt.Sprintf("finding-%x", sum[:6])
+}
+
+func agentLocations(agent model.Agent, evidenceIDs []string) []Location {
+	wanted := map[string]struct{}{}
+	for _, id := range evidenceIDs {
+		wanted[id] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	var locations []Location
+	for _, evidence := range agent.Evidence {
+		if len(wanted) > 0 {
+			if _, exists := wanted[evidence.ID]; !exists { continue }
+		}
+		key := fmt.Sprintf("%s:%d:%d", evidence.Path, evidence.Line, evidence.Column)
+		if _, exists := seen[key]; exists { continue }
+		seen[key] = struct{}{}
+		locations = append(locations, Location{Path: evidence.Path, Line: evidence.Line, Column: evidence.Column})
+	}
+	if len(locations) == 0 && agent.Source.Path != "" {
+		locations = append(locations, Location{Path: agent.Source.Path})
+	}
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].Path != locations[j].Path { return locations[i].Path < locations[j].Path }
+		if locations[i].Line != locations[j].Line { return locations[i].Line < locations[j].Line }
+		return locations[i].Column < locations[j].Column
+	})
+	return locations
 }
 
 func indexAgents(agents []model.Agent) map[string]model.Agent {
@@ -178,10 +219,15 @@ func capabilitySeverity(value model.Capability) string {
 
 func severityRank(value string) int {
 	switch value {
-	case "critical": return 5
-	case "high": return 4
-	case "medium": return 3
-	case "low": return 2
-	default: return 1
+	case "critical":
+		return 5
+	case "high":
+		return 4
+	case "medium":
+		return 3
+	case "low":
+		return 2
+	default:
+		return 1
 	}
 }

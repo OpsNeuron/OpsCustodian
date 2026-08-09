@@ -1,0 +1,42 @@
+name: OpsCustodian Agentic Access Guard
+description: Detect semantic access drift in AI agents, MCP servers, and agentic workflows.
+author: OpsNeuron
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  baseline-bom:
+    description: Path to the approved Agent BOM committed to the repository.
+    required: true
+  proposed-bom:
+    description: Optional pre-generated proposed Agent BOM. When empty, the action scans scan-path.
+    required: false
+    default: ""
+  scan-path:
+    description: Repository path to scan when proposed-bom is empty.
+    required: false
+    default: "."
+  fail-on:
+    description: Minimum semantic drift severity that fails the action.
+    required: false
+    default: high
+  sarif-output:
+    description: Path for the generated SARIF report.
+    required: false
+    default: opscustodian.sarif
+  max-file-size:
+    description: Maximum discovered artifact size in bytes.
+    required: false
+    default: "2097152"
+
+outputs:
+  sarif:
+    description: Path to the generated SARIF report.
+  proposed-bom:
+    description: Path to the Agent BOM evaluated by the action.
+
+runs:
+  using: docker
+  image: Dockerfile

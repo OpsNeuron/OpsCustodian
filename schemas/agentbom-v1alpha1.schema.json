@@ -5,12 +5,12 @@
   "description": "Experimental vendor-neutral inventory of agentic operational access.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["apiVersion", "kind", "metadata", "agents"],
+  "required": ["apiVersion", "kind", "metadata", "assets"],
   "properties": {
     "apiVersion": { "const": "opscustodian.dev/v1alpha1" },
     "kind": { "const": "AgentBOM" },
     "metadata": { "$ref": "#/$defs/documentMetadata" },
-    "agents": {
+    "assets": {
       "type": "array",
       "items": { "$ref": "#/$defs/agent" }
     },
@@ -35,9 +35,10 @@
     "agent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "source", "capabilities", "evidence"],
+      "required": ["id", "type", "name", "source", "capabilities", "evidence"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["agent", "workflow", "mcp-server", "skill", "instruction-set"] },
         "name": { "type": "string", "minLength": 1 },
         "owner": { "type": "string", "minLength": 1 },
         "source": { "$ref": "#/$defs/source" },

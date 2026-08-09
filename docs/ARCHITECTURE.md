@@ -41,7 +41,8 @@ Git repositories / CI / MCP / Kubernetes / cloud metadata
 
 The first model consists of:
 
-- `Agent`: a non-human actor or agentic workflow.
+- `Asset`: a typed agent, workflow, MCP server, skill, or instruction set.
+- `Agent`: a non-human actor represented as one asset type.
 - `Runtime`: the environment in which it executes.
 - `Identity`: the principal used to authenticate.
 - `CredentialReference`: the name and type of a credential, never its value.
@@ -123,6 +124,12 @@ and evidence confidence. The result must expose its contributing factors.
 Uses OPA/Rego initially. OpsCustodian supplies a stable policy input document
 and consumes deny, warn, and remediation results. Policy evaluation remains
 separate from discovery and parsing.
+
+The first adapter invokes the OPA CLI as an isolated process. This avoids
+embedding the full OPA dependency graph in the portable core while the policy
+contracts mature. Execution has a timeout, bounded output capture, a protected
+temporary input file, and a validated decision shape. An embedded adapter can
+be added behind the same contract if deployment evidence requires it.
 
 ### Reporters
 

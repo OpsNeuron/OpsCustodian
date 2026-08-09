@@ -8,12 +8,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/parsers"
+	"github.com/opscustodian/opscustodian/internal/parsers/agentmarkdown"
 	"github.com/opscustodian/opscustodian/internal/parsers/githubactions"
 	"github.com/opscustodian/opscustodian/internal/parsers/mcp"
+	"github.com/opscustodian/opscustodian/internal/policy"
 	"github.com/opscustodian/opscustodian/internal/report"
 	"github.com/opscustodian/opscustodian/internal/scanner"
 	"github.com/opscustodian/opscustodian/internal/validation"
@@ -26,11 +29,16 @@ type ScanOptions struct {
 }
 
 type DiffOptions struct {
-	Before, After, Format, FailOn string
+	Before, After, Format, FailOn, Output string
 }
 
 type ExplainOptions struct {
 	Report, FindingID string
+}
+
+type CheckOptions struct {
+	BOM, Baseline, Policy, OPA, Query, Format string
+	Timeout                                time.Duration
 }
 
 type ExitError struct {
@@ -43,29 +51,44 @@ func (e *ExitError) Unwrap() error { return e.Err }
 
 func Scan(ctx context.Context, opts ScanOptions) error {
 	absRoot, err := filepath.Abs(opts.Root)
-	if err != nil { return fmt.Errorf("resolve root: %w", err) }
+	if err != nil {
+		return fmt.Errorf("resolve root: %w", err)
+	}
 	bom, err := scanner.Scan(ctx, scanner.Options{
 		Root: absRoot, Source: filepath.ToSlash(absRoot), Revision: "working-tree",
 		Generator: "opscustodian/dev", MaxFileSize: opts.MaxFileSize,
-		Parsers: []parsers.Parser{githubactions.Parser{}, mcp.Parser{}},
+		Parsers: []parsers.Parser{githubactions.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
 	})
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if issues := validation.Validate(bom); len(issues) > 0 {
 		return fmt.Errorf("generated Agent BOM failed validation: %s", formatValidationIssues(issues))
 	}
 	w, closeWriter, err := outputWriter(opts.Output)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer closeWriter()
 	return report.WriteBOM(w, bom, opts.Format)
 }
 
 func Diff(opts DiffOptions) error {
 	before, err := readBOM(opts.Before)
-	if err != nil { return fmt.Errorf("read baseline: %w", err) }
+	if err != nil {
+		return fmt.Errorf("read baseline: %w", err)
+	}
 	after, err := readBOM(opts.After)
-	if err != nil { return fmt.Errorf("read proposed BOM: %w", err) }
+	if err != nil {
+		return fmt.Errorf("read proposed BOM: %w", err)
+	}
 	value := drift.Compare(before, after)
-	if err := report.WriteDiff(os.Stdout, value, opts.Format); err != nil { return err }
+	w, closeWriter, err := outputWriter(opts.Output)
+	if err != nil { return err }
+	defer closeWriter()
+	if err := report.WriteDiff(w, value, opts.Format); err != nil {
+		return err
+	}
 	if threshold := severityRank(opts.FailOn); threshold > 0 {
 		for _, change := range value.Changes {
 			if severityRank(change.Severity) >= threshold {
@@ -78,24 +101,59 @@ func Diff(opts DiffOptions) error {
 
 func Explain(opts ExplainOptions) error {
 	content, err := os.ReadFile(opts.Report)
-	if err != nil { return fmt.Errorf("read drift report: %w", err) }
+	if err != nil {
+		return fmt.Errorf("read drift report: %w", err)
+	}
 	var value drift.Report
-	if err := json.Unmarshal(content, &value); err != nil { return fmt.Errorf("parse drift report: %w", err) }
+	if err := json.Unmarshal(content, &value); err != nil {
+		return fmt.Errorf("parse drift report: %w", err)
+	}
 	change, exists := drift.Find(value, opts.FindingID)
-	if !exists { return fmt.Errorf("finding %q was not found", opts.FindingID) }
+	if !exists {
+		return fmt.Errorf("finding %q was not found", opts.FindingID)
+	}
 	return report.WriteExplanation(os.Stdout, change)
+}
+
+func Check(ctx context.Context, opts CheckOptions) error {
+	bom, err := readBOM(opts.BOM)
+	if err != nil { return fmt.Errorf("read Agent BOM: %w", err) }
+	input := policy.Input{APIVersion: policy.InputAPIVersion, BOM: bom}
+	if opts.Baseline != "" {
+		baseline, err := readBOM(opts.Baseline)
+		if err != nil { return fmt.Errorf("read baseline Agent BOM: %w", err) }
+		value := drift.Compare(baseline, bom)
+		input.Drift = &value
+	}
+	if opts.Timeout <= 0 { opts.Timeout = 10 * time.Second }
+	evaluationContext, cancel := context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+	decision, err := policy.EvaluateOPA(evaluationContext, input, policy.OPAOptions{
+		BinaryPath: opts.OPA, PolicyPath: opts.Policy, Query: opts.Query,
+	})
+	if err != nil { return err }
+	if err := report.WritePolicyDecision(os.Stdout, decision, opts.Format); err != nil { return err }
+	if len(decision.Deny) > 0 {
+		return &ExitError{Code: 2, Err: fmt.Errorf("policy denied %d finding(s)", len(decision.Deny))}
+	}
+	return nil
 }
 
 func readBOM(path string) (model.AgentBOM, error) {
 	content, err := os.ReadFile(path)
-	if err != nil { return model.AgentBOM{}, err }
+	if err != nil {
+		return model.AgentBOM{}, err
+	}
 	var bom model.AgentBOM
 	if strings.HasSuffix(strings.ToLower(path), ".yaml") || strings.HasSuffix(strings.ToLower(path), ".yml") {
 		err = yaml.Unmarshal(content, &bom)
 	} else {
 		err = json.Unmarshal(content, &bom)
 	}
-	if err != nil { return model.AgentBOM{}, err }
+	if err != nil {
+		return model.AgentBOM{}, err
+	}
+	migrateLegacyBOM(&bom)
 	if bom.APIVersion != model.APIVersion || bom.Kind != model.Kind {
 		return model.AgentBOM{}, fmt.Errorf("unsupported document %s %s", bom.APIVersion, bom.Kind)
 	}
@@ -103,6 +161,22 @@ func readBOM(path string) (model.AgentBOM, error) {
 		return model.AgentBOM{}, fmt.Errorf("invalid Agent BOM: %s", formatValidationIssues(issues))
 	}
 	return bom, nil
+}
+
+func migrateLegacyBOM(bom *model.AgentBOM) {
+	if len(bom.Assets) != 0 || len(bom.LegacyAgents) == 0 { return }
+	bom.Assets = bom.LegacyAgents
+	bom.LegacyAgents = nil
+	for index := range bom.Assets {
+		if bom.Assets[index].Type != "" { continue }
+		runtimeType := ""
+		if bom.Assets[index].Runtime != nil { runtimeType = bom.Assets[index].Runtime.Type }
+		switch runtimeType {
+		case "mcp-server": bom.Assets[index].Type = "mcp-server"
+		case "github-actions": bom.Assets[index].Type = "workflow"
+		default: bom.Assets[index].Type = "agent"
+		}
+	}
 }
 
 func formatValidationIssues(issues []validation.Issue) string {
@@ -115,12 +189,18 @@ func formatValidationIssues(issues []validation.Issue) string {
 
 func severityRank(value string) int {
 	switch strings.ToLower(value) {
-	case "critical": return 5
-	case "high": return 4
-	case "medium": return 3
-	case "low": return 2
-	case "info": return 1
-	default: return 0
+	case "critical":
+		return 5
+	case "high":
+		return 4
+	case "medium":
+		return 3
+	case "low":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
 	}
 }
 
@@ -129,6 +209,8 @@ func outputWriter(path string) (io.Writer, func(), error) {
 		return os.Stdout, func() {}, nil
 	}
 	file, err := os.Create(path)
-	if err != nil { return nil, func() {}, fmt.Errorf("create output: %w", err) }
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("create output: %w", err)
+	}
 	return file, func() { _ = file.Close() }, nil
 }

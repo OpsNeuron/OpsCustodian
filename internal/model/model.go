@@ -6,11 +6,12 @@ const (
 )
 
 type AgentBOM struct {
-	APIVersion string           `json:"apiVersion" yaml:"apiVersion"`
-	Kind       string           `json:"kind" yaml:"kind"`
-	Metadata   DocumentMetadata `json:"metadata" yaml:"metadata"`
-	Agents     []Agent          `json:"agents" yaml:"agents"`
-	Diagnostics []Diagnostic    `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
+	APIVersion  string           `json:"apiVersion" yaml:"apiVersion"`
+	Kind        string           `json:"kind" yaml:"kind"`
+	Metadata    DocumentMetadata `json:"metadata" yaml:"metadata"`
+	Assets       []Asset      `json:"assets" yaml:"assets"`
+	LegacyAgents []Asset      `json:"agents,omitempty" yaml:"agents,omitempty"`
+	Diagnostics  []Diagnostic `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
 }
 
 type Diagnostic struct {
@@ -29,8 +30,9 @@ type DocumentMetadata struct {
 	NormalizationVersion string `json:"normalizationVersion,omitempty" yaml:"normalizationVersion,omitempty"`
 }
 
-type Agent struct {
+type Asset struct {
 	ID           string                `json:"id" yaml:"id"`
+	Type         string                `json:"type" yaml:"type"`
 	Name         string                `json:"name" yaml:"name"`
 	Owner        string                `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Source       Source                `json:"source" yaml:"source"`
@@ -42,6 +44,10 @@ type Agent struct {
 	Controls     []Control             `json:"controls,omitempty" yaml:"controls,omitempty"`
 	Evidence     []Evidence            `json:"evidence" yaml:"evidence"`
 }
+
+// Agent is an internal compatibility alias while parser APIs migrate to the
+// generic asset terminology before the first public release.
+type Agent = Asset
 
 type Source struct {
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`

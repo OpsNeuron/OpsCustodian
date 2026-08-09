@@ -7,9 +7,10 @@
     "generator": "example",
     "normalizationVersion": "v1alpha1"
   },
-  "agents": [
+  "assets": [
     {
       "id": "github:acme/platform:incident-remediator",
+      "type": "agent",
       "name": "incident-remediator",
       "owner": "platform-team",
       "source": {

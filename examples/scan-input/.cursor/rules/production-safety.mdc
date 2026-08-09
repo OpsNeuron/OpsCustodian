@@ -1,0 +1,7 @@
+---
+title: production-safety
+owner: platform-security
+tools: github, observability
+---
+
+Production changes must be proposed through a reviewed pull request.

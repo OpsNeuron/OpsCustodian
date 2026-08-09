@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://opscustodian.dev/schemas/policy-decision-v1alpha1.schema.json",
+  "title": "OpsCustodian policy decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["deny", "warn"],
+  "properties": {
+    "deny": { "type": "array", "items": { "$ref": "#/$defs/message" } },
+    "warn": { "type": "array", "items": { "$ref": "#/$defs/message" } }
+  },
+  "$defs": {
+    "message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule", "title", "message"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "rule": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+        "agentId": { "type": "string", "minLength": 1 },
+        "remediation": { "type": "string", "minLength": 1 },
+        "evidenceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

@@ -108,6 +108,11 @@ explained without reproducing parser traversal internally.
 Configuration conflict fingerprints must be structurally useful without
 serializing secret values or sensitive command arguments into portable output.
 
+The Kubernetes effective-access pass resolves binding subjects and role
+references before graph reporting. It projects role capabilities onto runtime
+identities and workloads while retaining role-and-binding evidence, allowing the
+existing drift and risk engines to evaluate declared effective authorization.
+
 ### Evidence graph
 
 Represents relationships among agents, identities, credentials, tools,

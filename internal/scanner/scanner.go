@@ -82,6 +82,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 	boundary.Apply(&bom, definitions)
 	normalize.BOM(&bom)
 	effective.ComposeImports(&bom)
+	effective.ComposeKubernetesRBAC(&bom)
 	normalize.BOM(&bom)
 	correlation.Build(&bom)
 	return bom, nil

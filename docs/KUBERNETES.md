@@ -23,13 +23,28 @@ RBAC effects normalize common verbs as follows: `get/list/watch` are read,
 `bind/escalate/impersonate/*` are admin. Unknown verbs remain execute so they are
 visible without being silently downgraded.
 
+## Effective grants
+
+Resolved bindings copy Role/ClusterRole capabilities onto each referenced
+ServiceAccount and then onto workloads using that ServiceAccount. Effective
+capabilities carry evidence from both the role and binding. Each recipient also
+gets an `effectiveRBACGrant` control naming the source role and binding.
+
+This makes a role-rule change visible as semantic capability drift on the
+identity and workload that can actually exercise it. Duplicate capabilities are
+collapsed by normalization while evidence from multiple grants is retained.
+Missing roles, binding subjects, and workload ServiceAccounts produce
+`KUBERNETES_RBAC_ROLE_UNRESOLVED`, `_SUBJECT_UNRESOLVED`, or
+`KUBERNETES_SERVICE_ACCOUNT_UNRESOLVED` diagnostics.
+
 The parser does not contact a cluster and never reads token values. Repository
 manifests remain declared state until optional live enrichment is introduced.
 
 ## Current limitations
 
 - CronJobs and generated Helm/Kustomize output are not yet interpreted.
-- Aggregating granted role capabilities onto identities and workloads is the next step.
+- Aggregated capabilities are declared-state effective access; admission policy
+  and live cluster authorization may still reduce or expand runtime access.
 - Image provenance, admission policy, projected tokens, automount settings, and
   live ServiceAccount identity are not correlated yet.
 - Candidate-directory coverage is deliberately bounded to avoid treating every

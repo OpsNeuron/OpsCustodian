@@ -60,6 +60,12 @@ uses breadth-first traversal: direct imports are processed in declaration order
 before transitive imports, and the resulting asset-name sequence is recorded in
 the caller's `importComposition` control for auditability.
 
+Safe-output precedence follows gh-aw's security semantics. A caller declaration
+overrides the same imported safe output. The first imported declaration is kept,
+while a duplicate from another import produces
+`GHAW_IMPORT_SAFE_OUTPUT_CONFLICT`. The caller receives one deterministic
+`safeOutputs` control containing its own and successfully imported handlers.
+
 ## Evidence policy
 
 Frontmatter is explicit configuration and receives high confidence. The Markdown

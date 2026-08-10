@@ -47,6 +47,7 @@ blocked with correct evidence and remediation.
 - GitHub Agentic Workflows source discovery. *(initial parser implemented, pending upstream-schema validation)*
 - GitHub Agentic Workflows import and custom-agent dependency discovery. *(implemented, pending compiler compatibility tests)*
 - Optional/unresolved import and parameter-conflict diagnostics. *(implemented, pending compatibility tests)*
+- Safe-output import precedence and conflict detection. *(implemented, pending compatibility tests)*
 - Backstage ownership correlation.
 - CODEOWNERS ownership correlation. *(initial resolver implemented, pending GitHub compatibility suite)*
 - Explainable risk scoring. *(initial factor model implemented, pending calibration)*

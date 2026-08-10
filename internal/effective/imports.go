@@ -25,7 +25,9 @@ func ComposeImports(bom *model.AgentBOM) {
 		}
 		processed := map[string]struct{}{}
 		arguments := map[string]string{}
-		compositionOrder := composeBreadthFirst(caller, assets, processed, arguments, &bom.Diagnostics)
+		state := newImportState(caller)
+		compositionOrder := composeBreadthFirst(caller, assets, processed, arguments, state, &bom.Diagnostics)
+		applySafeOutputControl(caller, state)
 		if len(compositionOrder) > 0 {
 			caller.Controls = append(caller.Controls, model.Control{Type: "importComposition", Value: compositionOrder})
 		}
@@ -40,7 +42,23 @@ type importTask struct {
 	path       []string
 }
 
-func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, processed map[string]struct{}, arguments map[string]string, diagnostics *[]model.Diagnostic) []string {
+type importState struct {
+	mainSafeOutputs     map[string]struct{}
+	importedSafeOutputs map[string]string
+	safeOutputNames     map[string]struct{}
+}
+
+func newImportState(caller *model.Asset) *importState {
+	state := &importState{mainSafeOutputs: map[string]struct{}{}, importedSafeOutputs: map[string]string{}, safeOutputNames: map[string]struct{}{}}
+	for _, capability := range caller.Capabilities {
+		if isSafeOutput(capability) {
+			state.mainSafeOutputs[capability.Action] = struct{}{}
+		}
+	}
+	return state
+}
+
+func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, processed map[string]struct{}, arguments map[string]string, state *importState, diagnostics *[]model.Diagnostic) []string {
 	queue := importTasks(root.Dependencies, []string{root.ID})
 	var compositionOrder []string
 	for len(queue) > 0 {
@@ -72,7 +90,7 @@ func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, proc
 			continue
 		}
 		validateImportedPermissions(root, imported, diagnostics)
-		mergeImportable(root, imported)
+		mergeImportable(root, imported, state, diagnostics)
 		processed[imported.ID] = struct{}{}
 		compositionOrder = append(compositionOrder, imported.Name)
 		nextPath := append(append([]string(nil), task.path...), imported.ID)
@@ -227,12 +245,24 @@ func validateImportedPermissions(caller, imported *model.Asset, diagnostics *[]m
 	}
 }
 
-func mergeImportable(caller, imported *model.Asset) {
+func mergeImportable(caller, imported *model.Asset, state *importState, diagnostics *[]model.Diagnostic) {
 	caller.Tools = append(caller.Tools, imported.Tools...)
 	caller.Credentials = append(caller.Credentials, imported.Credentials...)
 	for _, capability := range imported.Capabilities {
 		if !isImportableCapability(capability) {
 			continue
+		}
+		if isSafeOutput(capability) {
+			if _, overridden := state.mainSafeOutputs[capability.Action]; overridden {
+				continue
+			}
+			if owner, conflict := state.importedSafeOutputs[capability.Action]; conflict {
+				message := fmt.Sprintf("safe output %s is declared by both imports %s and %s", safeOutputName(capability), owner, imported.Name)
+				*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_SAFE_OUTPUT_CONFLICT", message))
+				continue
+			}
+			state.importedSafeOutputs[capability.Action] = imported.Name
+			state.safeOutputNames[safeOutputName(capability)] = struct{}{}
 		}
 		caller.Capabilities = append(caller.Capabilities, capability)
 		copyEvidence(caller, imported, capability.EvidenceIDs)
@@ -253,7 +283,61 @@ func isImportableCapability(capability model.Capability) bool {
 }
 
 func isImportableControl(value string) bool {
-	return value == "safeOutputs" || strings.HasPrefix(value, "network")
+	return strings.HasPrefix(value, "network")
+}
+
+func isSafeOutput(capability model.Capability) bool {
+	return strings.HasPrefix(capability.Action, "github.safe_output.")
+}
+func safeOutputName(capability model.Capability) string {
+	return strings.TrimPrefix(capability.Action, "github.safe_output.")
+}
+
+func applySafeOutputControl(caller *model.Asset, state *importState) {
+	if len(state.safeOutputNames) == 0 {
+		return
+	}
+	index := -1
+	names := map[string]struct{}{}
+	for controlIndex, control := range caller.Controls {
+		if control.Type != "safeOutputs" {
+			continue
+		}
+		index = controlIndex
+		for _, name := range controlStrings(control.Value) {
+			names[name] = struct{}{}
+		}
+	}
+	for name := range state.safeOutputNames {
+		names[name] = struct{}{}
+	}
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	if index >= 0 {
+		caller.Controls[index].Value = result
+		return
+	}
+	caller.Controls = append(caller.Controls, model.Control{Type: "safeOutputs", Value: result})
+}
+
+func controlStrings(value any) []string {
+	switch values := value.(type) {
+	case []string:
+		return values
+	case []any:
+		var result []string
+		for _, item := range values {
+			if text, ok := item.(string); ok {
+				result = append(result, text)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 func capabilityCovers(values []model.Capability, required model.Capability) bool {

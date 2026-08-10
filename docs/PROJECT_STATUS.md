@@ -38,6 +38,7 @@ inventory milestone.
 - GitHub Agentic Workflows imports, custom-agent dependencies, resources, and runtime-import discovery.
 - Conservative effective composition for resolved local gh-aw shared workflows, including permission and cycle diagnostics.
 - gh-aw import-schema validation for required, unknown, type, and enum constraints.
+- Caller-first safe-output precedence and cross-import conflict diagnostics.
 - Typed assets for agents, workflows, MCP servers, skills, and instructions.
 - Evidence-backed relationship graph and relationship drift.
 - Canonical action, effect, resource, owner, reference, and scope normalization.

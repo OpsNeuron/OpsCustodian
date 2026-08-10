@@ -44,8 +44,15 @@ blocked with correct evidence and remediation.
 ## v0.3 — Useful inventory
 
 - Codex, Claude, and Cursor asset discovery. *(initial Markdown/frontmatter discovery implemented, pending validation)*
-- CODEOWNERS and Backstage ownership correlation.
-- Local relationship graph and HTML report.
+- GitHub Agentic Workflows source discovery. *(initial parser implemented, pending upstream-schema validation)*
+- GitHub Agentic Workflows import and custom-agent dependency discovery. *(implemented, pending compiler compatibility tests)*
+- Optional/unresolved import and parameter-conflict diagnostics. *(implemented, pending compatibility tests)*
+- Backstage ownership correlation.
+- CODEOWNERS ownership correlation. *(initial resolver implemented, pending GitHub compatibility suite)*
+- Explainable risk scoring. *(initial factor model implemented, pending calibration)*
+- Canonical capability and scope normalization. *(initial contract and escalation detection implemented, pending tests)*
+- Local relationship graph and HTML report. *(initial self-contained report implemented, pending browser validation)*
+- Evidence-backed relationship correlation. *(initial in-BOM graph implemented, pending validation)*
 - Monorepo support and configurable boundaries.
 - Documented parser extension contract.
 

@@ -80,12 +80,28 @@ func run(ctx context.Context, args []string) error {
 		query := fs.String("query", "data.opscustodian.decision", "OPA decision query")
 		format := fs.String("format", "terminal", "output format: terminal or json")
 		timeout := fs.Duration("timeout", 10*time.Second, "maximum OPA evaluation time")
-		if err := fs.Parse(args[1:]); err != nil { return err }
-		if *bom == "" { return fmt.Errorf("usage: opscustodian check --bom <agentbom> [flags]") }
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *bom == "" {
+			return fmt.Errorf("usage: opscustodian check --bom <agentbom> [flags]")
+		}
 		return app.Check(ctx, app.CheckOptions{
 			BOM: *bom, Baseline: *baseline, Policy: *policyPath, OPA: *opa,
 			Query: *query, Format: *format, Timeout: *timeout,
 		})
+
+	case "report":
+		fs := flag.NewFlagSet("report", flag.ContinueOnError)
+		bom := fs.String("bom", "", "Agent BOM to render")
+		output := fs.String("output", "opscustodian-report.html", "HTML output file, or - for stdout")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *bom == "" {
+			return fmt.Errorf("usage: opscustodian report --bom <agentbom> [--output report.html]")
+		}
+		return app.InventoryReport(app.InventoryReportOptions{BOM: *bom, Output: *output})
 
 	case "version", "--version", "-version":
 		fmt.Printf("opscustodian %s\n", version)
@@ -108,6 +124,7 @@ Usage:
   opscustodian diff [flags] <before> <after>
   opscustodian explain --report <report.json> <finding-id>
   opscustodian check --bom <agentbom> [flags]
+  opscustodian report --bom <agentbom> [--output report.html]
   opscustodian version
 
 Commands:
@@ -115,6 +132,7 @@ Commands:
   diff     compare two Agent BOM documents semantically
   explain  explain one finding from a JSON drift report
   check    evaluate Agent BOM and optional drift with OPA/Rego
+  report   render a local read-only HTML inventory report
   version  print build version
 `)
 }

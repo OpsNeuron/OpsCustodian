@@ -14,6 +14,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/agent" }
     },
+    "relationships": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relationship" }
+    },
     "diagnostics": {
       "type": "array",
       "items": { "$ref": "#/$defs/diagnostic" }
@@ -40,7 +44,7 @@
         "id": { "type": "string", "minLength": 1 },
         "type": { "enum": ["agent", "workflow", "mcp-server", "skill", "instruction-set"] },
         "name": { "type": "string", "minLength": 1 },
-        "owner": { "type": "string", "minLength": 1 },
+        "owners": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
         "source": { "$ref": "#/$defs/source" },
         "runtime": { "$ref": "#/$defs/runtime" },
         "identities": {
@@ -52,6 +56,10 @@
           "items": { "$ref": "#/$defs/credentialReference" }
         },
         "tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reference" }
+        },
+        "dependencies": {
           "type": "array",
           "items": { "$ref": "#/$defs/reference" }
         },
@@ -85,7 +93,10 @@
       "required": ["type"],
       "properties": {
         "type": { "type": "string", "minLength": 1 },
-        "reference": { "type": "string", "minLength": 1 }
+        "reference": { "type": "string", "minLength": 1 },
+        "locator": { "type": "string", "minLength": 1 },
+        "optional": { "type": "boolean" },
+        "parameters": { "type": "object" }
       }
     },
     "reference": {
@@ -95,6 +106,20 @@
       "properties": {
         "type": { "type": "string", "minLength": 1 },
         "reference": { "type": "string", "minLength": 1 }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "type", "to", "targetType", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "from": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by"] },
+        "to": { "type": "string", "minLength": 1 },
+        "targetType": { "enum": ["asset", "asset-reference", "tool", "credential", "owner"] },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "evidenceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
     "credentialReference": {
@@ -124,7 +149,18 @@
         "evidenceIds": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }
-        }
+        },
+        "scope": { "$ref": "#/$defs/scope" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["repository", "organization", "kubernetes", "network", "workspace", "mcp-server", "unknown"] },
+        "values": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "wildcard": { "type": "boolean" }
       }
     },
     "control": {

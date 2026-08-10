@@ -12,8 +12,10 @@ import (
 
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/normalize"
 	"github.com/opscustodian/opscustodian/internal/parsers"
 	"github.com/opscustodian/opscustodian/internal/parsers/agentmarkdown"
+	"github.com/opscustodian/opscustodian/internal/parsers/ghaw"
 	"github.com/opscustodian/opscustodian/internal/parsers/githubactions"
 	"github.com/opscustodian/opscustodian/internal/parsers/mcp"
 	"github.com/opscustodian/opscustodian/internal/policy"
@@ -38,7 +40,11 @@ type ExplainOptions struct {
 
 type CheckOptions struct {
 	BOM, Baseline, Policy, OPA, Query, Format string
-	Timeout                                time.Duration
+	Timeout                                   time.Duration
+}
+
+type InventoryReportOptions struct {
+	BOM, Output string
 }
 
 type ExitError struct {
@@ -57,7 +63,7 @@ func Scan(ctx context.Context, opts ScanOptions) error {
 	bom, err := scanner.Scan(ctx, scanner.Options{
 		Root: absRoot, Source: filepath.ToSlash(absRoot), Revision: "working-tree",
 		Generator: "opscustodian/dev", MaxFileSize: opts.MaxFileSize,
-		Parsers: []parsers.Parser{githubactions.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
+		Parsers: []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
 	})
 	if err != nil {
 		return err
@@ -84,7 +90,9 @@ func Diff(opts DiffOptions) error {
 	}
 	value := drift.Compare(before, after)
 	w, closeWriter, err := outputWriter(opts.Output)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer closeWriter()
 	if err := report.WriteDiff(w, value, opts.Format); err != nil {
 		return err
@@ -117,24 +125,50 @@ func Explain(opts ExplainOptions) error {
 
 func Check(ctx context.Context, opts CheckOptions) error {
 	bom, err := readBOM(opts.BOM)
-	if err != nil { return fmt.Errorf("read Agent BOM: %w", err) }
+	if err != nil {
+		return fmt.Errorf("read Agent BOM: %w", err)
+	}
 	input := policy.Input{APIVersion: policy.InputAPIVersion, BOM: bom}
 	if opts.Baseline != "" {
 		baseline, err := readBOM(opts.Baseline)
-		if err != nil { return fmt.Errorf("read baseline Agent BOM: %w", err) }
+		if err != nil {
+			return fmt.Errorf("read baseline Agent BOM: %w", err)
+		}
 		value := drift.Compare(baseline, bom)
 		input.Drift = &value
 	}
-	if opts.Timeout <= 0 { opts.Timeout = 10 * time.Second }
+	if opts.Timeout <= 0 {
+		opts.Timeout = 10 * time.Second
+	}
 	evaluationContext, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
 	decision, err := policy.EvaluateOPA(evaluationContext, input, policy.OPAOptions{
 		BinaryPath: opts.OPA, PolicyPath: opts.Policy, Query: opts.Query,
 	})
-	if err != nil { return err }
-	if err := report.WritePolicyDecision(os.Stdout, decision, opts.Format); err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if err := report.WritePolicyDecision(os.Stdout, decision, opts.Format); err != nil {
+		return err
+	}
 	if len(decision.Deny) > 0 {
 		return &ExitError{Code: 2, Err: fmt.Errorf("policy denied %d finding(s)", len(decision.Deny))}
+	}
+	return nil
+}
+
+func InventoryReport(opts InventoryReportOptions) error {
+	bom, err := readBOM(opts.BOM)
+	if err != nil {
+		return fmt.Errorf("read Agent BOM: %w", err)
+	}
+	w, closeWriter, err := outputWriter(opts.Output)
+	if err != nil {
+		return err
+	}
+	defer closeWriter()
+	if err := report.WriteInventoryHTML(w, bom); err != nil {
+		return fmt.Errorf("render inventory report: %w", err)
 	}
 	return nil
 }
@@ -154,6 +188,7 @@ func readBOM(path string) (model.AgentBOM, error) {
 		return model.AgentBOM{}, err
 	}
 	migrateLegacyBOM(&bom)
+	normalize.BOM(&bom)
 	if bom.APIVersion != model.APIVersion || bom.Kind != model.Kind {
 		return model.AgentBOM{}, fmt.Errorf("unsupported document %s %s", bom.APIVersion, bom.Kind)
 	}
@@ -164,17 +199,29 @@ func readBOM(path string) (model.AgentBOM, error) {
 }
 
 func migrateLegacyBOM(bom *model.AgentBOM) {
-	if len(bom.Assets) != 0 || len(bom.LegacyAgents) == 0 { return }
-	bom.Assets = bom.LegacyAgents
-	bom.LegacyAgents = nil
+	if len(bom.Assets) == 0 && len(bom.LegacyAgents) > 0 {
+		bom.Assets = bom.LegacyAgents
+		bom.LegacyAgents = nil
+	}
 	for index := range bom.Assets {
-		if bom.Assets[index].Type != "" { continue }
+		if len(bom.Assets[index].Owners) == 0 && bom.Assets[index].LegacyOwner != "" {
+			bom.Assets[index].Owners = []string{bom.Assets[index].LegacyOwner}
+			bom.Assets[index].LegacyOwner = ""
+		}
+		if bom.Assets[index].Type != "" {
+			continue
+		}
 		runtimeType := ""
-		if bom.Assets[index].Runtime != nil { runtimeType = bom.Assets[index].Runtime.Type }
+		if bom.Assets[index].Runtime != nil {
+			runtimeType = bom.Assets[index].Runtime.Type
+		}
 		switch runtimeType {
-		case "mcp-server": bom.Assets[index].Type = "mcp-server"
-		case "github-actions": bom.Assets[index].Type = "workflow"
-		default: bom.Assets[index].Type = "agent"
+		case "mcp-server":
+			bom.Assets[index].Type = "mcp-server"
+		case "github-actions":
+			bom.Assets[index].Type = "workflow"
+		default:
+			bom.Assets[index].Type = "agent"
 		}
 	}
 }

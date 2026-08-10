@@ -4,6 +4,8 @@ owner: platform-team
 tools:
   - github
   - filesystem
+skills:
+  - deployment-review
 model: codex
 ---
 

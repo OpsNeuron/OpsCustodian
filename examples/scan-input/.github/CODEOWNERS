@@ -1,0 +1,8 @@
+# Default ownership for agentic configuration.
+* @example/platform
+
+# Security owns production-facing agent workflows.
+/.github/workflows/ @example/platform-security @example/sre
+
+# Skill ownership can be more specific; the last matching rule wins.
+/.codex/skills/ @example/agent-platform

@@ -48,7 +48,7 @@ warn contains {
     "remediation": "Declare an owner directly or provide ownership through CODEOWNERS correlation.",
 } if {
     some agent in input.bom.assets
-    object.get(agent, "owner", "") == ""
+    count(object.get(agent, "owners", [])) == 0
 }
 
 has_human_approval(agent) if {

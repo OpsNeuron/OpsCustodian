@@ -22,7 +22,9 @@ type sarifRun struct {
 	Results           []sarifResult   `json:"results"`
 }
 
-type sarifTool struct { Driver sarifDriver `json:"driver"` }
+type sarifTool struct {
+	Driver sarifDriver `json:"driver"`
+}
 type sarifDriver struct {
 	Name            string      `json:"name"`
 	InformationURI  string      `json:"informationUri"`
@@ -36,7 +38,9 @@ type sarifRule struct {
 	Help             sarifMessage `json:"help"`
 	Properties       any          `json:"properties,omitempty"`
 }
-type sarifAutomation struct { ID string `json:"id"` }
+type sarifAutomation struct {
+	ID string `json:"id"`
+}
 type sarifResult struct {
 	RuleID              string            `json:"ruleId"`
 	RuleIndex           int               `json:"ruleIndex"`
@@ -46,13 +50,19 @@ type sarifResult struct {
 	PartialFingerprints map[string]string `json:"partialFingerprints"`
 	Properties          any               `json:"properties,omitempty"`
 }
-type sarifMessage struct { Text string `json:"text"` }
-type sarifLocation struct { PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"` }
+type sarifMessage struct {
+	Text string `json:"text"`
+}
+type sarifLocation struct {
+	PhysicalLocation sarifPhysicalLocation `json:"physicalLocation"`
+}
 type sarifPhysicalLocation struct {
 	ArtifactLocation sarifArtifactLocation `json:"artifactLocation"`
 	Region           *sarifRegion          `json:"region,omitempty"`
 }
-type sarifArtifactLocation struct { URI string `json:"uri"` }
+type sarifArtifactLocation struct {
+	URI string `json:"uri"`
+}
 type sarifRegion struct {
 	StartLine   int `json:"startLine"`
 	StartColumn int `json:"startColumn,omitempty"`
@@ -60,9 +70,13 @@ type sarifRegion struct {
 
 func writeSARIF(w io.Writer, value drift.Report) error {
 	ruleTypes := map[string]struct{}{}
-	for _, change := range value.Changes { ruleTypes[change.Type] = struct{}{} }
+	for _, change := range value.Changes {
+		ruleTypes[change.Type] = struct{}{}
+	}
 	types := make([]string, 0, len(ruleTypes))
-	for value := range ruleTypes { types = append(types, value) }
+	for value := range ruleTypes {
+		types = append(types, value)
+	}
 	sort.Strings(types)
 	ruleIndexes := make(map[string]int, len(types))
 	rules := make([]sarifRule, 0, len(types))
@@ -71,8 +85,8 @@ func writeSARIF(w io.Writer, value drift.Report) error {
 		rules = append(rules, sarifRule{
 			ID: value, Name: value,
 			ShortDescription: sarifMessage{Text: humanRuleName(value)},
-			Help: sarifMessage{Text: "Review the effective agent access change and its source evidence before approval."},
-			Properties: map[string]any{"tags": []string{"security", "agentic-devops", "permission-drift"}},
+			Help:             sarifMessage{Text: "Review the effective agent access change and its source evidence before approval."},
+			Properties:       map[string]any{"tags": []string{"security", "agentic-devops", "permission-drift"}},
 		})
 	}
 	results := make([]sarifResult, 0, len(value.Changes))
@@ -84,6 +98,7 @@ func writeSARIF(w io.Writer, value drift.Report) error {
 			Properties: map[string]any{
 				"findingId": change.ID, "agentId": change.AgentID, "severity": change.Severity,
 				"before": change.Before, "after": change.After, "reason": change.Reason,
+				"riskScore": change.Risk.Score, "riskFactors": change.Risk.Factors,
 			},
 		})
 	}
@@ -106,7 +121,9 @@ func sarifLocations(values []drift.Location) []sarifLocation {
 	locations := make([]sarifLocation, 0, len(values))
 	for _, value := range values {
 		physical := sarifPhysicalLocation{ArtifactLocation: sarifArtifactLocation{URI: filepath.ToSlash(value.Path)}}
-		if value.Line > 0 { physical.Region = &sarifRegion{StartLine: value.Line, StartColumn: value.Column} }
+		if value.Line > 0 {
+			physical.Region = &sarifRegion{StartLine: value.Line, StartColumn: value.Column}
+		}
 		locations = append(locations, sarifLocation{PhysicalLocation: physical})
 	}
 	return locations
@@ -114,15 +131,20 @@ func sarifLocations(values []drift.Location) []sarifLocation {
 
 func sarifLevel(severity string) string {
 	switch severity {
-	case "critical", "high": return "error"
-	case "medium": return "warning"
-	default: return "note"
+	case "critical", "high":
+		return "error"
+	case "medium":
+		return "warning"
+	default:
+		return "note"
 	}
 }
 
 func sarifResultMessage(change drift.Change) string {
 	message := fmt.Sprintf("%s: %s. %s", change.AgentID, change.Subject, change.Reason)
-	if change.After != "" { message += " New value: " + change.After + "." }
+	if change.After != "" {
+		message += " New value: " + change.After + "."
+	}
 	return message
 }
 
@@ -130,9 +152,14 @@ func humanRuleName(value string) string {
 	names := map[string]string{
 		"asset-added": "Agentic asset added", "asset-removed": "Agentic asset removed",
 		"capability-added": "Agent capability added", "capability-removed": "Agent capability removed",
-		"credential-added": "Agent credential reference added", "control-removed": "Agent safety control removed",
-		"control-changed": "Agent safety control changed",
+		"capability-escalated": "Agent capability escalated",
+		"credential-added":     "Agent credential reference added", "control-removed": "Agent safety control removed",
+		"control-changed":      "Agent safety control changed",
+		"relationship-added":   "Agentic asset relationship added",
+		"relationship-removed": "Agentic asset relationship removed",
 	}
-	if name, exists := names[value]; exists { return name }
+	if name, exists := names[value]; exists {
+		return name
+	}
 	return value
 }

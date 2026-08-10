@@ -11,9 +11,9 @@ import (
 const InputAPIVersion = "opscustodian.dev/policy-input/v1alpha1"
 
 type Input struct {
-	APIVersion string        `json:"apiVersion"`
+	APIVersion string         `json:"apiVersion"`
 	BOM        model.AgentBOM `json:"bom"`
-	Drift      *drift.Report `json:"drift,omitempty"`
+	Drift      *drift.Report  `json:"drift,omitempty"`
 }
 
 type Decision struct {

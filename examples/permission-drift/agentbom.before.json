@@ -12,7 +12,7 @@
       "id": "github:acme/platform:incident-remediator",
       "type": "agent",
       "name": "incident-remediator",
-      "owner": "platform-team",
+      "owners": ["platform-team"],
       "source": {
         "repository": "acme/platform",
         "path": ".github/workflows/remediator.yml"

@@ -28,6 +28,7 @@ func Validate(bom model.AgentBOM) []Issue {
 	}
 
 	agentIDs := map[string]struct{}{}
+	evidenceByAsset := map[string]map[string]struct{}{}
 	for agentIndex, agent := range bom.Assets {
 		base := fmt.Sprintf("assets[%d]", agentIndex)
 		if agent.ID == "" {
@@ -46,6 +47,18 @@ func Validate(bom model.AgentBOM) []Issue {
 		if agent.Source.Path == "" {
 			issues = append(issues, issue(base+".source.path", "required", "source path is required"))
 		}
+		ownerNames := map[string]struct{}{}
+		for ownerIndex, owner := range agent.Owners {
+			path := fmt.Sprintf("%s.owners[%d]", base, ownerIndex)
+			if owner == "" {
+				issues = append(issues, issue(path, "required", "owner name cannot be empty"))
+				continue
+			}
+			if _, exists := ownerNames[owner]; exists {
+				issues = append(issues, issue(path, "duplicate", "owner names must be unique"))
+			}
+			ownerNames[owner] = struct{}{}
+		}
 
 		evidenceIDs := map[string]struct{}{}
 		for evidenceIndex, evidence := range agent.Evidence {
@@ -63,6 +76,9 @@ func Validate(bom model.AgentBOM) []Issue {
 		}
 		if len(agent.Evidence) == 0 {
 			issues = append(issues, issue(base+".evidence", "required", "at least one evidence item is required"))
+		}
+		if agent.ID != "" {
+			evidenceByAsset[agent.ID] = evidenceIDs
 		}
 
 		for credentialIndex, credential := range agent.Credentials {
@@ -86,6 +102,36 @@ func Validate(bom model.AgentBOM) []Issue {
 			}
 		}
 	}
+	relationIDs := map[string]struct{}{}
+	for relationIndex, relation := range bom.Relationships {
+		base := fmt.Sprintf("relationships[%d]", relationIndex)
+		if relation.ID == "" {
+			issues = append(issues, issue(base+".id", "required", "relationship id is required"))
+		} else if _, exists := relationIDs[relation.ID]; exists {
+			issues = append(issues, issue(base+".id", "duplicate", "relationship id must be unique"))
+		} else {
+			relationIDs[relation.ID] = struct{}{}
+		}
+		if _, exists := agentIDs[relation.From]; !exists {
+			issues = append(issues, issue(base+".from", "unknown-source-asset", "relationship source must reference an asset in this BOM"))
+		}
+		if relation.To == "" || !validRelationshipType(relation.Type) || !validRelationshipTargetType(relation.TargetType) {
+			issues = append(issues, issue(base, "invalid-relationship", "relationship type, target, and target type must be supported"))
+		}
+		if relation.TargetType == "asset" {
+			if _, exists := agentIDs[relation.To]; !exists {
+				issues = append(issues, issue(base+".to", "unknown-target-asset", "asset relationship target must exist in this BOM"))
+			}
+		}
+		if !validConfidence(relation.Confidence) {
+			issues = append(issues, issue(base+".confidence", "invalid-confidence", "confidence must be low, medium, or high"))
+		}
+		for _, evidenceID := range relation.EvidenceIDs {
+			if _, exists := evidenceByAsset[relation.From][evidenceID]; !exists {
+				issues = append(issues, issue(base+".evidenceIds", "unknown-evidence", "relationship evidence must belong to its source asset"))
+			}
+		}
+	}
 	return issues
 }
 
@@ -100,4 +146,26 @@ func validAssetType(value string) bool {
 	default:
 		return false
 	}
+}
+
+func validRelationshipType(value string) bool {
+	switch value {
+	case "uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by":
+		return true
+	default:
+		return false
+	}
+}
+
+func validRelationshipTargetType(value string) bool {
+	switch value {
+	case "asset", "asset-reference", "tool", "credential", "owner":
+		return true
+	default:
+		return false
+	}
+}
+
+func validConfidence(value string) bool {
+	return value == "low" || value == "medium" || value == "high"
 }

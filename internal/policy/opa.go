@@ -121,6 +121,6 @@ func (buffer *limitedBuffer) Write(value []byte) (int, error) {
 	return originalLength, nil
 }
 
-func (buffer *limitedBuffer) Bytes() []byte { return buffer.buffer.Bytes() }
-func (buffer *limitedBuffer) String() string { return buffer.buffer.String() }
+func (buffer *limitedBuffer) Bytes() []byte   { return buffer.buffer.Bytes() }
+func (buffer *limitedBuffer) String() string  { return buffer.buffer.String() }
 func (buffer *limitedBuffer) Truncated() bool { return buffer.truncated }

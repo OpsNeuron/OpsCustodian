@@ -93,11 +93,20 @@ Converts raw parser observations to canonical actions and resource identifiers.
 Normalization rules are versioned. Raw observations remain attached as evidence
 so users can audit mappings and future releases can re-evaluate them.
 
+The effective-access pass runs after canonicalization and before relationship
+correlation. Its gh-aw adapter composes the security-relevant subset of resolved
+local imports while keeping validation-only GitHub permissions non-inheritable.
+Imported facts retain source evidence; unresolved imports remain graph edges.
+
 ### Evidence graph
 
 Represents relationships among agents, identities, credentials, tools,
 capabilities, resources, environments, owners, and controls. The Agent BOM is
 the portable serialized view; later server releases may persist the graph.
+
+The first correlation pass resolves explicit owner, tool, MCP server, credential,
+and skill dependency declarations. Resolved asset targets use stable IDs;
+unresolved declarations remain visible as typed references.
 
 ### Drift engine
 
@@ -133,8 +142,10 @@ be added behind the same contract if deployment evidence requires it.
 
 ### Reporters
 
-The initial reporters are terminal, JSON, YAML, and SARIF. Reporters must not
-change analysis results and must apply centralized redaction rules.
+The initial reporters are terminal, JSON, YAML, SARIF, and a self-contained
+read-only HTML inventory. Reporters must not change analysis results and must
+apply centralized redaction rules. The HTML surface has no JavaScript or remote
+resources and escapes repository-derived values during rendering.
 
 ## Process exit contract
 

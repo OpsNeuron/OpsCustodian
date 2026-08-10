@@ -1,0 +1,31 @@
+{
+  "apiVersion": "opscustodian.dev/v1alpha1",
+  "kind": "AgentBOM",
+  "metadata": {
+    "source": "github:acme/platform",
+    "revision": "proposed",
+    "generator": "scope-expansion-example",
+    "normalizationVersion": "v1alpha1"
+  },
+  "assets": [{
+    "id": "github:acme/platform:deployer",
+    "type": "agent",
+    "name": "deployer",
+    "owners": ["platform-team"],
+    "source": {"repository": "acme/platform", "path": ".github/workflows/deploy.yml"},
+    "capabilities": [{
+      "action": "kubernetes.deployments.update",
+      "resource": "kubernetes:production/*",
+      "effect": "admin",
+      "environment": "production",
+      "evidenceIds": ["deploy-permission"]
+    }],
+    "evidence": [{
+      "id": "deploy-permission",
+      "path": ".github/workflows/deploy.yml",
+      "line": 20,
+      "parser": "example",
+      "confidence": "high"
+    }]
+  }]
+}

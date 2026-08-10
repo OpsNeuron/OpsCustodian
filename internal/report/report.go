@@ -46,6 +46,7 @@ func WriteDiff(w io.Writer, value drift.Report, format string) error {
 			fmt.Fprintf(w, "\n%-8s %s [%s]\n", strings.ToUpper(change.Severity), change.Subject, change.ID)
 			fmt.Fprintf(w, "  Agent:  %s\n", change.AgentID)
 			fmt.Fprintf(w, "  Change: %s\n", change.Type)
+			fmt.Fprintf(w, "  Risk:   %d/100 (%s)\n", change.Risk.Score, change.Risk.Level)
 			if change.Before != "" {
 				fmt.Fprintf(w, "  Before: %s\n", change.Before)
 			}
@@ -65,6 +66,7 @@ func WriteExplanation(w io.Writer, change drift.Change) error {
 	fmt.Fprintf(w, "Finding: %s\n", change.ID)
 	fmt.Fprintf(w, "Agent:   %s\n", change.AgentID)
 	fmt.Fprintf(w, "Change:  %s\n", change.Type)
+	fmt.Fprintf(w, "Risk:    %d/100 (%s)\n", change.Risk.Score, change.Risk.Level)
 	if change.Before != "" {
 		fmt.Fprintf(w, "Before:  %s\n", change.Before)
 	}
@@ -72,6 +74,9 @@ func WriteExplanation(w io.Writer, change drift.Change) error {
 		fmt.Fprintf(w, "After:   %s\n", change.After)
 	}
 	fmt.Fprintf(w, "Reason:  %s\n", change.Reason)
+	for _, factor := range change.Risk.Factors {
+		fmt.Fprintf(w, "  Factor: %+d %s — %s\n", factor.Score, factor.Name, factor.Reason)
+	}
 	return nil
 }
 
@@ -100,8 +105,12 @@ func WritePolicyDecision(w io.Writer, decision policy.Decision, format string) e
 
 func writePolicyMessage(w io.Writer, outcome string, item policy.Message) {
 	fmt.Fprintf(w, "\n%s %-8s %s [%s]\n", outcome, strings.ToUpper(item.Severity), item.Title, item.ID)
-	if item.AgentID != "" { fmt.Fprintf(w, "  Agent:       %s\n", item.AgentID) }
+	if item.AgentID != "" {
+		fmt.Fprintf(w, "  Agent:       %s\n", item.AgentID)
+	}
 	fmt.Fprintf(w, "  Rule:        %s\n", item.Rule)
 	fmt.Fprintf(w, "  Message:     %s\n", item.Message)
-	if item.Remediation != "" { fmt.Fprintf(w, "  Remediation: %s\n", item.Remediation) }
+	if item.Remediation != "" {
+		fmt.Fprintf(w, "  Remediation: %s\n", item.Remediation)
+	}
 }

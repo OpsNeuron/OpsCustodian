@@ -5,8 +5,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/correlation"
 	"github.com/opscustodian/opscustodian/internal/discovery"
+	"github.com/opscustodian/opscustodian/internal/effective"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/normalize"
+	"github.com/opscustodian/opscustodian/internal/ownership"
 	"github.com/opscustodian/opscustodian/internal/parsers"
 )
 
@@ -43,7 +47,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 		}
 	}
 	sort.Slice(assets, func(i, j int) bool { return assets[i].ID < assets[j].ID })
-	return model.AgentBOM{
+	bom := model.AgentBOM{
 		APIVersion: model.APIVersion,
 		Kind:       model.Kind,
 		Metadata: model.DocumentMetadata{
@@ -52,5 +56,11 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 			Generator:   opts.Generator, NormalizationVersion: "v1alpha1",
 		},
 		Assets: assets, Diagnostics: diagnostics,
-	}, nil
+	}
+	bom.Diagnostics = append(bom.Diagnostics, ownership.ApplyCODEOWNERS(&bom, artifacts)...)
+	normalize.BOM(&bom)
+	effective.ComposeImports(&bom)
+	normalize.BOM(&bom)
+	correlation.Build(&bom)
+	return bom, nil
 }

@@ -37,6 +37,7 @@ opscustodian scan . --output agentbom.json
 opscustodian diff baseline.json proposed.json
 opscustodian check --baseline baseline.json --bom proposed.json --policy ./policies
 opscustodian explain --report drift.json <finding-id>
+opscustodian report --bom agentbom.json --output opscustodian-report.html
 ```
 
 The first pre-alpha implementation now includes offline artifact discovery,
@@ -81,6 +82,17 @@ SARIF output is available for GitHub and other compatible consumers:
   --fail-on high baseline.json proposed.json
 ```
 
+A self-contained, read-only HTML inventory can be generated without starting a
+server or loading external resources:
+
+```bash
+./bin/opscustodian report --bom agentbom.json --output opscustodian-report.html
+```
+
+The report summarizes typed assets, owners, capabilities, credentials,
+relationships, and parser diagnostics. Repository-provided values are escaped
+before rendering, and the generated document contains no JavaScript.
+
 Malformed supported artifacts are emitted as Agent BOM diagnostics. One bad
 workflow does not hide successfully parsed assets elsewhere in the scan.
 
@@ -99,6 +111,13 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Vision](docs/VISION.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Agentic asset model](docs/ASSET_MODEL.md)
+- [Relationship graph](docs/RELATIONSHIP_GRAPH.md)
+- [GitHub Agentic Workflows coverage](docs/GH_AW.md)
+- [Current project status](docs/PROJECT_STATUS.md)
+- [Ownership resolution](docs/OWNERSHIP.md)
+- [Explainable risk model](docs/RISK_MODEL.md)
+- [Canonical normalization](docs/NORMALIZATION.md)
+- [Local inventory report](docs/LOCAL_REPORT.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)
 - [GitHub Action integration](docs/GITHUB_ACTION.md)

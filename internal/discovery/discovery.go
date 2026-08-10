@@ -103,7 +103,13 @@ func isCandidate(path, root string) bool {
 	if strings.HasPrefix(lowerRel, ".github/workflows/") && (ext == ".yml" || ext == ".yaml") {
 		return true
 	}
+	if strings.HasPrefix(lowerRel, ".github/workflows/") && ext == ".md" {
+		return true
+	}
 	if base == "mcp.json" || base == ".mcp.json" || base == "mcp.yaml" || base == "mcp.yml" {
+		return true
+	}
+	if rel == ".github/CODEOWNERS" || rel == "CODEOWNERS" || rel == "docs/CODEOWNERS" {
 		return true
 	}
 	if base == "agents.md" || base == "claude.md" {

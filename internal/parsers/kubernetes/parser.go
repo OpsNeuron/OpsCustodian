@@ -55,7 +55,7 @@ func (Parser) Parse(_ context.Context, artifact discovery.Artifact) ([]model.Age
 		evidence := model.Evidence{ID: evidenceID, Path: artifact.RelPath, Line: root.Line, Parser: "kubernetes", Confidence: "high", Observation: apiVersion + " " + kind}
 		switch kind {
 		case "ServiceAccount":
-			assets = append(assets, serviceAccountAsset(artifact.RelPath, namespace, name, evidence))
+			assets = append(assets, serviceAccountAsset(root, artifact.RelPath, namespace, name, evidence))
 		case "Pod", "Deployment", "StatefulSet", "DaemonSet", "Job":
 			assets = append(assets, workloadAsset(root, artifact.RelPath, kind, namespace, name, evidence))
 		case "Role", "ClusterRole":
@@ -180,14 +180,18 @@ func rbacEffect(verb string) string {
 	}
 }
 
-func serviceAccountAsset(sourcePath, namespace, name string, evidence model.Evidence) model.Asset {
+func serviceAccountAsset(root *yaml.Node, sourcePath, namespace, name string, evidence model.Evidence) model.Asset {
 	qualified := namespace + "/" + name
-	return model.Asset{
+	asset := model.Asset{
 		ID: "kubernetes:service-account:" + qualified, Type: "identity", Name: qualified,
 		Source:       model.Source{Path: sourcePath},
 		Capabilities: []model.Capability{{Action: "kubernetes.authenticate", Resource: "kubernetes:service-account/" + qualified, Effect: "execute", EvidenceIDs: []string{evidence.ID}}},
 		Evidence:     []model.Evidence{evidence},
 	}
+	if value, specified := boolean(mapping(root, "automountServiceAccountToken")); specified {
+		asset.Controls = append(asset.Controls, model.Control{Type: "automountServiceAccountToken", Value: value})
+	}
+	return asset
 }
 
 func workloadAsset(root *yaml.Node, sourcePath, kind, namespace, name string, evidence model.Evidence) model.Asset {
@@ -202,13 +206,17 @@ func workloadAsset(root *yaml.Node, sourcePath, kind, namespace, name string, ev
 	}
 	qualifiedWorkload := namespace + "/" + strings.ToLower(kind) + "/" + name
 	qualifiedIdentity := namespace + "/" + serviceAccount
-	return model.Asset{
+	asset := model.Asset{
 		ID: "kubernetes:workload:" + qualifiedWorkload, Type: "workload", Name: qualifiedWorkload,
 		Source: model.Source{Path: sourcePath}, Runtime: &model.Runtime{Type: "kubernetes", Reference: kind},
 		Identities:   []model.Reference{{Type: "identity", Reference: qualifiedIdentity}},
 		Capabilities: []model.Capability{{Action: "kubernetes.workload.run", Resource: "kubernetes:" + qualifiedWorkload, Effect: "execute", EvidenceIDs: []string{evidence.ID}}},
 		Evidence:     []model.Evidence{evidence},
 	}
+	if value, specified := boolean(mapping(podSpec, "automountServiceAccountToken")); specified {
+		asset.Controls = append(asset.Controls, model.Control{Type: "automountServiceAccountToken", Value: value})
+	}
+	return asset
 }
 
 func mapping(node *yaml.Node, key string) *yaml.Node {
@@ -227,6 +235,16 @@ func scalar(node *yaml.Node) string {
 		return ""
 	}
 	return strings.TrimSpace(node.Value)
+}
+func boolean(node *yaml.Node) (bool, bool) {
+	if node == nil || node.Kind != yaml.ScalarNode {
+		return false, false
+	}
+	var value bool
+	if err := node.Decode(&value); err != nil {
+		return false, false
+	}
+	return value, true
 }
 func stableEvidenceID(path string, document int, kind, namespace, name string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s:%d:%s:%s:%s", path, document, kind, namespace, name)))

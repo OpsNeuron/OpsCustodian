@@ -68,6 +68,7 @@ a representative repository without manually assembling an inventory.
 - Kubernetes workload and ServiceAccount correlation. *(initial offline parser and runs-as graph implemented, pending validation)*
 - Kubernetes RBAC role/binding correlation. *(initial offline parser and graph implemented, pending validation)*
 - Effective RBAC grant propagation to identities and workloads. *(implemented offline, pending validation)*
+- Kubernetes ServiceAccount token exposure analysis. *(automount precedence implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

@@ -64,6 +64,7 @@ Missing exit items:
 - Evidence-backed workload `runs-as` identity correlation.
 - Offline Kubernetes RBAC role/binding parsing and relationship correlation.
 - Evidence-backed effective RBAC grant propagation to identities and workloads.
+- Effective ServiceAccount token automount precedence and workload token-use capability.
 
 ## Remaining path to 1.0
 

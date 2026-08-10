@@ -33,6 +33,9 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if strings.Contains(capability.Resource, "*") || strings.HasSuffix(capability.Action, ".*") {
 		add(&assessment, "broad-scope", 15, "capability contains a wildcard scope")
 	}
+	if capability.Action == "kubernetes.service_account_token.use" {
+		add(&assessment, "service-account-token", 30, "workload receives an automatically mounted Kubernetes API token")
+	}
 	if len(asset.Credentials) > 0 {
 		add(&assessment, "credentialed", 8, "asset uses one or more credential references")
 	}

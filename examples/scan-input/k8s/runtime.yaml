@@ -3,6 +3,7 @@ kind: ServiceAccount
 metadata:
   name: ops-agent
   namespace: production
+automountServiceAccountToken: false
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -20,6 +21,7 @@ spec:
         app: incident-remediator
     spec:
       serviceAccountName: ops-agent
+      automountServiceAccountToken: true
       containers:
         - name: agent
           image: example.invalid/incident-remediator:v1

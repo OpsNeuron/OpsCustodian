@@ -37,6 +37,19 @@ Missing roles, binding subjects, and workload ServiceAccounts produce
 `KUBERNETES_RBAC_ROLE_UNRESOLVED`, `_SUBJECT_UNRESOLVED`, or
 `KUBERNETES_SERVICE_ACCOUNT_UNRESOLVED` diagnostics.
 
+## ServiceAccount token exposure
+
+`automountServiceAccountToken` is captured on ServiceAccount and workload
+PodSpecs. Effective precedence is workload value, then ServiceAccount value,
+then the Kubernetes default (`true`). Every resolved workload receives an
+`effectiveServiceAccountToken` control with `enabled` and `source`.
+
+When enabled, the workload receives a
+`kubernetes.service_account_token.use` capability targeting its namespace-
+qualified ServiceAccount. This capability participates in drift and adds an
+explicit risk factor. A workload-level value can intentionally override a
+ServiceAccount-level default, and the effective source remains auditable.
+
 The parser does not contact a cluster and never reads token values. Repository
 manifests remain declared state until optional live enrichment is introduced.
 
@@ -45,7 +58,7 @@ manifests remain declared state until optional live enrichment is introduced.
 - CronJobs and generated Helm/Kustomize output are not yet interpreted.
 - Aggregated capabilities are declared-state effective access; admission policy
   and live cluster authorization may still reduce or expand runtime access.
-- Image provenance, admission policy, projected tokens, automount settings, and
+- Projected token audiences/expiration, image provenance, admission policy, and
   live ServiceAccount identity are not correlated yet.
 - Candidate-directory coverage is deliberately bounded to avoid treating every
   repository YAML file as Kubernetes input.

@@ -38,6 +38,7 @@ Scores are clamped to 0–100 and mapped to levels:
 - Evidence confidence.
 - MCP, tool, dependency, unresolved target, and ownership relationship changes.
 - Removal or weakening of approval, network, and safe-output controls.
+- Automatically mounted Kubernetes ServiceAccount token exposure.
 
 ## Design constraints
 

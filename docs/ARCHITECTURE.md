@@ -87,6 +87,10 @@ in the Agent BOM while other supported artifacts continue through the pipeline.
 Discovery or filesystem integrity failures remain fatal because the scan cannot
 claim to represent the requested root reliably.
 
+The scanner validates parser registry identity before discovery and validates
+every parser result before accepting it into the inventory. Contract violations
+are isolated as diagnostics; ambiguous registry configuration remains fatal.
+
 ### Normalization pipeline
 
 Converts raw parser observations to canonical actions and resource identifiers.

@@ -2,6 +2,7 @@ package scanner
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -26,11 +27,15 @@ type Options struct {
 }
 
 func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
+	if err := parsers.ValidateRegistry(opts.Parsers); err != nil {
+		return model.AgentBOM{}, fmt.Errorf("invalid parser registry: %w", err)
+	}
 	artifacts, err := discovery.Discover(ctx, opts.Root, discovery.Options{MaxFileSize: opts.MaxFileSize})
 	if err != nil {
 		return model.AgentBOM{}, err
 	}
 	var assets []model.Asset
+	assetIDs := map[string]struct{}{}
 	var diagnostics []model.Diagnostic
 	for _, artifact := range artifacts {
 		for _, parser := range opts.Parsers {
@@ -45,7 +50,16 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 				})
 				continue
 			}
-			assets = append(assets, parsed...)
+			validated, contractDiagnostics := parsers.ValidateResult(parser, artifact, parsed)
+			diagnostics = append(diagnostics, contractDiagnostics...)
+			for _, asset := range validated {
+				if _, exists := assetIDs[asset.ID]; exists {
+					diagnostics = append(diagnostics, model.Diagnostic{Severity: "error", Code: "duplicate-asset-id", Path: artifact.RelPath, Parser: parser.Name(), Message: "asset id is already emitted: " + asset.ID})
+					continue
+				}
+				assetIDs[asset.ID] = struct{}{}
+				assets = append(assets, asset)
+			}
 		}
 	}
 	sort.Slice(assets, func(i, j int) bool { return assets[i].ID < assets[j].ID })

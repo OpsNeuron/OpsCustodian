@@ -58,7 +58,7 @@ blocked with correct evidence and remediation.
 - Local relationship graph and HTML report. *(initial self-contained report implemented, pending browser validation)*
 - Evidence-backed relationship correlation. *(initial in-BOM graph implemented, pending validation)*
 - Monorepo support and configurable boundaries. *(initial CLI boundaries implemented, pending config-file support)*
-- Documented parser extension contract.
+- Documented and runtime-enforced parser extension contract. *(implemented, pending extension compatibility fixtures)*
 
 Exit condition: a platform team can understand agent ownership and access across
 a representative repository without manually assembling an inventory.

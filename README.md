@@ -125,6 +125,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Canonical normalization](docs/NORMALIZATION.md)
 - [Local inventory report](docs/LOCAL_REPORT.md)
 - [Monorepo boundaries](docs/MONOREPO.md)
+- [Parser extension contract](docs/PARSER_EXTENSIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)
 - [GitHub Action integration](docs/GITHUB_ACTION.md)

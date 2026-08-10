@@ -48,6 +48,7 @@ inventory milestone.
 - Explicit effect-escalation and scope-expansion drift findings.
 - Self-contained local HTML inventory report. *(implemented, pending browser validation)*
 - Repeatable longest-prefix monorepo boundaries surfaced in Agent BOM and HTML.
+- Enforced parser registry, provenance, evidence, credential, and stable-ID contracts.
 
 Missing exit items:
 

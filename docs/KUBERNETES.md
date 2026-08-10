@@ -51,6 +51,20 @@ The special verbs also add dedicated explainable risk factors. This separates
 ordinary administrative access from permissions that can expand authorization
 or act as another identity.
 
+## Declared versus effective access
+
+Every Kubernetes identity or workload that gains capabilities during effective
+composition receives a `declaredVsEffectiveAccess` control. The structured
+summary includes declared, effective, and inherited capability counts; unique
+inherited actions; maximum inherited effect; wildcard state; privilege-
+escalation signals; and provenance sources such as the originating role and
+binding.
+
+Ordinary inheritance remains inventory data. An expansion only emits
+`KUBERNETES_EFFECTIVE_ACCESS_EXPANSION` when it includes admin effect, wildcard
+scope, or a privilege-escalation signal. This keeps large organization scans
+policy-addressable without producing a diagnostic for every normal read grant.
+
 ## ServiceAccount token exposure
 
 `automountServiceAccountToken` is captured on ServiceAccount and workload

@@ -1,6 +1,7 @@
 package effective
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -15,8 +16,12 @@ type effectiveGrant struct {
 
 func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 	roles, identities := map[string]*model.Asset{}, map[string]*model.Asset{}
+	declared := map[string][]model.Capability{}
 	for index := range bom.Assets {
 		asset := &bom.Assets[index]
+		if asset.Type == "identity" || asset.Type == "workload" {
+			declared[asset.ID] = append([]model.Capability(nil), asset.Capabilities...)
+		}
 		switch asset.Type {
 		case "authorization-role":
 			roles[asset.Name] = asset
@@ -68,9 +73,122 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 			}
 		}
 	}
+	for index := range bom.Assets {
+		asset := &bom.Assets[index]
+		baseline, exists := declared[asset.ID]
+		if exists {
+			applyDeclaredEffectiveAccess(bom, asset, baseline)
+		}
+	}
 	sort.Slice(bom.Diagnostics, func(i, j int) bool {
 		return bom.Diagnostics[i].Path+bom.Diagnostics[i].Code+bom.Diagnostics[i].Message < bom.Diagnostics[j].Path+bom.Diagnostics[j].Code+bom.Diagnostics[j].Message
 	})
+}
+
+func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, declared []model.Capability) {
+	declaredSet := uniqueCapabilitySet(declared)
+	effectiveSet := uniqueCapabilitySet(asset.Capabilities)
+	var inherited []model.Capability
+	for key, capability := range effectiveSet {
+		if _, exists := declaredSet[key]; !exists {
+			inherited = append(inherited, capability)
+		}
+	}
+	if len(inherited) == 0 {
+		return
+	}
+	sort.Slice(inherited, func(i, j int) bool { return capabilityIdentity(inherited[i]) < capabilityIdentity(inherited[j]) })
+	actions, sources := make([]string, 0, len(inherited)), effectiveAccessSources(asset.Controls)
+	maxEffect, maxRank, wildcard := "unknown", 0, false
+	for _, capability := range inherited {
+		actions = append(actions, capability.Action)
+		if rank := kubernetesEffectRank(capability.Effect); rank > maxRank {
+			maxEffect, maxRank = capability.Effect, rank
+		}
+		if strings.Contains(capability.Action, "*") || strings.Contains(capability.Resource, "*") {
+			wildcard = true
+		}
+	}
+	actions = uniqueSorted(actions)
+	signals := rbacEscalationSignals(inherited)
+	asset.Controls = append(asset.Controls, model.Control{Type: "declaredVsEffectiveAccess", Value: map[string]any{
+		"declaredCapabilityCount": len(declaredSet), "effectiveCapabilityCount": len(effectiveSet),
+		"inheritedCapabilityCount": len(inherited), "inheritedActions": actions, "maxInheritedEffect": maxEffect,
+		"wildcard": wildcard, "privilegeEscalationSignals": signals, "sources": sources,
+	}})
+	if maxRank >= kubernetesEffectRank("admin") || wildcard || len(signals) > 0 {
+		message := fmt.Sprintf("effective access adds %d inherited capabilities; maximum effect is %s", len(inherited), maxEffect)
+		if len(signals) > 0 {
+			message += "; escalation signals: " + strings.Join(signals, ", ")
+		}
+		bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(asset, "KUBERNETES_EFFECTIVE_ACCESS_EXPANSION", message))
+	}
+}
+
+func uniqueCapabilitySet(capabilities []model.Capability) map[string]model.Capability {
+	result := map[string]model.Capability{}
+	for _, capability := range capabilities {
+		result[capabilityIdentity(capability)] = capability
+	}
+	return result
+}
+
+func capabilityIdentity(capability model.Capability) string {
+	return strings.ToLower(strings.Join([]string{capability.Action, capability.Resource, capability.Effect, capability.Environment}, "\x00"))
+}
+
+func effectiveAccessSources(controls []model.Control) []string {
+	var result []string
+	for _, control := range controls {
+		switch control.Type {
+		case "effectiveRBACGrant":
+			if value, ok := control.Value.(map[string]string); ok {
+				result = append(result, "rbac:"+value["role"]+"@"+value["binding"])
+			}
+		case "effectiveServiceAccountToken":
+			if value, ok := control.Value.(map[string]any); ok {
+				if enabled, _ := value["enabled"].(bool); enabled {
+					source, _ := value["source"].(string)
+					result = append(result, "service-account-token:"+source)
+				}
+			}
+		}
+	}
+	return uniqueSorted(result)
+}
+
+func uniqueSorted(values []string) []string {
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if value != "" {
+			seen[value] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for value := range seen {
+		result = append(result, value)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func kubernetesEffectRank(effect string) int {
+	switch strings.ToLower(effect) {
+	case "observe":
+		return 1
+	case "read":
+		return 2
+	case "execute":
+		return 3
+	case "write":
+		return 4
+	case "delete":
+		return 5
+	case "admin":
+		return 6
+	default:
+		return 0
+	}
 }
 
 func applyEffectiveServiceAccountToken(workload, identity *model.Asset) {

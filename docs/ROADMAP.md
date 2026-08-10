@@ -71,6 +71,7 @@ a representative repository without manually assembling an inventory.
 - Kubernetes ServiceAccount token exposure analysis. *(automount precedence implemented, pending validation)*
 - Kubernetes RBAC privilege-escalation analysis. *(wildcard and special-verb detection implemented, pending validation)*
 - Projected ServiceAccount token analysis. *(mounted audience and expiration analysis implemented, pending validation)*
+- Declared-versus-effective Kubernetes access. *(structured inherited-access summaries implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

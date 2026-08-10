@@ -67,6 +67,7 @@ Missing exit items:
 - Effective ServiceAccount token automount precedence and workload token-use capability.
 - Explicit Kubernetes RBAC wildcard, bind, escalate, and impersonate detection.
 - Mounted projected ServiceAccount token audience and expiration analysis.
+- Structured Kubernetes declared-versus-effective access summaries and dangerous expansion diagnostics.
 
 ## Remaining path to 1.0
 

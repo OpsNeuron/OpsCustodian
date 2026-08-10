@@ -37,6 +37,20 @@ Missing roles, binding subjects, and workload ServiceAccounts produce
 `KUBERNETES_RBAC_ROLE_UNRESOLVED`, `_SUBJECT_UNRESOLVED`, or
 `KUBERNETES_SERVICE_ACCOUNT_UNRESOLVED` diagnostics.
 
+## RBAC privilege escalation
+
+Roles are inspected for the special `bind`, `escalate`, and `impersonate`
+verbs and for wildcard actions or resources. A dangerous role receives an
+`rbacPrivilegeEscalation` control and a
+`KUBERNETES_RBAC_PRIVILEGE_ESCALATION` diagnostic. When a binding resolves,
+the identity and every workload using it receive an
+`effectiveRBACPrivilegeEscalation` control naming the source role, binding, and
+sorted escalation signals.
+
+The special verbs also add dedicated explainable risk factors. This separates
+ordinary administrative access from permissions that can expand authorization
+or act as another identity.
+
 ## ServiceAccount token exposure
 
 `automountServiceAccountToken` is captured on ServiceAccount and workload

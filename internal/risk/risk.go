@@ -36,6 +36,16 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if capability.Action == "kubernetes.service_account_token.use" {
 		add(&assessment, "service-account-token", 30, "workload receives an automatically mounted Kubernetes API token")
 	}
+	if strings.HasPrefix(capability.Action, "kubernetes.") {
+		switch {
+		case strings.HasSuffix(capability.Action, ".bind"):
+			add(&assessment, "rbac-bind", 35, "RBAC bind can attach roles to subjects")
+		case strings.HasSuffix(capability.Action, ".escalate"):
+			add(&assessment, "rbac-escalate", 40, "RBAC escalate can create or update roles beyond the caller's current permissions")
+		case strings.HasSuffix(capability.Action, ".impersonate"):
+			add(&assessment, "rbac-impersonate", 40, "RBAC impersonate can act as another Kubernetes identity")
+		}
+	}
 	if len(asset.Credentials) > 0 {
 		add(&assessment, "credentialed", 8, "asset uses one or more credential references")
 	}

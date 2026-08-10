@@ -2,6 +2,7 @@ package effective
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/opscustodian/opscustodian/internal/model"
 )
@@ -19,6 +20,10 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 		switch asset.Type {
 		case "authorization-role":
 			roles[asset.Name] = asset
+			if signals := rbacEscalationSignals(asset.Capabilities); len(signals) > 0 {
+				asset.Controls = append(asset.Controls, model.Control{Type: "rbacPrivilegeEscalation", Value: map[string]any{"signals": signals}})
+				bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(asset, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION", "role grants privilege-escalation capabilities: "+strings.Join(signals, ", ")))
+			}
 		case "identity":
 			identities[asset.Name] = asset
 		}
@@ -148,6 +153,36 @@ func applyGrant(asset *model.Asset, grant effectiveGrant) {
 	asset.Capabilities = append(asset.Capabilities, grant.Capabilities...)
 	copyUniqueEvidence(asset, grant.Evidence)
 	asset.Controls = append(asset.Controls, model.Control{Type: "effectiveRBACGrant", Value: map[string]string{"role": grant.Role, "binding": grant.Binding}})
+	if signals := rbacEscalationSignals(grant.Capabilities); len(signals) > 0 {
+		asset.Controls = append(asset.Controls, model.Control{Type: "effectiveRBACPrivilegeEscalation", Value: map[string]any{
+			"role": grant.Role, "binding": grant.Binding, "signals": signals,
+		}})
+	}
+}
+
+func rbacEscalationSignals(capabilities []model.Capability) []string {
+	found := map[string]struct{}{}
+	for _, capability := range capabilities {
+		action := strings.ToLower(capability.Action)
+		resource := strings.ToLower(capability.Resource)
+		switch {
+		case strings.HasSuffix(action, ".bind"):
+			found["bind"] = struct{}{}
+		case strings.HasSuffix(action, ".escalate"):
+			found["escalate"] = struct{}{}
+		case strings.HasSuffix(action, ".impersonate"):
+			found["impersonate"] = struct{}{}
+		}
+		if strings.Contains(action, "*") || strings.Contains(resource, "*") {
+			found["wildcard"] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(found))
+	for signal := range found {
+		result = append(result, signal)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func copyUniqueEvidence(asset *model.Asset, evidence []model.Evidence) {

@@ -65,6 +65,7 @@ Missing exit items:
 - Offline Kubernetes RBAC role/binding parsing and relationship correlation.
 - Evidence-backed effective RBAC grant propagation to identities and workloads.
 - Effective ServiceAccount token automount precedence and workload token-use capability.
+- Explicit Kubernetes RBAC wildcard, bind, escalate, and impersonate detection.
 
 ## Remaining path to 1.0
 

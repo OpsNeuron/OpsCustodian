@@ -42,6 +42,10 @@ not sufficiently declared by the caller produces a
 `GHAW_IMPORT_CYCLE`; repeated imports already processed through another branch
 are deduplicated rather than treated as cycles.
 
+Cycle detection runs before parameter-conflict evaluation and reports the full
+human-readable traversal path. This prevents a parameter difference on a back
+edge from hiding the more fundamental import cycle.
+
 Import references retain their original locator, optional marker, and
 `with`/`inputs` parameters in the Agent BOM. A required unresolved local
 workflow produces `GHAW_IMPORT_UNRESOLVED`; an optional unresolved import does

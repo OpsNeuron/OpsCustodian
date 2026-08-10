@@ -1,5 +1,7 @@
 ---
 name: nested-helper
+imports:
+  - common-tools.md
 tools:
   edit:
 safe-outputs:

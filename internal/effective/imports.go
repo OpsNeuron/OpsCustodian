@@ -40,7 +40,8 @@ func ComposeImports(bom *model.AgentBOM) {
 
 type importTask struct {
 	dependency model.Reference
-	path       []string
+	pathIDs    []string
+	pathNames  []string
 }
 
 type importState struct {
@@ -74,7 +75,7 @@ func newImportState(caller *model.Asset) *importState {
 }
 
 func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, processed map[string]struct{}, arguments map[string]string, state *importState, diagnostics *[]model.Diagnostic) []string {
-	queue := importTasks(root.Dependencies, []string{root.ID})
+	queue := importTasks(root.Dependencies, []string{root.ID}, []string{root.Name})
 	var compositionOrder []string
 	for len(queue) > 0 {
 		task := queue[0]
@@ -90,6 +91,11 @@ func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, proc
 			}
 			continue
 		}
+		if containsString(task.pathIDs, imported.ID) {
+			cycle := append(append([]string(nil), task.pathNames...), imported.Name)
+			*diagnostics = append(*diagnostics, diagnostic(root, "GHAW_IMPORT_CYCLE", "import cycle detected: "+strings.Join(cycle, " -> ")))
+			continue
+		}
 		signature := parameterSignature(dependency.Parameters)
 		validateImportParameters(root, imported, dependency.Parameters, diagnostics)
 		if previous, seen := arguments[imported.ID]; seen && previous != signature {
@@ -97,10 +103,6 @@ func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, proc
 			continue
 		}
 		arguments[imported.ID] = signature
-		if containsString(task.path, imported.ID) {
-			*diagnostics = append(*diagnostics, diagnostic(root, "GHAW_IMPORT_CYCLE", "import cycle reaches "+imported.Name))
-			continue
-		}
 		if _, done := processed[imported.ID]; done {
 			continue
 		}
@@ -108,17 +110,18 @@ func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, proc
 		mergeImportable(root, imported, state, diagnostics)
 		processed[imported.ID] = struct{}{}
 		compositionOrder = append(compositionOrder, imported.Name)
-		nextPath := append(append([]string(nil), task.path...), imported.ID)
-		queue = append(queue, importTasks(imported.Dependencies, nextPath)...)
+		nextIDs := append(append([]string(nil), task.pathIDs...), imported.ID)
+		nextNames := append(append([]string(nil), task.pathNames...), imported.Name)
+		queue = append(queue, importTasks(imported.Dependencies, nextIDs, nextNames)...)
 	}
 	return compositionOrder
 }
 
-func importTasks(dependencies []model.Reference, path []string) []importTask {
+func importTasks(dependencies []model.Reference, pathIDs, pathNames []string) []importTask {
 	var result []importTask
 	for _, dependency := range dependencies {
 		if dependency.Type == "workflow" {
-			result = append(result, importTask{dependency: dependency, path: path})
+			result = append(result, importTask{dependency: dependency, pathIDs: pathIDs, pathNames: pathNames})
 		}
 	}
 	return result

@@ -50,6 +50,7 @@ blocked with correct evidence and remediation.
 - Safe-output import precedence and conflict detection. *(implemented, pending compatibility tests)*
 - Network import union and allowed/blocked conflict detection. *(implemented, pending compatibility tests)*
 - MCP server first-wins precedence and sanitized configuration conflict detection. *(implemented, pending compatibility tests)*
+- Explainable full-path import cycle detection. *(implemented, pending compatibility tests)*
 - Backstage ownership correlation.
 - CODEOWNERS ownership correlation. *(initial resolver implemented, pending GitHub compatibility suite)*
 - Explainable risk scoring. *(initial factor model implemented, pending calibration)*

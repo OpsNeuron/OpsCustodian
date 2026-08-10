@@ -3,6 +3,7 @@ package ghaw
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -102,8 +103,12 @@ func importReferences(node *yaml.Node) []model.Reference {
 				value = scalar(mappingValue(item, "path"))
 			}
 			parameterNode := mappingValue(item, "with")
-			if parameterNode == nil { parameterNode = mappingValue(item, "inputs") }
-			if parameterNode != nil { _ = parameterNode.Decode(&parameters) }
+			if parameterNode == nil {
+				parameterNode = mappingValue(item, "inputs")
+			}
+			if parameterNode != nil {
+				_ = parameterNode.Decode(&parameters)
+			}
 		}
 		if value != "" {
 			result = append(result, importReference(value, parameters))
@@ -394,15 +399,20 @@ func uniqueReferences(values []model.Reference) []model.Reference {
 	seen := map[string]model.Reference{}
 	for _, value := range values {
 		if value.Reference != "" {
-			seen[value.Type+"\x00"+value.Reference] = value
+			seen[referenceKey(value)] = value
 		}
 	}
 	result := make([]model.Reference, 0, len(seen))
 	for _, value := range seen {
 		result = append(result, value)
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Type+result[i].Reference < result[j].Type+result[j].Reference })
+	sort.Slice(result, func(i, j int) bool { return referenceKey(result[i]) < referenceKey(result[j]) })
 	return result
+}
+
+func referenceKey(value model.Reference) string {
+	parameters, _ := json.Marshal(value.Parameters)
+	return value.Type + "\x00" + value.Reference + "\x00" + value.Locator + fmt.Sprintf("\x00%t\x00", value.Optional) + string(parameters)
 }
 
 func uniqueCapabilities(values []model.Capability) []model.Capability {

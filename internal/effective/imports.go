@@ -73,7 +73,9 @@ func parameterSignature(parameters map[string]any) string {
 }
 
 func isLocalImport(locator string) bool {
-	if locator == "" { return false }
+	if locator == "" {
+		return false
+	}
 	return strings.LastIndex(locator, "@") <= strings.LastIndex(locator, "/")
 }
 

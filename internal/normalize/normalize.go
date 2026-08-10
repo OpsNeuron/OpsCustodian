@@ -190,7 +190,7 @@ func uniqueReferences(values []model.Reference) []model.Reference {
 
 func referenceSortKey(value model.Reference) string {
 	parameters, _ := json.Marshal(value.Parameters)
-	return strings.ToLower(value.Type)+"\x00"+strings.ToLower(value.Reference)+"\x00"+strings.ToLower(value.Locator)+fmt.Sprintf("\x00%t\x00", value.Optional)+string(parameters)
+	return strings.ToLower(value.Type) + "\x00" + strings.ToLower(value.Reference) + "\x00" + strings.ToLower(value.Locator) + fmt.Sprintf("\x00%t\x00", value.Optional) + string(parameters)
 }
 
 func uniqueCredentials(values []model.CredentialReference) []model.CredentialReference {

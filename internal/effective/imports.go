@@ -28,6 +28,7 @@ func ComposeImports(bom *model.AgentBOM) {
 		state := newImportState(caller)
 		compositionOrder := composeBreadthFirst(caller, assets, processed, arguments, state, &bom.Diagnostics)
 		applySafeOutputControl(caller, state)
+		applyNetworkControls(caller, state, &bom.Diagnostics)
 		if len(compositionOrder) > 0 {
 			caller.Controls = append(caller.Controls, model.Control{Type: "importComposition", Value: compositionOrder})
 		}
@@ -46,15 +47,25 @@ type importState struct {
 	mainSafeOutputs     map[string]struct{}
 	importedSafeOutputs map[string]string
 	safeOutputNames     map[string]struct{}
+	networkAllowed      map[string]struct{}
+	networkBlocked      map[string]struct{}
+	networkConflicts    map[string]struct{}
 }
 
 func newImportState(caller *model.Asset) *importState {
-	state := &importState{mainSafeOutputs: map[string]struct{}{}, importedSafeOutputs: map[string]string{}, safeOutputNames: map[string]struct{}{}}
+	state := &importState{
+		mainSafeOutputs: map[string]struct{}{}, importedSafeOutputs: map[string]string{}, safeOutputNames: map[string]struct{}{},
+		networkAllowed: map[string]struct{}{}, networkBlocked: map[string]struct{}{}, networkConflicts: map[string]struct{}{},
+	}
 	for _, capability := range caller.Capabilities {
 		if isSafeOutput(capability) {
 			state.mainSafeOutputs[capability.Action] = struct{}{}
 		}
+		if capability.Action == "network.connect" {
+			state.networkAllowed[networkTarget(capability.Resource)] = struct{}{}
+		}
 	}
+	collectNetworkControls(caller.Controls, state)
 	return state
 }
 
@@ -248,6 +259,7 @@ func validateImportedPermissions(caller, imported *model.Asset, diagnostics *[]m
 func mergeImportable(caller, imported *model.Asset, state *importState, diagnostics *[]model.Diagnostic) {
 	caller.Tools = append(caller.Tools, imported.Tools...)
 	caller.Credentials = append(caller.Credentials, imported.Credentials...)
+	collectNetworkControls(imported.Controls, state)
 	for _, capability := range imported.Capabilities {
 		if !isImportableCapability(capability) {
 			continue
@@ -264,13 +276,11 @@ func mergeImportable(caller, imported *model.Asset, state *importState, diagnost
 			state.importedSafeOutputs[capability.Action] = imported.Name
 			state.safeOutputNames[safeOutputName(capability)] = struct{}{}
 		}
+		if capability.Action == "network.connect" {
+			state.networkAllowed[networkTarget(capability.Resource)] = struct{}{}
+		}
 		caller.Capabilities = append(caller.Capabilities, capability)
 		copyEvidence(caller, imported, capability.EvidenceIDs)
-	}
-	for _, control := range imported.Controls {
-		if isImportableControl(control.Type) {
-			caller.Controls = append(caller.Controls, control)
-		}
 	}
 }
 
@@ -280,10 +290,6 @@ func isRepositoryPermission(capability model.Capability) bool {
 
 func isImportableCapability(capability model.Capability) bool {
 	return strings.HasPrefix(capability.Action, "github.safe_output.") || capability.Action == "network.connect" || capability.Action == "shell.execute" || capability.Action == "filesystem.modify"
-}
-
-func isImportableControl(value string) bool {
-	return strings.HasPrefix(value, "network")
 }
 
 func isSafeOutput(capability model.Capability) bool {
@@ -338,6 +344,82 @@ func controlStrings(value any) []string {
 	default:
 		return nil
 	}
+}
+
+func collectNetworkControls(controls []model.Control, state *importState) {
+	for _, control := range controls {
+		var target map[string]struct{}
+		switch control.Type {
+		case "networkAllowed":
+			target = state.networkAllowed
+		case "networkBlocked":
+			target = state.networkBlocked
+		default:
+			continue
+		}
+		for _, value := range controlStrings(control.Value) {
+			if value != "" {
+				target[value] = struct{}{}
+			}
+		}
+	}
+}
+
+func applyNetworkControls(caller *model.Asset, state *importState, diagnostics *[]model.Diagnostic) {
+	for target := range state.networkBlocked {
+		if _, allowed := state.networkAllowed[target]; !allowed {
+			continue
+		}
+		if _, reported := state.networkConflicts[target]; !reported {
+			*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_NETWORK_CONFLICT", "network destination is both allowed and blocked; blocked wins: "+target))
+			state.networkConflicts[target] = struct{}{}
+		}
+		delete(state.networkAllowed, target)
+	}
+	capabilities := caller.Capabilities[:0]
+	for _, capability := range caller.Capabilities {
+		if capability.Action == "network.connect" {
+			if _, blocked := state.networkBlocked[networkTarget(capability.Resource)]; blocked {
+				continue
+			}
+		}
+		capabilities = append(capabilities, capability)
+	}
+	caller.Capabilities = capabilities
+	caller.Controls = withoutControlTypes(caller.Controls, "networkAllowed", "networkBlocked")
+	if values := sortedSet(state.networkAllowed); len(values) > 0 {
+		caller.Controls = append(caller.Controls, model.Control{Type: "networkAllowed", Value: values})
+	}
+	if values := sortedSet(state.networkBlocked); len(values) > 0 {
+		caller.Controls = append(caller.Controls, model.Control{Type: "networkBlocked", Value: values})
+	}
+}
+
+func networkTarget(resource string) string { return strings.TrimPrefix(resource, "network:") }
+
+func sortedSet(values map[string]struct{}) []string {
+	result := make([]string, 0, len(values))
+	for value := range values {
+		if value != "" {
+			result = append(result, value)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func withoutControlTypes(values []model.Control, types ...string) []model.Control {
+	excluded := map[string]struct{}{}
+	for _, value := range types {
+		excluded[value] = struct{}{}
+	}
+	result := values[:0]
+	for _, value := range values {
+		if _, skip := excluded[value.Type]; !skip {
+			result = append(result, value)
+		}
+	}
+	return result
 }
 
 func capabilityCovers(values []model.Capability, required model.Capability) bool {

@@ -66,6 +66,12 @@ while a duplicate from another import produces
 `GHAW_IMPORT_SAFE_OUTPUT_CONFLICT`. The caller receives one deterministic
 `safeOutputs` control containing its own and successfully imported handlers.
 
+Network destinations are aggregated into one sorted `networkAllowed` control and
+one sorted `networkBlocked` control. Duplicate destinations are removed. If a
+destination is both allowed and blocked, `GHAW_IMPORT_NETWORK_CONFLICT` is
+emitted, blocked wins, and the conflicting `network.connect` capability is
+removed from the caller.
+
 ## Evidence policy
 
 Frontmatter is explicit configuration and receives high confidence. The Markdown

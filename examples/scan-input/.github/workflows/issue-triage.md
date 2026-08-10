@@ -41,6 +41,8 @@ network:
   allowed:
     - defaults
     - github
+  blocked:
+    - danger.example
 safe-outputs:
   add-comment:
 ---

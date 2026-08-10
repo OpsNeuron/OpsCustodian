@@ -64,6 +64,13 @@ qualified ServiceAccount. This capability participates in drift and adds an
 explicit risk factor. A workload-level value can intentionally override a
 ServiceAccount-level default, and the effective source remains auditable.
 
+Projected ServiceAccount token volumes are captured separately. Each projection
+records its audience, expiration, token path, volume, and consuming containers
+in a `serviceAccountTokenProjection` control. Only projections mounted by an
+init or regular container produce a
+`kubernetes.service_account_token.project` capability. Expiration above one
+hour adds a dedicated risk factor; token contents are never accessed.
+
 The parser does not contact a cluster and never reads token values. Repository
 manifests remain declared state until optional live enrichment is introduced.
 
@@ -72,7 +79,7 @@ manifests remain declared state until optional live enrichment is introduced.
 - CronJobs and generated Helm/Kustomize output are not yet interpreted.
 - Aggregated capabilities are declared-state effective access; admission policy
   and live cluster authorization may still reduce or expand runtime access.
-- Projected token audiences/expiration, image provenance, admission policy, and
-  live ServiceAccount identity are not correlated yet.
+- Image provenance, admission policy, and live ServiceAccount identity are not
+  correlated yet.
 - Candidate-directory coverage is deliberately bounded to avoid treating every
   repository YAML file as Kubernetes input.

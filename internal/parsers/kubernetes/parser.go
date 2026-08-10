@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/opscustodian/opscustodian/internal/discovery"
@@ -216,7 +217,78 @@ func workloadAsset(root *yaml.Node, sourcePath, kind, namespace, name string, ev
 	if value, specified := boolean(mapping(podSpec, "automountServiceAccountToken")); specified {
 		asset.Controls = append(asset.Controls, model.Control{Type: "automountServiceAccountToken", Value: value})
 	}
+	for _, projection := range serviceAccountTokenProjections(podSpec) {
+		asset.Controls = append(asset.Controls, model.Control{Type: "serviceAccountTokenProjection", Value: projection})
+		mountedBy, _ := projection["mountedBy"].([]string)
+		if len(mountedBy) == 0 {
+			continue
+		}
+		audience, _ := projection["audience"].(string)
+		if audience == "" {
+			audience = "kubernetes-default"
+		}
+		asset.Capabilities = append(asset.Capabilities, model.Capability{
+			Action: "kubernetes.service_account_token.project", Resource: "kubernetes:token-audience/" + audience,
+			Effect: "execute", Environment: namespace, EvidenceIDs: []string{evidence.ID},
+		})
+	}
 	return asset
+}
+
+func serviceAccountTokenProjections(podSpec *yaml.Node) []map[string]any {
+	mounts := volumeMountConsumers(podSpec)
+	volumes := mapping(podSpec, "volumes")
+	if volumes == nil || volumes.Kind != yaml.SequenceNode {
+		return nil
+	}
+	var result []map[string]any
+	for _, volume := range volumes.Content {
+		volumeName := scalar(mapping(volume, "name"))
+		projected := mapping(volume, "projected")
+		sources := mapping(projected, "sources")
+		if sources == nil || sources.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, source := range sources.Content {
+			token := mapping(source, "serviceAccountToken")
+			if token == nil {
+				continue
+			}
+			projection := map[string]any{
+				"volume": volumeName, "path": scalar(mapping(token, "path")), "audience": scalar(mapping(token, "audience")),
+				"mountedBy": append([]string(nil), mounts[volumeName]...),
+			}
+			if seconds, err := strconv.Atoi(scalar(mapping(token, "expirationSeconds"))); err == nil && seconds > 0 {
+				projection["expirationSeconds"] = seconds
+			}
+			result = append(result, projection)
+		}
+	}
+	return result
+}
+
+func volumeMountConsumers(podSpec *yaml.Node) map[string][]string {
+	result := map[string][]string{}
+	for _, field := range []string{"initContainers", "containers"} {
+		containers := mapping(podSpec, field)
+		if containers == nil || containers.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, container := range containers.Content {
+			containerName := scalar(mapping(container, "name"))
+			volumeMounts := mapping(container, "volumeMounts")
+			if volumeMounts == nil || volumeMounts.Kind != yaml.SequenceNode {
+				continue
+			}
+			for _, mount := range volumeMounts.Content {
+				volumeName := scalar(mapping(mount, "name"))
+				if volumeName != "" && containerName != "" {
+					result[volumeName] = append(result[volumeName], containerName)
+				}
+			}
+		}
+	}
+	return result
 }
 
 func mapping(node *yaml.Node, key string) *yaml.Node {

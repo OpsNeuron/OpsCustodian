@@ -36,6 +36,12 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if capability.Action == "kubernetes.service_account_token.use" {
 		add(&assessment, "service-account-token", 30, "workload receives an automatically mounted Kubernetes API token")
 	}
+	if capability.Action == "kubernetes.service_account_token.project" {
+		add(&assessment, "projected-service-account-token", 25, "workload receives a mounted projected Kubernetes ServiceAccount token")
+		if hasLongLivedProjectedToken(asset) {
+			add(&assessment, "long-lived-projected-token", 20, "projected ServiceAccount token expiration exceeds one hour")
+		}
+	}
 	if strings.HasPrefix(capability.Action, "kubernetes.") {
 		switch {
 		case strings.HasSuffix(capability.Action, ".bind"):
@@ -200,6 +206,22 @@ func finalize(assessment Assessment) Assessment {
 func hasControl(asset model.Asset, controlType string) bool {
 	for _, control := range asset.Controls {
 		if control.Type == controlType {
+			return true
+		}
+	}
+	return false
+}
+
+func hasLongLivedProjectedToken(asset model.Asset) bool {
+	for _, control := range asset.Controls {
+		if control.Type != "serviceAccountTokenProjection" {
+			continue
+		}
+		value, ok := control.Value.(map[string]any)
+		if !ok {
+			continue
+		}
+		if seconds, ok := value["expirationSeconds"].(int); ok && seconds > 3600 {
 			return true
 		}
 	}

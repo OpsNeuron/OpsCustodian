@@ -66,6 +66,7 @@ Missing exit items:
 - Evidence-backed effective RBAC grant propagation to identities and workloads.
 - Effective ServiceAccount token automount precedence and workload token-use capability.
 - Explicit Kubernetes RBAC wildcard, bind, escalate, and impersonate detection.
+- Mounted projected ServiceAccount token audience and expiration analysis.
 
 ## Remaining path to 1.0
 

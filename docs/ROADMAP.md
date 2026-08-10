@@ -70,6 +70,7 @@ a representative repository without manually assembling an inventory.
 - Effective RBAC grant propagation to identities and workloads. *(implemented offline, pending validation)*
 - Kubernetes ServiceAccount token exposure analysis. *(automount precedence implemented, pending validation)*
 - Kubernetes RBAC privilege-escalation analysis. *(wildcard and special-verb detection implemented, pending validation)*
+- Projected ServiceAccount token analysis. *(mounted audience and expiration analysis implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

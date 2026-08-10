@@ -25,6 +25,18 @@ spec:
       containers:
         - name: agent
           image: example.invalid/incident-remediator:v1
+          volumeMounts:
+            - name: github-api-token
+              mountPath: /var/run/secrets/agent
+              readOnly: true
+      volumes:
+        - name: github-api-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: github-automation
+                  expirationSeconds: 86400
+                  path: token
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role

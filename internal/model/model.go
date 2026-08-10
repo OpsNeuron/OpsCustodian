@@ -68,6 +68,7 @@ type Reference struct {
 	Locator    string         `json:"locator,omitempty" yaml:"locator,omitempty"`
 	Optional   bool           `json:"optional,omitempty" yaml:"optional,omitempty"`
 	Parameters map[string]any `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Order      int            `json:"order,omitempty" yaml:"order,omitempty"`
 }
 
 type Relationship struct {

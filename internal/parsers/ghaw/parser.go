@@ -101,7 +101,7 @@ func importReferences(node *yaml.Node) []model.Reference {
 		items = []*yaml.Node{node}
 	}
 	var result []model.Reference
-	for _, item := range items {
+	for order, item := range items {
 		value := scalar(item)
 		var parameters map[string]any
 		if item.Kind == yaml.MappingNode {
@@ -118,13 +118,13 @@ func importReferences(node *yaml.Node) []model.Reference {
 			}
 		}
 		if value != "" {
-			result = append(result, importReference(value, parameters))
+			result = append(result, importReference(value, parameters, order))
 		}
 	}
 	return result
 }
 
-func importReference(value string, parameters map[string]any) model.Reference {
+func importReference(value string, parameters map[string]any, order int) model.Reference {
 	raw := strings.TrimSpace(value)
 	optional := strings.HasSuffix(raw, "?")
 	clean := strings.TrimSuffix(raw, "?")
@@ -134,7 +134,7 @@ func importReference(value string, parameters map[string]any) model.Reference {
 	if strings.Contains(lower, "/agents/") || strings.HasPrefix(lower, ".github/agents/") {
 		kind = "agent"
 	}
-	return model.Reference{Type: kind, Reference: importedName(withoutSection), Locator: clean, Optional: optional, Parameters: parameters}
+	return model.Reference{Type: kind, Reference: importedName(withoutSection), Locator: clean, Optional: optional, Parameters: parameters, Order: order}
 }
 
 func resourceReferences(node *yaml.Node) []model.Reference {
@@ -148,7 +148,7 @@ func resourceReferences(node *yaml.Node) []model.Reference {
 
 func markdownImportReferences(content []byte) []model.Reference {
 	var result []model.Reference
-	for _, match := range markdownImportPattern.FindAllStringSubmatch(string(content), -1) {
+	for order, match := range markdownImportPattern.FindAllStringSubmatch(string(content), -1) {
 		if len(match) < 4 {
 			continue
 		}
@@ -156,7 +156,7 @@ func markdownImportReferences(content []byte) []model.Reference {
 		if match[1] == "runtime-" {
 			kind = "instruction-set"
 		}
-		result = append(result, model.Reference{Type: kind, Reference: importedName(match[3]), Locator: match[3], Optional: match[2] == "?"})
+		result = append(result, model.Reference{Type: kind, Reference: importedName(match[3]), Locator: match[3], Optional: match[2] == "?", Order: 100000 + order})
 	}
 	return result
 }
@@ -406,14 +406,22 @@ func uniqueReferences(values []model.Reference) []model.Reference {
 	seen := map[string]model.Reference{}
 	for _, value := range values {
 		if value.Reference != "" {
-			seen[referenceKey(value)] = value
+			key := referenceKey(value)
+			if _, exists := seen[key]; !exists {
+				seen[key] = value
+			}
 		}
 	}
 	result := make([]model.Reference, 0, len(seen))
 	for _, value := range seen {
 		result = append(result, value)
 	}
-	sort.Slice(result, func(i, j int) bool { return referenceKey(result[i]) < referenceKey(result[j]) })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Type == result[j].Type && result[i].Order != result[j].Order {
+			return result[i].Order < result[j].Order
+		}
+		return referenceKey(result[i]) < referenceKey(result[j])
+	})
 	return result
 }
 

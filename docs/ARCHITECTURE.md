@@ -97,6 +97,8 @@ The effective-access pass runs after canonicalization and before relationship
 correlation. Its gh-aw adapter composes the security-relevant subset of resolved
 local imports while keeping validation-only GitHub permissions non-inheritable.
 Imported facts retain source evidence; unresolved imports remain graph edges.
+Composition order is explicit output data so precedence decisions can be
+explained without reproducing parser traversal internally.
 
 ### Evidence graph
 

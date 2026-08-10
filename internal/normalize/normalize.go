@@ -177,14 +177,22 @@ func uniqueReferences(values []model.Reference) []model.Reference {
 	for _, value := range values {
 		value.Type, value.Reference = strings.TrimSpace(value.Type), strings.TrimSpace(value.Reference)
 		if value.Type != "" && value.Reference != "" {
-			seen[referenceSortKey(value)] = value
+			key := referenceSortKey(value)
+			if _, exists := seen[key]; !exists {
+				seen[key] = value
+			}
 		}
 	}
 	result := make([]model.Reference, 0, len(seen))
 	for _, value := range seen {
 		result = append(result, value)
 	}
-	sort.Slice(result, func(i, j int) bool { return referenceSortKey(result[i]) < referenceSortKey(result[j]) })
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Type == result[j].Type && result[i].Order != result[j].Order {
+			return result[i].Order < result[j].Order
+		}
+		return referenceSortKey(result[i]) < referenceSortKey(result[j])
+	})
 	return result
 }
 

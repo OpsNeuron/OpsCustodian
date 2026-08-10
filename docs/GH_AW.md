@@ -55,6 +55,11 @@ Failures use the `GHAW_IMPORT_PARAMETER_REQUIRED`, `_UNKNOWN`, `_TYPE`, and
 `_ENUM` diagnostic codes and never prevent the remaining inventory from being
 produced.
 
+Import declaration order is retained as `order` metadata. Effective composition
+uses breadth-first traversal: direct imports are processed in declaration order
+before transitive imports, and the resulting asset-name sequence is recorded in
+the caller's `importComposition` control for auditability.
+
 ## Evidence policy
 
 Frontmatter is explicit configuration and receives high confidence. The Markdown

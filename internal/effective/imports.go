@@ -23,18 +23,30 @@ func ComposeImports(bom *model.AgentBOM) {
 		if caller.Type != "agent" || caller.Runtime == nil || caller.Runtime.Type != "github-agentic-workflow" {
 			continue
 		}
-		active := map[string]struct{}{caller.ID: {}}
 		processed := map[string]struct{}{}
 		arguments := map[string]string{}
-		compose(caller, caller, assets, active, processed, arguments, &bom.Diagnostics)
+		compositionOrder := composeBreadthFirst(caller, assets, processed, arguments, &bom.Diagnostics)
+		if len(compositionOrder) > 0 {
+			caller.Controls = append(caller.Controls, model.Control{Type: "importComposition", Value: compositionOrder})
+		}
 	}
 	sort.Slice(bom.Diagnostics, func(i, j int) bool {
 		return bom.Diagnostics[i].Path+bom.Diagnostics[i].Code+bom.Diagnostics[i].Message < bom.Diagnostics[j].Path+bom.Diagnostics[j].Code+bom.Diagnostics[j].Message
 	})
 }
 
-func compose(root, current *model.Asset, assets map[string]*model.Asset, active, processed map[string]struct{}, arguments map[string]string, diagnostics *[]model.Diagnostic) {
-	for _, dependency := range current.Dependencies {
+type importTask struct {
+	dependency model.Reference
+	path       []string
+}
+
+func composeBreadthFirst(root *model.Asset, assets map[string]*model.Asset, processed map[string]struct{}, arguments map[string]string, diagnostics *[]model.Diagnostic) []string {
+	queue := importTasks(root.Dependencies, []string{root.ID})
+	var compositionOrder []string
+	for len(queue) > 0 {
+		task := queue[0]
+		queue = queue[1:]
+		dependency := task.dependency
 		if dependency.Type != "workflow" {
 			continue
 		}
@@ -52,20 +64,40 @@ func compose(root, current *model.Asset, assets map[string]*model.Asset, active,
 			continue
 		}
 		arguments[imported.ID] = signature
-		if _, seen := active[imported.ID]; seen {
+		if containsString(task.path, imported.ID) {
 			*diagnostics = append(*diagnostics, diagnostic(root, "GHAW_IMPORT_CYCLE", "import cycle reaches "+imported.Name))
 			continue
 		}
 		if _, done := processed[imported.ID]; done {
 			continue
 		}
-		active[imported.ID] = struct{}{}
 		validateImportedPermissions(root, imported, diagnostics)
 		mergeImportable(root, imported)
-		compose(root, imported, assets, active, processed, arguments, diagnostics)
-		delete(active, imported.ID)
 		processed[imported.ID] = struct{}{}
+		compositionOrder = append(compositionOrder, imported.Name)
+		nextPath := append(append([]string(nil), task.path...), imported.ID)
+		queue = append(queue, importTasks(imported.Dependencies, nextPath)...)
 	}
+	return compositionOrder
+}
+
+func importTasks(dependencies []model.Reference, path []string) []importTask {
+	var result []importTask
+	for _, dependency := range dependencies {
+		if dependency.Type == "workflow" {
+			result = append(result, importTask{dependency: dependency, path: path})
+		}
+	}
+	return result
+}
+
+func containsString(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
 }
 
 func validateImportParameters(caller, imported *model.Asset, parameters map[string]any, diagnostics *[]model.Diagnostic) {

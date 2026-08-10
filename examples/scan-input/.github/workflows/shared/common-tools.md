@@ -8,6 +8,8 @@ import-schema:
     mode:
       type: string
       enum: [read-only]
+imports:
+  - nested-helper.md
 tools:
   bash:
     - gh issue view

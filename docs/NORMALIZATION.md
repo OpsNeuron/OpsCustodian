@@ -14,6 +14,8 @@ scanned repositories and to previously saved baselines.
 - Owners, references, credentials, and evidence IDs are deduplicated and sorted.
 - Import reference identity includes locator, optionality, and canonical JSON
   parameters so conflicting parameterized imports are not collapsed.
+- Import references sort by their explicit declaration order before their
+  canonical reference key.
 - Capabilities are sorted by action, resource, effect, and environment.
 - A canonical `scope` is inferred from the resource when a parser does not
   provide one.

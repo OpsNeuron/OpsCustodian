@@ -52,6 +52,8 @@ The first model consists of:
 - `Control`: approval, network, cost, sandbox, or execution constraint.
 - `Evidence`: source location and inference metadata.
 - `Finding`: a drift or policy outcome with remediation.
+- `Workload`: a runtime compute object that executes with an identity.
+- `Authorization role/binding`: declared grants that connect identities to capabilities.
 
 Stable IDs must be reproducible from source identity rather than random values.
 

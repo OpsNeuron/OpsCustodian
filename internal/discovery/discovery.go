@@ -115,6 +115,15 @@ func isCandidate(path, root string) bool {
 	if base == "catalog-info.yaml" || base == "catalog-info.yml" {
 		return true
 	}
+	if ext == ".yaml" || ext == ".yml" {
+		segments := strings.Split(lowerRel, "/")
+		for _, segment := range segments[:len(segments)-1] {
+			switch segment {
+			case "k8s", "kubernetes", "manifests", "deploy", "deployments":
+				return true
+			}
+		}
+	}
 	if base == "agents.md" || base == "claude.md" {
 		return true
 	}

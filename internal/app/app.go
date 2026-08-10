@@ -17,6 +17,7 @@ import (
 	"github.com/opscustodian/opscustodian/internal/parsers/agentmarkdown"
 	"github.com/opscustodian/opscustodian/internal/parsers/ghaw"
 	"github.com/opscustodian/opscustodian/internal/parsers/githubactions"
+	"github.com/opscustodian/opscustodian/internal/parsers/kubernetes"
 	"github.com/opscustodian/opscustodian/internal/parsers/mcp"
 	"github.com/opscustodian/opscustodian/internal/policy"
 	"github.com/opscustodian/opscustodian/internal/report"
@@ -65,7 +66,7 @@ func Scan(ctx context.Context, opts ScanOptions) error {
 		Root: absRoot, Source: filepath.ToSlash(absRoot), Revision: "working-tree",
 		Generator: "opscustodian/dev", MaxFileSize: opts.MaxFileSize,
 		Boundaries: opts.Boundaries,
-		Parsers:    []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
+		Parsers:    []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}, kubernetes.Parser{}},
 	})
 	if err != nil {
 		return err

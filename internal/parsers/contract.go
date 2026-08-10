@@ -55,7 +55,7 @@ func assetViolations(parserName, artifactPath string, asset model.Asset) []strin
 	if strings.TrimSpace(asset.Name) == "" {
 		result = append(result, "asset name is empty")
 	}
-	allowedTypes := map[string]struct{}{"agent": {}, "workflow": {}, "mcp-server": {}, "skill": {}, "instruction-set": {}}
+	allowedTypes := map[string]struct{}{"agent": {}, "workflow": {}, "mcp-server": {}, "skill": {}, "instruction-set": {}, "workload": {}, "identity": {}, "authorization-role": {}, "authorization-binding": {}}
 	if _, allowed := allowedTypes[asset.Type]; !allowed {
 		result = append(result, "unsupported asset type "+asset.Type)
 	}

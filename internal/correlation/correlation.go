@@ -41,6 +41,14 @@ func Build(bom *model.AgentBOM) {
 			target := "credential:" + credential.Type + ":" + credential.Reference
 			add(relations, relationship(asset.ID, "uses-credential", target, "credential", confidence, evidenceIDs))
 		}
+		for _, identity := range asset.Identities {
+			target := "identity:" + identity.Reference
+			targetType := "asset-reference"
+			if assetID, exists := assetsByKindAndName[lookupKey("identity", identity.Reference)]; exists {
+				target, targetType = assetID, "asset"
+			}
+			add(relations, relationship(asset.ID, "runs-as", target, targetType, confidence, evidenceIDs))
+		}
 		for _, dependency := range asset.Dependencies {
 			target := dependency.Type + ":" + dependency.Reference
 			targetType := "asset-reference"

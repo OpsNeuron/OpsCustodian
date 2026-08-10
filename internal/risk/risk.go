@@ -105,6 +105,8 @@ func Relationship(relation model.Relationship, removed bool) Assessment {
 		add(&assessment, "tool-access", 25, "asset tool access changed")
 	case "depends-on":
 		add(&assessment, "dependency", 25, "agentic dependency changed")
+	case "runs-as":
+		add(&assessment, "runtime-identity", 45, "workload runtime identity changed")
 	default:
 		add(&assessment, "relationship", 15, "agentic graph relationship changed")
 	}

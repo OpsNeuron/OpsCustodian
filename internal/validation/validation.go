@@ -141,7 +141,7 @@ func issue(path, code, message string) Issue {
 
 func validAssetType(value string) bool {
 	switch value {
-	case "agent", "workflow", "mcp-server", "skill", "instruction-set":
+	case "agent", "workflow", "mcp-server", "skill", "instruction-set", "workload", "identity", "authorization-role", "authorization-binding":
 		return true
 	default:
 		return false
@@ -150,7 +150,7 @@ func validAssetType(value string) bool {
 
 func validRelationshipType(value string) bool {
 	switch value {
-	case "uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by":
+	case "uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by", "runs-as", "grants-role":
 		return true
 	default:
 		return false

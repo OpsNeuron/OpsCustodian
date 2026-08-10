@@ -58,6 +58,12 @@ Missing exit items:
 - CODEOWNERS ownership correlation. *(initial matcher implemented, pending compatibility tests)*
 - Risk model based on scope, environment, effect, controls, and confidence. *(initial explainable model and escalation factors implemented, pending calibration)*
 
+### v0.4 Effective access — started
+
+- Offline Kubernetes ServiceAccount and workload discovery.
+- Evidence-backed workload `runs-as` identity correlation.
+- RBAC authorization correlation remains next.
+
 ## Remaining path to 1.0
 
 ### Phase A — Complete v0.3 normalization

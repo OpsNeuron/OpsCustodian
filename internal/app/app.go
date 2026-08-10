@@ -28,6 +28,7 @@ import (
 type ScanOptions struct {
 	Root, Output, Format string
 	MaxFileSize          int64
+	Boundaries           []string
 }
 
 type DiffOptions struct {
@@ -63,7 +64,8 @@ func Scan(ctx context.Context, opts ScanOptions) error {
 	bom, err := scanner.Scan(ctx, scanner.Options{
 		Root: absRoot, Source: filepath.ToSlash(absRoot), Revision: "working-tree",
 		Generator: "opscustodian/dev", MaxFileSize: opts.MaxFileSize,
-		Parsers: []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
+		Boundaries: opts.Boundaries,
+		Parsers:    []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}},
 	})
 	if err != nil {
 		return err

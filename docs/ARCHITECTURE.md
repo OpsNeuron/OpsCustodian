@@ -112,6 +112,10 @@ The first correlation pass resolves explicit owner, tool, MCP server, credential
 and skill dependency declarations. Resolved asset targets use stable IDs;
 unresolved declarations remain visible as typed references.
 
+An optional boundary pass classifies source paths into monorepo components using
+deterministic longest-prefix matching. Classification is orthogonal to discovery
+and ownership: it never hides assets or rewrites evidence paths.
+
 ### Drift engine
 
 Compares canonical models, not source text. Initial change classes include:

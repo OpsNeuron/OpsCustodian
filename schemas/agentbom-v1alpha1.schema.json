@@ -44,6 +44,7 @@
         "id": { "type": "string", "minLength": 1 },
         "type": { "enum": ["agent", "workflow", "mcp-server", "skill", "instruction-set"] },
         "name": { "type": "string", "minLength": 1 },
+        "component": { "type": "string", "minLength": 1 },
         "owners": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
         "source": { "$ref": "#/$defs/source" },
         "runtime": { "$ref": "#/$defs/runtime" },

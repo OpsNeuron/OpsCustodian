@@ -47,6 +47,7 @@ inventory milestone.
 - Canonical action, effect, resource, owner, reference, and scope normalization.
 - Explicit effect-escalation and scope-expansion drift findings.
 - Self-contained local HTML inventory report. *(implemented, pending browser validation)*
+- Repeatable longest-prefix monorepo boundaries surfaced in Agent BOM and HTML.
 
 Missing exit items:
 

@@ -13,6 +13,11 @@ import (
 
 var version = "dev"
 
+type stringListFlag []string
+
+func (values *stringListFlag) String() string         { return fmt.Sprint([]string(*values)) }
+func (values *stringListFlag) Set(value string) error { *values = append(*values, value); return nil }
+
 func main() {
 	if err := run(context.Background(), os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -36,6 +41,8 @@ func run(ctx context.Context, args []string) error {
 		output := fs.String("output", "-", "output file, or - for stdout")
 		format := fs.String("format", "json", "output format: json or yaml")
 		maxFileSize := fs.Int64("max-file-size", 2<<20, "maximum artifact size in bytes")
+		var boundaries stringListFlag
+		fs.Var(&boundaries, "boundary", "monorepo boundary path or path=component; repeatable")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
@@ -44,7 +51,7 @@ func run(ctx context.Context, args []string) error {
 			root = fs.Arg(0)
 		}
 		return app.Scan(ctx, app.ScanOptions{
-			Root: root, Output: *output, Format: *format, MaxFileSize: *maxFileSize,
+			Root: root, Output: *output, Format: *format, MaxFileSize: *maxFileSize, Boundaries: boundaries,
 		})
 
 	case "diff":

@@ -35,6 +35,7 @@ type Asset struct {
 	ID           string                `json:"id" yaml:"id"`
 	Type         string                `json:"type" yaml:"type"`
 	Name         string                `json:"name" yaml:"name"`
+	Component    string                `json:"component,omitempty" yaml:"component,omitempty"`
 	Owners       []string              `json:"owners,omitempty" yaml:"owners,omitempty"`
 	LegacyOwner  string                `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Source       Source                `json:"source" yaml:"source"`

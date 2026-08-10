@@ -57,7 +57,7 @@ blocked with correct evidence and remediation.
 - Canonical capability and scope normalization. *(initial contract and escalation detection implemented, pending tests)*
 - Local relationship graph and HTML report. *(initial self-contained report implemented, pending browser validation)*
 - Evidence-backed relationship correlation. *(initial in-BOM graph implemented, pending validation)*
-- Monorepo support and configurable boundaries.
+- Monorepo support and configurable boundaries. *(initial CLI boundaries implemented, pending config-file support)*
 - Documented parser extension contract.
 
 Exit condition: a platform team can understand agent ownership and access across

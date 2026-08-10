@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/boundary"
 	"github.com/opscustodian/opscustodian/internal/correlation"
 	"github.com/opscustodian/opscustodian/internal/discovery"
 	"github.com/opscustodian/opscustodian/internal/effective"
@@ -21,6 +22,7 @@ type Options struct {
 	Generator   string
 	MaxFileSize int64
 	Parsers     []parsers.Parser
+	Boundaries  []string
 }
 
 func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
@@ -58,6 +60,11 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 		Assets: assets, Diagnostics: diagnostics,
 	}
 	bom.Diagnostics = append(bom.Diagnostics, ownership.ApplyCODEOWNERS(&bom, artifacts)...)
+	definitions, err := boundary.Parse(opts.Boundaries)
+	if err != nil {
+		return model.AgentBOM{}, err
+	}
+	boundary.Apply(&bom, definitions)
 	normalize.BOM(&bom)
 	effective.ComposeImports(&bom)
 	normalize.BOM(&bom)

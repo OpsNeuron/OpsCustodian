@@ -40,6 +40,12 @@ opscustodian explain --report drift.json <finding-id>
 opscustodian report --bom agentbom.json --output opscustodian-report.html
 ```
 
+For monorepositories, assign assets to explicit component boundaries:
+
+```bash
+opscustodian scan --boundary services/payments=payments --output agentbom.json .
+```
+
 The first pre-alpha implementation now includes offline artifact discovery,
 GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
 parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
@@ -118,6 +124,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Explainable risk model](docs/RISK_MODEL.md)
 - [Canonical normalization](docs/NORMALIZATION.md)
 - [Local inventory report](docs/LOCAL_REPORT.md)
+- [Monorepo boundaries](docs/MONOREPO.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)
 - [GitHub Action integration](docs/GITHUB_ACTION.md)

@@ -66,7 +66,8 @@ a representative repository without manually assembling an inventory.
 ## v0.4 — Effective access
 
 - Kubernetes workload and ServiceAccount correlation. *(initial offline parser and runs-as graph implemented, pending validation)*
-- Kubernetes RBAC correlation.
+- Kubernetes RBAC role/binding correlation. *(initial offline parser and graph implemented, pending validation)*
+- Effective RBAC grant propagation to identities and workloads.
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

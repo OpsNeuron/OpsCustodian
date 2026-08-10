@@ -62,7 +62,8 @@ Missing exit items:
 
 - Offline Kubernetes ServiceAccount and workload discovery.
 - Evidence-backed workload `runs-as` identity correlation.
-- RBAC authorization correlation remains next.
+- Offline Kubernetes RBAC role/binding parsing and relationship correlation.
+- Effective grant propagation from roles to identities/workloads remains next.
 
 ## Remaining path to 1.0
 

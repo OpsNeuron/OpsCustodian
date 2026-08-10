@@ -117,7 +117,7 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "from": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by", "runs-as", "grants-role"] },
+        "type": { "enum": ["uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by", "runs-as", "binds-subject", "grants-role"] },
         "to": { "type": "string", "minLength": 1 },
         "targetType": { "enum": ["asset", "asset-reference", "tool", "credential", "owner"] },
         "confidence": { "enum": ["low", "medium", "high"] },

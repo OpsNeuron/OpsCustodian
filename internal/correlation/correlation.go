@@ -47,7 +47,11 @@ func Build(bom *model.AgentBOM) {
 			if assetID, exists := assetsByKindAndName[lookupKey("identity", identity.Reference)]; exists {
 				target, targetType = assetID, "asset"
 			}
-			add(relations, relationship(asset.ID, "runs-as", target, targetType, confidence, evidenceIDs))
+			relationType := "runs-as"
+			if asset.Type == "authorization-binding" {
+				relationType = "binds-subject"
+			}
+			add(relations, relationship(asset.ID, relationType, target, targetType, confidence, evidenceIDs))
 		}
 		for _, dependency := range asset.Dependencies {
 			target := dependency.Type + ":" + dependency.Reference
@@ -55,7 +59,11 @@ func Build(bom *model.AgentBOM) {
 			if assetID, exists := assetsByKindAndName[lookupKey(dependency.Type, dependency.Reference)]; exists {
 				target, targetType = assetID, "asset"
 			}
-			add(relations, relationship(asset.ID, "depends-on", target, targetType, confidence, evidenceIDs))
+			relationType := "depends-on"
+			if asset.Type == "authorization-binding" && dependency.Type == "authorization-role" {
+				relationType = "grants-role"
+			}
+			add(relations, relationship(asset.ID, relationType, target, targetType, confidence, evidenceIDs))
 		}
 	}
 	bom.Relationships = make([]model.Relationship, 0, len(relations))

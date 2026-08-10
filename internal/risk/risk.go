@@ -107,6 +107,10 @@ func Relationship(relation model.Relationship, removed bool) Assessment {
 		add(&assessment, "dependency", 25, "agentic dependency changed")
 	case "runs-as":
 		add(&assessment, "runtime-identity", 45, "workload runtime identity changed")
+	case "binds-subject":
+		add(&assessment, "rbac-subject", 50, "authorization binding subject changed")
+	case "grants-role":
+		add(&assessment, "rbac-role", 55, "authorization role grant changed")
 	default:
 		add(&assessment, "relationship", 15, "agentic graph relationship changed")
 	}

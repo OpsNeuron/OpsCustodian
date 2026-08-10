@@ -58,9 +58,126 @@ func (Parser) Parse(_ context.Context, artifact discovery.Artifact) ([]model.Age
 			assets = append(assets, serviceAccountAsset(artifact.RelPath, namespace, name, evidence))
 		case "Pod", "Deployment", "StatefulSet", "DaemonSet", "Job":
 			assets = append(assets, workloadAsset(root, artifact.RelPath, kind, namespace, name, evidence))
+		case "Role", "ClusterRole":
+			assets = append(assets, roleAsset(root, artifact.RelPath, kind, namespace, name, evidence))
+		case "RoleBinding", "ClusterRoleBinding":
+			assets = append(assets, bindingAsset(root, artifact.RelPath, kind, namespace, name, evidence))
 		}
 	}
 	return assets, nil
+}
+
+func roleAsset(root *yaml.Node, sourcePath, kind, namespace, name string, evidence model.Evidence) model.Asset {
+	qualified := namespace + "/" + name
+	environment := namespace
+	if kind == "ClusterRole" {
+		qualified, environment = "cluster/"+name, "cluster"
+	}
+	asset := model.Asset{
+		ID: "kubernetes:role:" + qualified, Type: "authorization-role", Name: qualified,
+		Source: model.Source{Path: sourcePath}, Evidence: []model.Evidence{evidence},
+	}
+	rules := mapping(root, "rules")
+	if rules != nil && rules.Kind == yaml.SequenceNode {
+		for _, rule := range rules.Content {
+			apiGroups := scalarList(mapping(rule, "apiGroups"), "core")
+			resources := scalarList(mapping(rule, "resources"), "*")
+			verbs := scalarList(mapping(rule, "verbs"), "*")
+			for _, apiGroup := range apiGroups {
+				for _, resource := range resources {
+					for _, verb := range verbs {
+						asset.Capabilities = append(asset.Capabilities, model.Capability{
+							Action:   "kubernetes." + normalizeSegment(resource) + "." + normalizeSegment(verb),
+							Resource: "kubernetes:" + qualified + "/" + normalizeSegment(apiGroup) + "/" + resource,
+							Effect:   rbacEffect(verb), Environment: environment, EvidenceIDs: []string{evidence.ID},
+						})
+					}
+				}
+			}
+		}
+	}
+	return asset
+}
+
+func bindingAsset(root *yaml.Node, sourcePath, kind, namespace, name string, evidence model.Evidence) model.Asset {
+	qualified := namespace + "/" + name
+	if kind == "ClusterRoleBinding" {
+		qualified = "cluster/" + name
+	}
+	asset := model.Asset{
+		ID: "kubernetes:binding:" + qualified, Type: "authorization-binding", Name: qualified,
+		Source: model.Source{Path: sourcePath}, Evidence: []model.Evidence{evidence},
+		Capabilities: []model.Capability{{Action: "kubernetes.rbac.bind", Resource: "kubernetes:" + qualified, Effect: "execute", EvidenceIDs: []string{evidence.ID}}},
+	}
+	roleRef := mapping(root, "roleRef")
+	roleName, roleKind := scalar(mapping(roleRef, "name")), scalar(mapping(roleRef, "kind"))
+	if roleName != "" {
+		roleReference := namespace + "/" + roleName
+		if roleKind == "ClusterRole" {
+			roleReference = "cluster/" + roleName
+		}
+		asset.Dependencies = append(asset.Dependencies, model.Reference{Type: "authorization-role", Reference: roleReference})
+	}
+	subjects := mapping(root, "subjects")
+	if subjects != nil && subjects.Kind == yaml.SequenceNode {
+		for _, subject := range subjects.Content {
+			if scalar(mapping(subject, "kind")) != "ServiceAccount" {
+				continue
+			}
+			subjectName := scalar(mapping(subject, "name"))
+			subjectNamespace := scalar(mapping(subject, "namespace"))
+			if subjectNamespace == "" {
+				subjectNamespace = namespace
+			}
+			if subjectName != "" {
+				asset.Identities = append(asset.Identities, model.Reference{Type: "identity", Reference: subjectNamespace + "/" + subjectName})
+			}
+		}
+	}
+	return asset
+}
+
+func scalarList(node *yaml.Node, fallback string) []string {
+	if node == nil {
+		return []string{fallback}
+	}
+	if node.Kind == yaml.ScalarNode {
+		return []string{strings.TrimSpace(node.Value)}
+	}
+	if node.Kind != yaml.SequenceNode {
+		return []string{fallback}
+	}
+	var result []string
+	for _, item := range node.Content {
+		if value := scalar(item); value != "" {
+			result = append(result, value)
+		}
+	}
+	if len(result) == 0 {
+		return []string{fallback}
+	}
+	return result
+}
+
+func normalizeSegment(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "/", ".")
+	return strings.ReplaceAll(value, "-", "_")
+}
+
+func rbacEffect(verb string) string {
+	switch strings.ToLower(verb) {
+	case "get", "list", "watch":
+		return "read"
+	case "create", "update", "patch":
+		return "write"
+	case "delete", "deletecollection":
+		return "delete"
+	case "bind", "escalate", "impersonate", "*":
+		return "admin"
+	default:
+		return "execute"
+	}
 }
 
 func serviceAccountAsset(sourcePath, namespace, name string, evidence model.Evidence) model.Asset {

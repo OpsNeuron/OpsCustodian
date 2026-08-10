@@ -120,6 +120,10 @@ An optional boundary pass classifies source paths into monorepo components using
 deterministic longest-prefix matching. Classification is orthogonal to discovery
 and ownership: it never hides assets or rewrites evidence paths.
 
+Offline Backstage catalogs provide component-scoped ownership before CODEOWNERS
+fallback. Explicit asset ownership remains authoritative, and every inferred
+owner relationship points to the catalog or CODEOWNERS evidence that produced it.
+
 ### Drift engine
 
 Compares canonical models, not source text. Initial change classes include:

@@ -1,0 +1,9 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: agent-automation
+  description: Agent definitions used by repository automation.
+spec:
+  type: service
+  lifecycle: experimental
+  owner: group:agent-platform

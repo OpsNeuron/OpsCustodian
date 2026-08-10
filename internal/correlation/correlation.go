@@ -88,7 +88,7 @@ func relationshipEvidence(asset model.Asset) ([]string, string) {
 
 func ownershipEvidence(asset model.Asset, fallbackIDs []string, fallbackConfidence string) ([]string, string) {
 	for _, evidence := range asset.Evidence {
-		if evidence.Parser == "codeowners" {
+		if evidence.Parser == "codeowners" || evidence.Parser == "backstage" {
 			return []string{evidence.ID}, evidence.Confidence
 		}
 	}

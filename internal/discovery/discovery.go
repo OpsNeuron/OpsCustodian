@@ -112,6 +112,9 @@ func isCandidate(path, root string) bool {
 	if rel == ".github/CODEOWNERS" || rel == "CODEOWNERS" || rel == "docs/CODEOWNERS" {
 		return true
 	}
+	if base == "catalog-info.yaml" || base == "catalog-info.yml" {
+		return true
+	}
 	if base == "agents.md" || base == "claude.md" {
 		return true
 	}

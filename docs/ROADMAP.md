@@ -51,7 +51,7 @@ blocked with correct evidence and remediation.
 - Network import union and allowed/blocked conflict detection. *(implemented, pending compatibility tests)*
 - MCP server first-wins precedence and sanitized configuration conflict detection. *(implemented, pending compatibility tests)*
 - Explainable full-path import cycle detection. *(implemented, pending compatibility tests)*
-- Backstage ownership correlation.
+- Backstage ownership correlation. *(implemented, pending catalog compatibility fixtures)*
 - CODEOWNERS ownership correlation. *(initial resolver implemented, pending GitHub compatibility suite)*
 - Explainable risk scoring. *(initial factor model implemented, pending calibration)*
 - Canonical capability and scope normalization. *(initial contract and escalation detection implemented, pending tests)*

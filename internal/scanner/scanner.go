@@ -73,6 +73,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 		},
 		Assets: assets, Diagnostics: diagnostics,
 	}
+	bom.Diagnostics = append(bom.Diagnostics, ownership.ApplyBackstage(&bom, artifacts)...)
 	bom.Diagnostics = append(bom.Diagnostics, ownership.ApplyCODEOWNERS(&bom, artifacts)...)
 	definitions, err := boundary.Parse(opts.Boundaries)
 	if err != nil {

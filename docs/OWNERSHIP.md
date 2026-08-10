@@ -2,7 +2,24 @@
 
 OpsCustodian resolves zero or more owners for each agentic asset. Explicit
 frontmatter owners take precedence. When no explicit owner exists, the scanner
-uses the selected GitHub CODEOWNERS file.
+uses the longest matching Backstage Component scope and then falls back to the
+selected GitHub CODEOWNERS file.
+
+## Backstage components
+
+Files named `catalog-info.yaml` or `catalog-info.yml` are read offline. Documents
+with `kind: Component` contribute `metadata.name` as component identity and
+`spec.owner` as ownership. Multi-document YAML is supported.
+
+The catalog file's directory is its source scope. Nested component scopes win
+over broader scopes. Backstage sets `component` when it is otherwise empty and
+sets owners only when the asset has no explicit owner. A CLI `--boundary`
+classification runs later and may override the component label, but never the
+Backstage owner.
+
+Malformed catalogs and Components missing `metadata.name` or `spec.owner`
+produce diagnostics without hiding other inventory. Backstage-derived ownership
+adds high-confidence evidence pointing to the catalog owner field.
 
 ## CODEOWNERS selection
 
@@ -17,9 +34,8 @@ A matching pattern with no owners explicitly leaves the asset unowned.
 
 ## Evidence
 
-Inferred ownership adds evidence containing the CODEOWNERS path, line, pattern,
-and high confidence. `owned-by` graph relationships point to this evidence rather
-than the asset definition when ownership came from CODEOWNERS.
+Inferred ownership adds high-confidence evidence. `owned-by` graph relationships
+point to the Backstage or CODEOWNERS evidence rather than the asset definition.
 
 ## Supported pattern behavior
 

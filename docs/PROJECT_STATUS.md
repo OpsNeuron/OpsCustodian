@@ -40,6 +40,7 @@ inventory milestone.
 - gh-aw import-schema validation for required, unknown, type, and enum constraints.
 - Caller-first safe-output precedence and cross-import conflict diagnostics.
 - Deterministic network union with conservative blocked-wins conflict handling.
+- First-wins MCP server import precedence with secret-safe shape conflicts.
 - Typed assets for agents, workflows, MCP servers, skills, and instructions.
 - Evidence-backed relationship graph and relationship drift.
 - Canonical action, effect, resource, owner, reference, and scope normalization.

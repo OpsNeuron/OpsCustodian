@@ -72,6 +72,14 @@ destination is both allowed and blocked, `GHAW_IMPORT_NETWORK_CONFLICT` is
 emitted, blocked wins, and the conflicting `network.connect` capability is
 removed from the caller.
 
+Imported MCP servers use first-import-wins precedence. A later import with the
+same server name and a different sanitized configuration shape produces
+`GHAW_IMPORT_MCP_SERVER_CONFLICT` and is ignored. Imported definitions replace
+same-named caller definitions, matching gh-aw merge semantics. OpsCustodian
+records only mapping keys, sequence positions, and credential references for
+this comparison; command arguments, environment values, and secret values are
+never copied into the Agent BOM.
+
 ## Evidence policy
 
 Frontmatter is explicit configuration and receives high confidence. The Markdown

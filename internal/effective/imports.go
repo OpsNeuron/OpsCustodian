@@ -50,12 +50,16 @@ type importState struct {
 	networkAllowed      map[string]struct{}
 	networkBlocked      map[string]struct{}
 	networkConflicts    map[string]struct{}
+	importedMCPServers  map[string]mcpImport
 }
+
+type mcpImport struct{ owner, signature string }
 
 func newImportState(caller *model.Asset) *importState {
 	state := &importState{
 		mainSafeOutputs: map[string]struct{}{}, importedSafeOutputs: map[string]string{}, safeOutputNames: map[string]struct{}{},
 		networkAllowed: map[string]struct{}{}, networkBlocked: map[string]struct{}{}, networkConflicts: map[string]struct{}{},
+		importedMCPServers: map[string]mcpImport{},
 	}
 	for _, capability := range caller.Capabilities {
 		if isSafeOutput(capability) {
@@ -257,7 +261,7 @@ func validateImportedPermissions(caller, imported *model.Asset, diagnostics *[]m
 }
 
 func mergeImportable(caller, imported *model.Asset, state *importState, diagnostics *[]model.Diagnostic) {
-	caller.Tools = append(caller.Tools, imported.Tools...)
+	mergeTools(caller, imported, state, diagnostics)
 	caller.Credentials = append(caller.Credentials, imported.Credentials...)
 	collectNetworkControls(imported.Controls, state)
 	for _, capability := range imported.Capabilities {
@@ -282,6 +286,37 @@ func mergeImportable(caller, imported *model.Asset, state *importState, diagnost
 		caller.Capabilities = append(caller.Capabilities, capability)
 		copyEvidence(caller, imported, capability.EvidenceIDs)
 	}
+}
+
+func mergeTools(caller, imported *model.Asset, state *importState, diagnostics *[]model.Diagnostic) {
+	for _, tool := range imported.Tools {
+		if tool.Type != "mcp-server" {
+			caller.Tools = append(caller.Tools, tool)
+			continue
+		}
+		signature := parameterSignature(tool.Parameters)
+		if previous, exists := state.importedMCPServers[tool.Reference]; exists {
+			if previous.signature != signature {
+				message := fmt.Sprintf("MCP server %s has conflicting configuration shapes in imports %s and %s", tool.Reference, previous.owner, imported.Name)
+				*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_MCP_SERVER_CONFLICT", message))
+			}
+			continue
+		}
+		state.importedMCPServers[tool.Reference] = mcpImport{owner: imported.Name, signature: signature}
+		caller.Tools = withoutReference(caller.Tools, "mcp-server", tool.Reference)
+		caller.Tools = append(caller.Tools, tool)
+	}
+}
+
+func withoutReference(values []model.Reference, referenceType, reference string) []model.Reference {
+	result := values[:0]
+	for _, value := range values {
+		if value.Type == referenceType && value.Reference == reference {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
 }
 
 func isRepositoryPermission(capability model.Capability) bool {

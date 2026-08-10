@@ -16,6 +16,11 @@ tools:
   github:
     allowed:
       - issue_read
+mcp-servers:
+  shared-gateway:
+    command: gateway
+    env:
+      GATEWAY_TOKEN: ${{ secrets.GATEWAY_TOKEN }}
 network:
   allowed:
     - github

@@ -282,8 +282,39 @@ func mcpReferences(node *yaml.Node) []model.Reference {
 	}
 	var result []model.Reference
 	for index := 0; index+1 < len(node.Content); index += 2 {
-		result = append(result, model.Reference{Type: "mcp-server", Reference: node.Content[index].Value})
+		shape := configurationShape(node.Content[index+1], "")
+		result = append(result, model.Reference{
+			Type: "mcp-server", Reference: node.Content[index].Value,
+			Parameters: map[string]any{"configurationShape": shape},
+		})
 	}
+	return result
+}
+
+func configurationShape(node *yaml.Node, path string) []string {
+	if node == nil {
+		return nil
+	}
+	var result []string
+	switch node.Kind {
+	case yaml.MappingNode:
+		for index := 0; index+1 < len(node.Content); index += 2 {
+			key := node.Content[index].Value
+			next := key
+			if path != "" {
+				next = path + "." + key
+			}
+			result = append(result, next)
+			result = append(result, configurationShape(node.Content[index+1], next)...)
+		}
+	case yaml.SequenceNode:
+		for index, item := range node.Content {
+			next := fmt.Sprintf("%s[%d]", path, index)
+			result = append(result, next)
+			result = append(result, configurationShape(item, next)...)
+		}
+	}
+	sort.Strings(result)
 	return result
 }
 

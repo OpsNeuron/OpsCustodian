@@ -99,6 +99,8 @@ local imports while keeping validation-only GitHub permissions non-inheritable.
 Imported facts retain source evidence; unresolved imports remain graph edges.
 Composition order is explicit output data so precedence decisions can be
 explained without reproducing parser traversal internally.
+Configuration conflict fingerprints must be structurally useful without
+serializing secret values or sensitive command arguments into portable output.
 
 ### Evidence graph
 

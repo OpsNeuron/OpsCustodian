@@ -8,6 +8,10 @@ safe-outputs:
 network:
   allowed:
     - danger.example
+mcp-servers:
+  shared-gateway:
+    command: other-gateway
+    args: ["--extended"]
 ---
 
 Transitive import used to verify breadth-first effective composition.

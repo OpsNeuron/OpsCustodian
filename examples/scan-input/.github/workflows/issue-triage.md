@@ -11,6 +11,10 @@ imports:
     with:
       mode: write
   - shared/optional-observability.md?
+  - uses: shared/limits.md
+    with:
+      max-items: many
+      unexpected: true
 resources:
   - shared/helper-action.yml
 on:

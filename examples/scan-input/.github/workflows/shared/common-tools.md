@@ -1,5 +1,13 @@
 ---
 name: common-tools
+import-schema:
+  type: object
+  additionalProperties: false
+  required: [mode]
+  properties:
+    mode:
+      type: string
+      enum: [read-only]
 tools:
   bash:
     - gh issue view

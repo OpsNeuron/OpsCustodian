@@ -46,6 +46,7 @@ func compose(root, current *model.Asset, assets map[string]*model.Asset, active,
 			continue
 		}
 		signature := parameterSignature(dependency.Parameters)
+		validateImportParameters(root, imported, dependency.Parameters, diagnostics)
 		if previous, seen := arguments[imported.ID]; seen && previous != signature {
 			*diagnostics = append(*diagnostics, diagnostic(root, "GHAW_IMPORT_PARAMETER_CONFLICT", "import "+imported.Name+" is used more than once with different parameters"))
 			continue
@@ -65,6 +66,108 @@ func compose(root, current *model.Asset, assets map[string]*model.Asset, active,
 		delete(active, imported.ID)
 		processed[imported.ID] = struct{}{}
 	}
+}
+
+func validateImportParameters(caller, imported *model.Asset, parameters map[string]any, diagnostics *[]model.Diagnostic) {
+	schema := importSchema(imported)
+	if schema == nil {
+		return
+	}
+	properties, _ := schema["properties"].(map[string]any)
+	required := stringSet(schema["required"])
+	for name := range required {
+		if _, exists := parameters[name]; !exists {
+			*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_PARAMETER_REQUIRED", "import "+imported.Name+" requires parameter "+name))
+		}
+	}
+	additionalAllowed, specified := schema["additionalProperties"].(bool)
+	for name, value := range parameters {
+		property, declared := properties[name].(map[string]any)
+		if !declared {
+			if specified && !additionalAllowed {
+				*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_PARAMETER_UNKNOWN", "import "+imported.Name+" does not declare parameter "+name))
+			}
+			continue
+		}
+		expected, _ := property["type"].(string)
+		if expected != "" && !matchesJSONType(value, expected) {
+			*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_PARAMETER_TYPE", fmt.Sprintf("import %s parameter %s must be %s", imported.Name, name, expected)))
+			continue
+		}
+		if enum, exists := property["enum"].([]any); exists && !containsValue(enum, value) {
+			*diagnostics = append(*diagnostics, diagnostic(caller, "GHAW_IMPORT_PARAMETER_ENUM", "import "+imported.Name+" parameter "+name+" is outside its allowed values"))
+		}
+	}
+}
+
+func importSchema(asset *model.Asset) map[string]any {
+	for _, control := range asset.Controls {
+		if control.Type != "importSchema" {
+			continue
+		}
+		if value, ok := control.Value.(map[string]any); ok {
+			return value
+		}
+	}
+	return nil
+}
+
+func stringSet(value any) map[string]struct{} {
+	result := map[string]struct{}{}
+	if values, ok := value.([]any); ok {
+		for _, item := range values {
+			if text, ok := item.(string); ok {
+				result[text] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func matchesJSONType(value any, expected string) bool {
+	switch expected {
+	case "string":
+		_, ok := value.(string)
+		return ok
+	case "boolean":
+		_, ok := value.(bool)
+		return ok
+	case "number":
+		switch value.(type) {
+		case int, int64, float64:
+			return true
+		}
+		return false
+	case "integer":
+		switch number := value.(type) {
+		case int, int64:
+			return true
+		case float64:
+			return number == float64(int64(number))
+		}
+		return false
+	case "array":
+		_, ok := value.([]any)
+		return ok
+	case "object":
+		_, ok := value.(map[string]any)
+		return ok
+	case "null":
+		return value == nil
+	default:
+		return true
+	}
+}
+
+func containsValue(values []any, candidate any) bool {
+	candidateJSON, _ := json.Marshal(candidate)
+	for _, value := range values {
+		encoded, _ := json.Marshal(value)
+		if string(encoded) == string(candidateJSON) {
+			return true
+		}
+	}
+	return false
 }
 
 func parameterSignature(parameters map[string]any) string {

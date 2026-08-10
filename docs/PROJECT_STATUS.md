@@ -37,6 +37,7 @@ inventory milestone.
 - GitHub Agentic Workflows source parser.
 - GitHub Agentic Workflows imports, custom-agent dependencies, resources, and runtime-import discovery.
 - Conservative effective composition for resolved local gh-aw shared workflows, including permission and cycle diagnostics.
+- gh-aw import-schema validation for required, unknown, type, and enum constraints.
 - Typed assets for agents, workflows, MCP servers, skills, and instructions.
 - Evidence-backed relationship graph and relationship drift.
 - Canonical action, effect, resource, owner, reference, and scope normalization.
@@ -46,7 +47,7 @@ inventory milestone.
 Missing exit items:
 
 - Upstream-schema fixtures and parser compatibility matrix.
-- Complete GitHub Agentic Workflows field precedence, conflict handling, and parameter validation.
+- Complete GitHub Agentic Workflows field precedence and advanced JSON Schema constraints.
 - CODEOWNERS ownership correlation. *(initial matcher implemented, pending compatibility tests)*
 - Risk model based on scope, environment, effect, controls, and confidence. *(initial explainable model and escalation factors implemented, pending calibration)*
 

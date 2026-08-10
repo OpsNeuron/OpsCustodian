@@ -48,6 +48,13 @@ workflow produces `GHAW_IMPORT_UNRESOLVED`; an optional unresolved import does
 not. Reusing the same resolved workflow with different parameter values produces
 `GHAW_IMPORT_PARAMETER_CONFLICT`, matching the compiler's single-import rule.
 
+Discovered shared workflows also retain `import-schema` as a typed control. The
+composition pass validates required parameters, unknown parameters when
+`additionalProperties: false`, JSON-compatible types, and enum membership.
+Failures use the `GHAW_IMPORT_PARAMETER_REQUIRED`, `_UNKNOWN`, `_TYPE`, and
+`_ENUM` diagnostic codes and never prevent the remaining inventory from being
+produced.
+
 ## Evidence policy
 
 Frontmatter is explicit configuration and receives high confidence. The Markdown
@@ -65,8 +72,8 @@ is planned but not yet implemented.
 ## Current limitations
 
 - Field-level first-wins precedence and conflict reporting are not complete.
-- Existing-file checks for runtime imports, section selection, and parameter
-  schema/type validation are not evaluated yet.
+- Existing-file checks for runtime imports, section selection, schema defaults,
+  unions, nested object constraints, and string/number bounds are not evaluated yet.
 - Tool-specific nested restrictions are not fully normalized.
 - Effective defaults may change with the `gh-aw` version and are not version-pinned yet.
 - Compilation has not been invoked as part of scanning.

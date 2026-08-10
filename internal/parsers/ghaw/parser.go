@@ -58,6 +58,13 @@ func (Parser) Parse(_ context.Context, artifact discovery.Artifact) ([]model.Age
 	if engine := scalar(mappingValue(frontmatter, "engine")); engine != "" {
 		asset.Controls = append(asset.Controls, model.Control{Type: "engine", Value: engine})
 	}
+	if schemaNode := mappingValue(frontmatter, "import-schema"); schemaNode != nil {
+		var schema any
+		if err := schemaNode.Decode(&schema); err != nil {
+			return nil, fmt.Errorf("decode import-schema in %s: %w", artifact.RelPath, err)
+		}
+		asset.Controls = append(asset.Controls, model.Control{Type: "importSchema", Value: schema})
+	}
 	asset.Capabilities = append(asset.Capabilities, permissionCapabilities(mappingValue(frontmatter, "permissions"), evidenceID)...)
 	safeOutputs := mappingValue(frontmatter, "safe-outputs")
 	asset.Capabilities = append(asset.Capabilities, safeOutputCapabilities(safeOutputs, evidenceID)...)

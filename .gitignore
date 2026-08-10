@@ -9,8 +9,14 @@ coverage.out
 *.prof
 
 # Local OpsCustodian output
-agentbom.json
-agentbom.yaml
+/agentbom*.json
+/agentbom*.yaml
+/agentbom*.yml
+/opscustodian*.html
+/opscustodian*.json
+/drift*.json
+/*.sarif
+/reports/
 .opscustodian-cache/
 .opscustodian/current.*
 

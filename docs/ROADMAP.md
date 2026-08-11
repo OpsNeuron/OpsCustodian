@@ -72,6 +72,8 @@ a representative repository without manually assembling an inventory.
 - Kubernetes RBAC privilege-escalation analysis. *(wildcard and special-verb detection implemented, pending validation)*
 - Projected ServiceAccount token analysis. *(mounted audience and expiration analysis implemented, pending validation)*
 - Declared-versus-effective Kubernetes access. *(structured inherited-access summaries implemented, pending validation)*
+- Provider-neutral effective access paths. *(Kubernetes RBAC path producer and validation contract implemented, pending validation)*
+- Local effective-access path explorer. *(self-contained HTML rendering and filters implemented, pending browser validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

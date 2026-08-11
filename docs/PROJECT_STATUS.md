@@ -68,6 +68,8 @@ Missing exit items:
 - Explicit Kubernetes RBAC wildcard, bind, escalate, and impersonate detection.
 - Mounted projected ServiceAccount token audience and expiration analysis.
 - Structured Kubernetes declared-versus-effective access summaries and dangerous expansion diagnostics.
+- Provider-neutral, stable, evidence-backed effective access paths generated from Kubernetes RBAC.
+- Self-contained HTML access-path explorer with local origin, effect, and escalation filters.
 
 ## Remaining path to 1.0
 

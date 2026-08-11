@@ -83,6 +83,9 @@ func Scan(ctx context.Context, opts ScanOptions) error {
 }
 
 func Diff(opts DiffOptions) error {
+	if opts.FailOn != "" && severityRank(opts.FailOn) == 0 {
+		return fmt.Errorf("unsupported fail-on severity %q; expected info, low, medium, high, or critical", opts.FailOn)
+	}
 	before, err := readBOM(opts.Before)
 	if err != nil {
 		return fmt.Errorf("read baseline: %w", err)

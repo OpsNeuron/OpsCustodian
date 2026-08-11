@@ -81,6 +81,7 @@ Missing exit items:
 - Explainable risk-model calibration tests for effects, scope, environment, tokens, confidence, mitigations, drift, and graph changes.
 - Semantic-drift regression tests for escalation classification, evidence provenance, stable finding IDs, determinism, and asset/capability/relationship lifecycle changes.
 - Policy-contract tests for deterministic finding normalization, strict decision validation, bounded process output, and OPA response decoding without an external runtime dependency.
+- CI exit-contract tests for severity thresholds, fail-fast option validation, report persistence on policy exits, and wrapped exit causes.
 
 ## Remaining path to 1.0
 

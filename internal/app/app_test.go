@@ -1,0 +1,106 @@
+package app
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/opscustodian/opscustodian/internal/drift"
+	"github.com/opscustodian/opscustodian/internal/model"
+)
+
+func TestDiffFailOnExitContractAndReportPersistence(t *testing.T) {
+	tempDir := t.TempDir()
+	beforePath := filepath.Join(tempDir, "before.json")
+	afterPath := filepath.Join(tempDir, "after.json")
+	reportPath := filepath.Join(tempDir, "drift.json")
+
+	asset := model.Asset{
+		ID: "agent:reviewer", Type: "agent", Name: "reviewer",
+		Source: model.Source{Path: ".github/agents/reviewer.md"},
+		Evidence: []model.Evidence{{
+			ID: "agent-definition", Path: ".github/agents/reviewer.md", Line: 1,
+			Parser: "test", Confidence: "high",
+		}},
+	}
+	before := testBOM("baseline", []model.Asset{asset})
+	asset.Capabilities = []model.Capability{{
+		Action: "github.issues.read", Resource: "github:acme/platform/issues", Effect: "read",
+		EvidenceIDs: []string{"agent-definition"},
+	}}
+	after := testBOM("proposed", []model.Asset{asset})
+	writeTestBOM(t, beforePath, before)
+	writeTestBOM(t, afterPath, after)
+
+	if err := Diff(DiffOptions{
+		Before: beforePath, After: afterPath, Format: "json", Output: reportPath, FailOn: "high",
+	}); err != nil {
+		t.Fatalf("low-risk drift should not reach high threshold: %v", err)
+	}
+
+	err := Diff(DiffOptions{
+		Before: beforePath, After: afterPath, Format: "json", Output: reportPath, FailOn: "LOW",
+	})
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 2 {
+		t.Fatalf("Diff() error = %#v, want ExitError code 2", err)
+	}
+	if !strings.Contains(exitErr.Error(), "semantic drift reached LOW threshold") {
+		t.Fatalf("unexpected threshold error: %v", exitErr)
+	}
+
+	content, readErr := os.ReadFile(reportPath)
+	if readErr != nil {
+		t.Fatalf("policy exit must preserve the generated report: %v", readErr)
+	}
+	var report drift.Report
+	if err := json.Unmarshal(content, &report); err != nil {
+		t.Fatalf("generated report is not valid JSON: %v", err)
+	}
+	if len(report.Changes) != 1 || report.Changes[0].Type != "capability-added" {
+		t.Fatalf("unexpected generated report: %#v", report)
+	}
+}
+
+func TestDiffRejectsUnknownFailOnSeverityBeforeIO(t *testing.T) {
+	err := Diff(DiffOptions{Before: "missing-before.json", After: "missing-after.json", FailOn: "urgent"})
+	if err == nil || !strings.Contains(err.Error(), `unsupported fail-on severity "urgent"`) {
+		t.Fatalf("Diff() error = %v, want unsupported severity", err)
+	}
+	if strings.Contains(err.Error(), "read baseline") {
+		t.Fatalf("fail-on validation should happen before filesystem access: %v", err)
+	}
+}
+
+func TestExitErrorPreservesCause(t *testing.T) {
+	cause := errors.New("policy denied")
+	err := &ExitError{Code: 2, Err: cause}
+	if err.Error() != cause.Error() || !errors.Is(err, cause) {
+		t.Fatalf("ExitError does not preserve its cause: %#v", err)
+	}
+}
+
+func testBOM(revision string, assets []model.Asset) model.AgentBOM {
+	return model.AgentBOM{
+		APIVersion: model.APIVersion,
+		Kind:       model.Kind,
+		Metadata: model.DocumentMetadata{
+			Source: "github:acme/platform", Revision: revision,
+		},
+		Assets: assets,
+	}
+}
+
+func writeTestBOM(t *testing.T, path string, bom model.AgentBOM) {
+	t.Helper()
+	content, err := json.Marshal(bom)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+}

@@ -76,6 +76,7 @@ Missing exit items:
 - Effective-access unit test foundation for RBAC scope, access paths, token precedence, aggregation, and cycles.
 - Kubernetes parser unit tests for stable evidence, token projection, exact RBAC rules, aggregation selectors, and malformed documents.
 - Agent BOM access-path validation and capability-normalization regression tests.
+- HTML reporter security and regression tests for escaping, local filters, encoding, and escalation classification.
 
 ## Remaining path to 1.0
 

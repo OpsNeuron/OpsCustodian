@@ -120,3 +120,54 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: namespace-support
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-observe-pods
+  labels:
+    opscustodian.dev/aggregate-to-agent-observer: "true"
+    opscustodian.dev/access-tier: reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-observe-jobs
+  labels:
+    opscustodian.dev/aggregate-to-agent-observer: "true"
+    opscustodian.dev/access-tier: reader
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-observer
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        opscustodian.dev/aggregate-to-agent-observer: "true"
+    - matchExpressions:
+        - key: opscustodian.dev/access-tier
+          operator: In
+          values: ["reader"]
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: agent-observer-binding
+subjects:
+  - kind: ServiceAccount
+    name: ops-agent
+    namespace: production
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: agent-observer

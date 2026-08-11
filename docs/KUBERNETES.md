@@ -33,6 +33,17 @@ Binding-specialized capabilities discard their declared-role scope and infer a
 new effective scope after composition. This keeps asset capabilities and access
 paths consistent and allows identical grants to merge while retaining evidence.
 
+Aggregated ClusterRoles are composed offline from discovered labels and
+`aggregationRule.clusterRoleSelectors`. `matchLabels` and the `In`, `NotIn`,
+`Exists`, and `DoesNotExist` expression operators are supported. Composition
+runs to a fixed point so aggregated roles may select other aggregated roles.
+Capabilities and evidence from every matched role flow through bindings into
+identities, workloads, and access paths. Unmatched selectors emit
+`KUBERNETES_AGGREGATION_SELECTOR_UNMATCHED`.
+Aggregated resource capabilities are rebased to the aggregate ClusterRole
+before binding specialization, while cluster non-resource URLs retain their
+global resource identity.
+
 ## Effective grants
 
 Resolved bindings copy Role/ClusterRole capabilities onto each referenced

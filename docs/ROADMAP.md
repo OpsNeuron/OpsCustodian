@@ -75,6 +75,7 @@ a representative repository without manually assembling an inventory.
 - Provider-neutral effective access paths. *(Kubernetes RBAC path producer and validation contract implemented, pending validation)*
 - Local effective-access path explorer. *(self-contained HTML rendering and filters implemented, pending browser validation)*
 - Binding-aware Kubernetes RBAC scope. *(resource names and non-resource URL semantics implemented, pending validation)*
+- Aggregated Kubernetes ClusterRoles. *(selector matching and fixed-point composition implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

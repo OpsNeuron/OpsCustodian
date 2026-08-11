@@ -78,6 +78,15 @@ func roleAsset(root *yaml.Node, sourcePath, kind, namespace, name string, eviden
 		ID: "kubernetes:role:" + qualified, Type: "authorization-role", Name: qualified,
 		Source: model.Source{Path: sourcePath}, Evidence: []model.Evidence{evidence},
 	}
+	metadata := mapping(root, "metadata")
+	if labels := stringMap(mapping(metadata, "labels")); len(labels) > 0 {
+		asset.Controls = append(asset.Controls, model.Control{Type: "kubernetesLabels", Value: labels})
+	}
+	if kind == "ClusterRole" {
+		if selectors := aggregationSelectors(mapping(root, "aggregationRule")); len(selectors) > 0 {
+			asset.Controls = append(asset.Controls, model.Control{Type: "kubernetesAggregationRule", Value: selectors})
+		}
+	}
 	rules := mapping(root, "rules")
 	if rules != nil && rules.Kind == yaml.SequenceNode {
 		for _, rule := range rules.Content {
@@ -114,6 +123,57 @@ func roleAsset(root *yaml.Node, sourcePath, kind, namespace, name string, eviden
 		}
 	}
 	return asset
+}
+
+func stringMap(node *yaml.Node) map[string]string {
+	result := map[string]string{}
+	if node == nil || node.Kind != yaml.MappingNode {
+		return result
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		key, value := scalar(node.Content[index]), scalar(node.Content[index+1])
+		if key != "" {
+			result[key] = value
+		}
+	}
+	return result
+}
+
+func aggregationSelectors(rule *yaml.Node) []map[string]any {
+	selectors := mapping(rule, "clusterRoleSelectors")
+	if selectors == nil || selectors.Kind != yaml.SequenceNode {
+		return nil
+	}
+	result := make([]map[string]any, 0, len(selectors.Content))
+	for _, selector := range selectors.Content {
+		if selector.Kind != yaml.MappingNode {
+			continue
+		}
+		value := map[string]any{}
+		if labels := stringMap(mapping(selector, "matchLabels")); len(labels) > 0 {
+			value["matchLabels"] = labels
+		}
+		var expressions []map[string]any
+		expressionNodes := mapping(selector, "matchExpressions")
+		if expressionNodes != nil && expressionNodes.Kind == yaml.SequenceNode {
+			for _, expression := range expressionNodes.Content {
+				key, operator := scalar(mapping(expression, "key")), scalar(mapping(expression, "operator"))
+				if key == "" || operator == "" {
+					continue
+				}
+				expressions = append(expressions, map[string]any{
+					"key": key, "operator": operator, "values": scalarList(mapping(expression, "values"), ""),
+				})
+			}
+		}
+		if len(expressions) > 0 {
+			value["matchExpressions"] = expressions
+		}
+		// An empty Kubernetes LabelSelector intentionally matches every label
+		// set, so retain an empty mapping rather than silently dropping it.
+		result = append(result, value)
+	}
+	return result
 }
 
 func bindingAsset(root *yaml.Node, sourcePath, kind, namespace, name string, evidence model.Evidence) model.Asset {

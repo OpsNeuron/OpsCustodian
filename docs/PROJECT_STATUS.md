@@ -71,6 +71,7 @@ Missing exit items:
 - Provider-neutral, stable, evidence-backed effective access paths generated from Kubernetes RBAC.
 - Self-contained HTML access-path explorer with local origin, effect, and escalation filters.
 - Object-level RBAC resource names, non-resource URLs, and binding-aware effective scope.
+- Fixed-point Kubernetes aggregated ClusterRole composition with selector and evidence propagation.
 
 ## Remaining path to 1.0
 

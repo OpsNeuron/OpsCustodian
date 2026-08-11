@@ -26,12 +26,15 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 		switch asset.Type {
 		case "authorization-role":
 			roles[asset.Name] = asset
-			if signals := rbacEscalationSignals(asset.Capabilities); len(signals) > 0 {
-				asset.Controls = append(asset.Controls, model.Control{Type: "rbacPrivilegeEscalation", Value: map[string]any{"signals": signals}})
-				bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(asset, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION", "role grants privilege-escalation capabilities: "+strings.Join(signals, ", ")))
-			}
 		case "identity":
 			identities[asset.Name] = asset
+		}
+	}
+	composeAggregatedClusterRoles(bom, roles)
+	for _, role := range roles {
+		if signals := rbacEscalationSignals(role.Capabilities); len(signals) > 0 {
+			role.Controls = append(role.Controls, model.Control{Type: "rbacPrivilegeEscalation", Value: map[string]any{"signals": signals}})
+			bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(role, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION", "role grants privilege-escalation capabilities: "+strings.Join(signals, ", ")))
 		}
 	}
 	grants := map[string][]effectiveGrant{}
@@ -101,6 +104,158 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 	sort.Slice(bom.Diagnostics, func(i, j int) bool {
 		return bom.Diagnostics[i].Path+bom.Diagnostics[i].Code+bom.Diagnostics[i].Message < bom.Diagnostics[j].Path+bom.Diagnostics[j].Code+bom.Diagnostics[j].Message
 	})
+}
+
+func composeAggregatedClusterRoles(bom *model.AgentBOM, roles map[string]*model.Asset) {
+	matchedByRole := map[string][]*model.Asset{}
+	for _, aggregate := range roles {
+		selectors := aggregationRuleOf(aggregate.Controls)
+		if len(selectors) == 0 {
+			continue
+		}
+		for _, candidate := range roles {
+			if candidate.ID == aggregate.ID || !strings.HasPrefix(candidate.Name, "cluster/") {
+				continue
+			}
+			labels := kubernetesLabelsOf(candidate.Controls)
+			if matchesAnySelector(labels, selectors) {
+				matchedByRole[aggregate.Name] = append(matchedByRole[aggregate.Name], candidate)
+			}
+		}
+		if len(matchedByRole[aggregate.Name]) == 0 {
+			bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(aggregate, "KUBERNETES_AGGREGATION_SELECTOR_UNMATCHED", "ClusterRole aggregation selectors matched no discovered ClusterRoles"))
+		}
+	}
+	for aggregateName := range matchedByRole {
+		sort.Slice(matchedByRole[aggregateName], func(i, j int) bool {
+			return matchedByRole[aggregateName][i].ID < matchedByRole[aggregateName][j].ID
+		})
+	}
+	for iteration := 0; iteration < len(roles); iteration++ {
+		changed := false
+		for aggregateName, matched := range matchedByRole {
+			aggregate := roles[aggregateName]
+			for _, source := range matched {
+				copyUniqueEvidence(aggregate, source.Evidence)
+				for _, capability := range source.Capabilities {
+					capability = rebaseAggregatedCapability(capability, source.Name, aggregate.Name)
+					if mergeCapability(aggregate, capability) {
+						changed = true
+					}
+				}
+			}
+		}
+		if !changed {
+			break
+		}
+	}
+	for aggregateName, matched := range matchedByRole {
+		names := make([]string, 0, len(matched))
+		for _, role := range matched {
+			names = append(names, role.Name)
+		}
+		sort.Strings(names)
+		roles[aggregateName].Controls = append(roles[aggregateName].Controls, model.Control{Type: "effectiveClusterRoleAggregation", Value: map[string]any{"matchedRoles": names}})
+	}
+}
+
+func rebaseAggregatedCapability(capability model.Capability, sourceRole, aggregateRole string) model.Capability {
+	if strings.HasPrefix(capability.Action, "kubernetes.non_resource_url.") {
+		return capability
+	}
+	sourcePrefix := "kubernetes:" + sourceRole + "/"
+	if strings.HasPrefix(capability.Resource, sourcePrefix) {
+		capability.Resource = "kubernetes:" + aggregateRole + "/" + strings.TrimPrefix(capability.Resource, sourcePrefix)
+		capability.Scope = nil
+	}
+	return capability
+}
+
+func mergeCapability(asset *model.Asset, candidate model.Capability) bool {
+	key := capabilityIdentity(candidate)
+	for index := range asset.Capabilities {
+		if capabilityIdentity(asset.Capabilities[index]) != key {
+			continue
+		}
+		asset.Capabilities[index].EvidenceIDs = uniqueSorted(append(asset.Capabilities[index].EvidenceIDs, candidate.EvidenceIDs...))
+		return false
+	}
+	asset.Capabilities = append(asset.Capabilities, candidate)
+	return true
+}
+
+func aggregationRuleOf(controls []model.Control) []map[string]any {
+	for _, control := range controls {
+		if control.Type == "kubernetesAggregationRule" {
+			if value, ok := control.Value.([]map[string]any); ok {
+				return value
+			}
+		}
+	}
+	return nil
+}
+
+func kubernetesLabelsOf(controls []model.Control) map[string]string {
+	for _, control := range controls {
+		if control.Type == "kubernetesLabels" {
+			if value, ok := control.Value.(map[string]string); ok {
+				return value
+			}
+		}
+	}
+	return nil
+}
+
+func matchesAnySelector(labels map[string]string, selectors []map[string]any) bool {
+	for _, selector := range selectors {
+		if matchesSelector(labels, selector) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesSelector(labels map[string]string, selector map[string]any) bool {
+	if required, ok := selector["matchLabels"].(map[string]string); ok {
+		for key, value := range required {
+			if labels[key] != value {
+				return false
+			}
+		}
+	}
+	if expressions, ok := selector["matchExpressions"].([]map[string]any); ok {
+		for _, expression := range expressions {
+			key, _ := expression["key"].(string)
+			operator, _ := expression["operator"].(string)
+			values, _ := expression["values"].([]string)
+			labelValue, exists := labels[key]
+			contains := false
+			for _, value := range values {
+				contains = contains || value == labelValue
+			}
+			switch operator {
+			case "In":
+				if !exists || !contains {
+					return false
+				}
+			case "NotIn":
+				if exists && contains {
+					return false
+				}
+			case "Exists":
+				if !exists {
+					return false
+				}
+			case "DoesNotExist":
+				if exists {
+					return false
+				}
+			default:
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func appendGrantPaths(paths map[string]model.AccessPath, origin, principal string, grant effectiveGrant) {

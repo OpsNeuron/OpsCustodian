@@ -73,6 +73,7 @@ Missing exit items:
 - Object-level RBAC resource names, non-resource URLs, and binding-aware effective scope.
 - Fixed-point Kubernetes aggregated ClusterRole composition with selector and evidence propagation.
 - Bounded, deterministic Aggregated ClusterRole cycle-path diagnostics.
+- Effective-access unit test foundation for RBAC scope, access paths, token precedence, aggregation, and cycles.
 
 ## Remaining path to 1.0
 

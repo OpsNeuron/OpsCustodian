@@ -77,6 +77,7 @@ a representative repository without manually assembling an inventory.
 - Binding-aware Kubernetes RBAC scope. *(resource names and non-resource URL semantics implemented, pending validation)*
 - Aggregated Kubernetes ClusterRoles. *(selector matching and fixed-point composition implemented, pending validation)*
 - Aggregated ClusterRole cycle analysis. *(canonical bounded cycle paths implemented, pending validation)*
+- Effective-access unit tests. *(initial Kubernetes RBAC, token, aggregation, and cycle coverage implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

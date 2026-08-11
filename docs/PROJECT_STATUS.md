@@ -77,6 +77,7 @@ Missing exit items:
 - Kubernetes parser unit tests for stable evidence, token projection, exact RBAC rules, aggregation selectors, and malformed documents.
 - Agent BOM access-path validation and capability-normalization regression tests.
 - HTML reporter security and regression tests for escaping, local filters, encoding, and escalation classification.
+- End-to-end scanner test covering discovery, ownership, boundaries, parsing, effective access, correlation, validation, and determinism.
 
 ## Remaining path to 1.0
 

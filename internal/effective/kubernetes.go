@@ -131,6 +131,7 @@ func composeAggregatedClusterRoles(bom *model.AgentBOM, roles map[string]*model.
 			return matchedByRole[aggregateName][i].ID < matchedByRole[aggregateName][j].ID
 		})
 	}
+	reportAggregationCycles(bom, roles, matchedByRole)
 	for iteration := 0; iteration < len(roles); iteration++ {
 		changed := false
 		for aggregateName, matched := range matchedByRole {
@@ -157,6 +158,77 @@ func composeAggregatedClusterRoles(bom *model.AgentBOM, roles map[string]*model.
 		sort.Strings(names)
 		roles[aggregateName].Controls = append(roles[aggregateName].Controls, model.Control{Type: "effectiveClusterRoleAggregation", Value: map[string]any{"matchedRoles": names}})
 	}
+}
+
+const maxAggregationCycles = 100
+
+func reportAggregationCycles(bom *model.AgentBOM, roles map[string]*model.Asset, graph map[string][]*model.Asset) {
+	nodes := make([]string, 0, len(graph))
+	for node := range graph {
+		nodes = append(nodes, node)
+	}
+	sort.Strings(nodes)
+	cycles := map[string][]string{}
+	for _, start := range nodes {
+		visited := map[string]bool{start: true}
+		findAggregationCycles(start, start, graph, visited, []string{start}, cycles)
+		if len(cycles) > maxAggregationCycles {
+			break
+		}
+	}
+	keys := make([]string, 0, len(cycles))
+	for key := range cycles {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	if len(keys) > maxAggregationCycles {
+		keys = keys[:maxAggregationCycles]
+	}
+	for _, key := range keys {
+		cycle := cycles[key]
+		role := roles[cycle[0]]
+		closed := append(append([]string(nil), cycle...), cycle[0])
+		role.Controls = append(role.Controls, model.Control{Type: "kubernetesAggregationCycle", Value: map[string]any{"roles": closed}})
+		bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(role, "KUBERNETES_AGGREGATION_CYCLE", "aggregated ClusterRole cycle detected: "+strings.Join(closed, " -> ")))
+	}
+	if len(cycles) > maxAggregationCycles && len(nodes) > 0 {
+		bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(roles[nodes[0]], "KUBERNETES_AGGREGATION_CYCLE_LIMIT", fmt.Sprintf("aggregation cycle reporting stopped at the safety limit of %d cycles", maxAggregationCycles)))
+	}
+}
+
+func findAggregationCycles(start, current string, graph map[string][]*model.Asset, visited map[string]bool, path []string, cycles map[string][]string) {
+	if len(cycles) > maxAggregationCycles {
+		return
+	}
+	for _, candidate := range graph[current] {
+		next := candidate.Name
+		if _, isAggregate := graph[next]; !isAggregate {
+			continue
+		}
+		if next == start && len(path) > 1 {
+			canonical := canonicalAggregationCycle(path)
+			cycles[strings.Join(canonical, "\x00")] = canonical
+			continue
+		}
+		if visited[next] || len(path) >= len(graph) {
+			continue
+		}
+		visited[next] = true
+		findAggregationCycles(start, next, graph, visited, append(path, next), cycles)
+		delete(visited, next)
+	}
+}
+
+func canonicalAggregationCycle(cycle []string) []string {
+	best := append([]string(nil), cycle...)
+	bestKey := strings.Join(best, "\x00")
+	for index := 1; index < len(cycle); index++ {
+		rotated := append(append([]string(nil), cycle[index:]...), cycle[:index]...)
+		if key := strings.Join(rotated, "\x00"); key < bestKey {
+			best, bestKey = rotated, key
+		}
+	}
+	return best
 }
 
 func rebaseAggregatedCapability(capability model.Capability, sourceRole, aggregateRole string) model.Capability {

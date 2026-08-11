@@ -171,3 +171,27 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: agent-observer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-cycle-a
+  labels:
+    opscustodian.dev/cycle-member: a
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        opscustodian.dev/cycle-member: b
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: agent-cycle-b
+  labels:
+    opscustodian.dev/cycle-member: b
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        opscustodian.dev/cycle-member: a
+rules: []

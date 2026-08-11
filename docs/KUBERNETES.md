@@ -44,6 +44,13 @@ Aggregated resource capabilities are rebased to the aggregate ClusterRole
 before binding specialization, while cluster non-resource URLs retain their
 global resource identity.
 
+Cycles between aggregated ClusterRoles are reported with a canonical closed
+path in `KUBERNETES_AGGREGATION_CYCLE` and a matching
+`kubernetesAggregationCycle` control. Simple-cycle enumeration is deterministic
+and capped at 100 results; reaching the bound emits
+`KUBERNETES_AGGREGATION_CYCLE_LIMIT` so adversarial manifests cannot cause
+unbounded analysis.
+
 ## Effective grants
 
 Resolved bindings copy Role/ClusterRole capabilities onto each referenced

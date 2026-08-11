@@ -80,12 +80,16 @@ func EvaluateOPA(ctx context.Context, input Input, opts OPAOptions) (Decision, e
 		return Decision{}, fmt.Errorf("OPA output exceeded %d bytes", opts.MaxOutput)
 	}
 
+	return decodeOPAResponse(stdout.Bytes(), opts.Query)
+}
+
+func decodeOPAResponse(content []byte, query string) (Decision, error) {
 	var response opaResponse
-	if err := json.Unmarshal(stdout.Bytes(), &response); err != nil {
+	if err := json.Unmarshal(content, &response); err != nil {
 		return Decision{}, fmt.Errorf("decode OPA response: %w", err)
 	}
 	if len(response.Result) == 0 || len(response.Result[0].Expressions) == 0 {
-		return Decision{}, fmt.Errorf("OPA query %q returned no decision", opts.Query)
+		return Decision{}, fmt.Errorf("OPA query %q returned no decision", query)
 	}
 	var decision Decision
 	if err := json.Unmarshal(response.Result[0].Expressions[0].Value, &decision); err != nil {

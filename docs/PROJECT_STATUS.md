@@ -78,6 +78,9 @@ Missing exit items:
 - Agent BOM access-path validation and capability-normalization regression tests.
 - HTML reporter security and regression tests for escaping, local filters, encoding, and escalation classification.
 - End-to-end scanner test covering discovery, ownership, boundaries, parsing, effective access, correlation, validation, and determinism.
+- Explainable risk-model calibration tests for effects, scope, environment, tokens, confidence, mitigations, drift, and graph changes.
+- Semantic-drift regression tests for escalation classification, evidence provenance, stable finding IDs, determinism, and asset/capability/relationship lifecycle changes.
+- Policy-contract tests for deterministic finding normalization, strict decision validation, bounded process output, and OPA response decoding without an external runtime dependency.
 
 ## Remaining path to 1.0
 

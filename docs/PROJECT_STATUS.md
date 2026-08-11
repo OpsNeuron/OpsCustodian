@@ -75,6 +75,7 @@ Missing exit items:
 - Bounded, deterministic Aggregated ClusterRole cycle-path diagnostics.
 - Effective-access unit test foundation for RBAC scope, access paths, token precedence, aggregation, and cycles.
 - Kubernetes parser unit tests for stable evidence, token projection, exact RBAC rules, aggregation selectors, and malformed documents.
+- Agent BOM access-path validation and capability-normalization regression tests.
 
 ## Remaining path to 1.0
 

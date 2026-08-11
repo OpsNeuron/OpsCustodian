@@ -145,6 +145,9 @@ func Validate(bom model.AgentBOM) []Issue {
 		if _, exists := agentIDs[accessPath.Origin]; !exists {
 			issues = append(issues, issue(base+".origin", "unknown-origin-asset", "access path origin must reference an asset in this BOM"))
 		}
+		if len(accessPath.Steps) < 2 {
+			issues = append(issues, issue(base+".steps", "incomplete-access-path", "access path must contain at least an origin and one authorization step"))
+		}
 		if len(accessPath.Steps) == 0 || accessPath.Steps[0].Kind != "origin" || accessPath.Steps[0].AssetID != accessPath.Origin {
 			issues = append(issues, issue(base+".steps", "invalid-origin-step", "access path must begin with its origin asset"))
 		}
@@ -170,6 +173,11 @@ func Validate(bom model.AgentBOM) []Issue {
 		for _, evidenceID := range accessPath.EvidenceIDs {
 			if _, exists := pathEvidence[evidenceID]; !exists {
 				issues = append(issues, issue(base+".evidenceIds", "unknown-evidence", "access path evidence must belong to one of its step assets"))
+			}
+		}
+		for _, evidenceID := range accessPath.Capability.EvidenceIDs {
+			if _, exists := pathEvidence[evidenceID]; !exists {
+				issues = append(issues, issue(base+".capability.evidenceIds", "unknown-evidence", "access path capability evidence must belong to one of its step assets"))
 			}
 		}
 	}

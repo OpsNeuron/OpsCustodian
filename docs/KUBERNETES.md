@@ -65,6 +65,19 @@ Ordinary inheritance remains inventory data. An expansion only emits
 scope, or a privilege-escalation signal. This keeps large organization scans
 policy-addressable without producing a diagnostic for every normal read grant.
 
+## Effective access paths
+
+Every resolved RBAC capability also produces a stable, evidence-backed entry in
+the top-level `accessPaths` collection. Paths use provider-neutral step kinds:
+`origin`, `principal`, `grant`, and `entitlement`. A workload path therefore
+connects the workload to its ServiceAccount, binding, role, and final
+capability; an identity path begins directly at the ServiceAccount.
+
+Path IDs are deterministic hashes of the origin, grant chain, and canonical
+capability. This contract is designed for policy queries, graph rendering,
+incident investigation, and future GitHub or cloud IAM providers without
+embedding Kubernetes-specific fields in the core Agent BOM model.
+
 ## ServiceAccount token exposure
 
 `automountServiceAccountToken` is captured on ServiceAccount and workload

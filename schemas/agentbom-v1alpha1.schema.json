@@ -18,6 +18,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/relationship" }
     },
+    "accessPaths": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/accessPath" }
+    },
     "diagnostics": {
       "type": "array",
       "items": { "$ref": "#/$defs/diagnostic" }
@@ -122,6 +126,32 @@
         "targetType": { "enum": ["asset", "asset-reference", "tool", "credential", "owner"] },
         "confidence": { "enum": ["low", "medium", "high"] },
         "evidenceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "accessPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "origin", "steps", "capability", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "origin": { "type": "string", "minLength": 1 },
+        "steps": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/accessPathStep" }
+        },
+        "capability": { "$ref": "#/$defs/capability" },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "evidenceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "accessPathStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "assetId"],
+      "properties": {
+        "kind": { "enum": ["origin", "principal", "grant", "entitlement"] },
+        "assetId": { "type": "string", "minLength": 1 }
       }
     },
     "credentialReference": {

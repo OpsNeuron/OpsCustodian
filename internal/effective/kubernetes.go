@@ -1,6 +1,7 @@
 package effective
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,9 +10,9 @@ import (
 )
 
 type effectiveGrant struct {
-	Role, Binding string
-	Capabilities  []model.Capability
-	Evidence      []model.Evidence
+	Role, RoleID, Binding, BindingID string
+	Capabilities                     []model.Capability
+	Evidence                         []model.Evidence
 }
 
 func ComposeKubernetesRBAC(bom *model.AgentBOM) {
@@ -34,6 +35,10 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 		}
 	}
 	grants := map[string][]effectiveGrant{}
+	paths := map[string]model.AccessPath{}
+	for _, path := range bom.AccessPaths {
+		paths[path.ID] = path
+	}
 	for index := range bom.Assets {
 		binding := &bom.Assets[index]
 		if binding.Type != "authorization-binding" {
@@ -54,6 +59,7 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 			grant := buildGrant(role, binding)
 			applyGrant(identity, grant)
 			grants[identity.Name] = append(grants[identity.Name], grant)
+			appendGrantPaths(paths, identity.ID, "", grant)
 		}
 	}
 	for index := range bom.Assets {
@@ -70,9 +76,15 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 			applyEffectiveServiceAccountToken(workload, identity)
 			for _, grant := range grants[identity.Name] {
 				applyGrant(workload, grant)
+				appendGrantPaths(paths, workload.ID, identity.ID, grant)
 			}
 		}
 	}
+	bom.AccessPaths = make([]model.AccessPath, 0, len(paths))
+	for _, path := range paths {
+		bom.AccessPaths = append(bom.AccessPaths, path)
+	}
+	sort.Slice(bom.AccessPaths, func(i, j int) bool { return bom.AccessPaths[i].ID < bom.AccessPaths[j].ID })
 	for index := range bom.Assets {
 		asset := &bom.Assets[index]
 		baseline, exists := declared[asset.ID]
@@ -83,6 +95,26 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 	sort.Slice(bom.Diagnostics, func(i, j int) bool {
 		return bom.Diagnostics[i].Path+bom.Diagnostics[i].Code+bom.Diagnostics[i].Message < bom.Diagnostics[j].Path+bom.Diagnostics[j].Code+bom.Diagnostics[j].Message
 	})
+}
+
+func appendGrantPaths(paths map[string]model.AccessPath, origin, principal string, grant effectiveGrant) {
+	for _, capability := range grant.Capabilities {
+		steps := []model.AccessPathStep{{Kind: "origin", AssetID: origin}}
+		if principal != "" && principal != origin {
+			steps = append(steps, model.AccessPathStep{Kind: "principal", AssetID: principal})
+		}
+		steps = append(steps,
+			model.AccessPathStep{Kind: "grant", AssetID: grant.BindingID},
+			model.AccessPathStep{Kind: "entitlement", AssetID: grant.RoleID},
+		)
+		identity := origin + "\x00" + grant.BindingID + "\x00" + grant.RoleID + "\x00" + capabilityIdentity(capability)
+		sum := sha256.Sum256([]byte(identity))
+		path := model.AccessPath{
+			ID: fmt.Sprintf("access-path-%x", sum[:8]), Origin: origin, Steps: steps,
+			Capability: capability, Confidence: "high", EvidenceIDs: append([]string(nil), capability.EvidenceIDs...),
+		}
+		paths[path.ID] = path
+	}
 }
 
 func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, declared []model.Capability) {
@@ -264,7 +296,7 @@ func buildGrant(role, binding *model.Asset) effectiveGrant {
 		capability.EvidenceIDs = append([]string(nil), evidenceIDs...)
 		capabilities = append(capabilities, capability)
 	}
-	return effectiveGrant{Role: role.Name, Binding: binding.Name, Capabilities: capabilities, Evidence: evidence}
+	return effectiveGrant{Role: role.Name, RoleID: role.ID, Binding: binding.Name, BindingID: binding.ID, Capabilities: capabilities, Evidence: evidence}
 }
 
 func applyGrant(asset *model.Asset, grant effectiveGrant) {

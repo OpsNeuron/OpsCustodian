@@ -11,8 +11,23 @@ type AgentBOM struct {
 	Metadata      DocumentMetadata `json:"metadata" yaml:"metadata"`
 	Assets        []Asset          `json:"assets" yaml:"assets"`
 	Relationships []Relationship   `json:"relationships,omitempty" yaml:"relationships,omitempty"`
+	AccessPaths   []AccessPath     `json:"accessPaths,omitempty" yaml:"accessPaths,omitempty"`
 	LegacyAgents  []Asset          `json:"agents,omitempty" yaml:"agents,omitempty"`
 	Diagnostics   []Diagnostic     `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
+}
+
+type AccessPath struct {
+	ID          string           `json:"id" yaml:"id"`
+	Origin      string           `json:"origin" yaml:"origin"`
+	Steps       []AccessPathStep `json:"steps" yaml:"steps"`
+	Capability  Capability       `json:"capability" yaml:"capability"`
+	Confidence  string           `json:"confidence" yaml:"confidence"`
+	EvidenceIDs []string         `json:"evidenceIds,omitempty" yaml:"evidenceIds,omitempty"`
+}
+
+type AccessPathStep struct {
+	Kind    string `json:"kind" yaml:"kind"`
+	AssetID string `json:"assetId" yaml:"assetId"`
 }
 
 type Diagnostic struct {

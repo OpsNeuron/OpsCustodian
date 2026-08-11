@@ -132,6 +132,47 @@ func Validate(bom model.AgentBOM) []Issue {
 			}
 		}
 	}
+	accessPathIDs := map[string]struct{}{}
+	for pathIndex, accessPath := range bom.AccessPaths {
+		base := fmt.Sprintf("accessPaths[%d]", pathIndex)
+		if accessPath.ID == "" {
+			issues = append(issues, issue(base+".id", "required", "access path id is required"))
+		} else if _, exists := accessPathIDs[accessPath.ID]; exists {
+			issues = append(issues, issue(base+".id", "duplicate", "access path id must be unique"))
+		} else {
+			accessPathIDs[accessPath.ID] = struct{}{}
+		}
+		if _, exists := agentIDs[accessPath.Origin]; !exists {
+			issues = append(issues, issue(base+".origin", "unknown-origin-asset", "access path origin must reference an asset in this BOM"))
+		}
+		if len(accessPath.Steps) == 0 || accessPath.Steps[0].Kind != "origin" || accessPath.Steps[0].AssetID != accessPath.Origin {
+			issues = append(issues, issue(base+".steps", "invalid-origin-step", "access path must begin with its origin asset"))
+		}
+		pathEvidence := map[string]struct{}{}
+		for stepIndex, step := range accessPath.Steps {
+			stepBase := fmt.Sprintf("%s.steps[%d]", base, stepIndex)
+			if !validAccessPathStepKind(step.Kind) {
+				issues = append(issues, issue(stepBase+".kind", "invalid-step-kind", "access path step kind must be origin, principal, grant, or entitlement"))
+			}
+			if _, exists := agentIDs[step.AssetID]; !exists {
+				issues = append(issues, issue(stepBase+".assetId", "unknown-step-asset", "access path step must reference an asset in this BOM"))
+			}
+			for evidenceID := range evidenceByAsset[step.AssetID] {
+				pathEvidence[evidenceID] = struct{}{}
+			}
+		}
+		if accessPath.Capability.Action == "" || accessPath.Capability.Resource == "" || accessPath.Capability.Effect == "" {
+			issues = append(issues, issue(base+".capability", "incomplete-capability", "access path capability action, resource, and effect are required"))
+		}
+		if !validConfidence(accessPath.Confidence) {
+			issues = append(issues, issue(base+".confidence", "invalid-confidence", "confidence must be low, medium, or high"))
+		}
+		for _, evidenceID := range accessPath.EvidenceIDs {
+			if _, exists := pathEvidence[evidenceID]; !exists {
+				issues = append(issues, issue(base+".evidenceIds", "unknown-evidence", "access path evidence must belong to one of its step assets"))
+			}
+		}
+	}
 	return issues
 }
 
@@ -168,4 +209,8 @@ func validRelationshipTargetType(value string) bool {
 
 func validConfidence(value string) bool {
 	return value == "low" || value == "medium" || value == "high"
+}
+
+func validAccessPathStepKind(value string) bool {
+	return value == "origin" || value == "principal" || value == "grant" || value == "entitlement"
 }

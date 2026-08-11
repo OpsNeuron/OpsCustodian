@@ -70,6 +70,7 @@ Missing exit items:
 - Structured Kubernetes declared-versus-effective access summaries and dangerous expansion diagnostics.
 - Provider-neutral, stable, evidence-backed effective access paths generated from Kubernetes RBAC.
 - Self-contained HTML access-path explorer with local origin, effect, and escalation filters.
+- Object-level RBAC resource names, non-resource URLs, and binding-aware effective scope.
 
 ## Remaining path to 1.0
 

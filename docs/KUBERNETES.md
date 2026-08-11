@@ -23,6 +23,16 @@ RBAC effects normalize common verbs as follows: `get/list/watch` are read,
 `bind/escalate/impersonate/*` are admin. Unknown verbs remain execute so they are
 visible without being silently downgraded.
 
+RBAC `resourceNames` are retained as object-level resource scopes; rules without
+them explicitly use wildcard object scope. `nonResourceURLs` produce distinct
+cluster capabilities. During effective composition, a ClusterRole attached by
+a namespaced RoleBinding is narrowed to that namespace. Non-resource URL rules
+cannot be granted through that path and are omitted with a
+`KUBERNETES_RBAC_NON_RESOURCE_URL_NAMESPACED` diagnostic.
+Binding-specialized capabilities discard their declared-role scope and infer a
+new effective scope after composition. This keeps asset capabilities and access
+paths consistent and allows identical grants to merge while retaining evidence.
+
 ## Effective grants
 
 Resolved bindings copy Role/ClusterRole capabilities onto each referenced

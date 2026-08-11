@@ -56,7 +56,13 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 				bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(binding, "KUBERNETES_RBAC_SUBJECT_UNRESOLVED", "binding references an undiscovered ServiceAccount: "+subject.Reference))
 				continue
 			}
-			grant := buildGrant(role, binding)
+			grant, ignoredNonResourceURLs := buildGrant(role, binding)
+			if ignoredNonResourceURLs > 0 {
+				bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(binding, "KUBERNETES_RBAC_NON_RESOURCE_URL_NAMESPACED", fmt.Sprintf("namespaced binding cannot grant %d non-resource URL capabilities", ignoredNonResourceURLs)))
+			}
+			if len(grant.Capabilities) == 0 {
+				continue
+			}
 			applyGrant(identity, grant)
 			grants[identity.Name] = append(grants[identity.Name], grant)
 			appendGrantPaths(paths, identity.ID, "", grant)
@@ -284,7 +290,7 @@ func namespaceOf(qualified string) string {
 	return "default"
 }
 
-func buildGrant(role, binding *model.Asset) effectiveGrant {
+func buildGrant(role, binding *model.Asset) (effectiveGrant, int) {
 	evidence := append([]model.Evidence(nil), role.Evidence...)
 	evidence = append(evidence, binding.Evidence...)
 	evidenceIDs := make([]string, 0, len(evidence))
@@ -292,11 +298,33 @@ func buildGrant(role, binding *model.Asset) effectiveGrant {
 		evidenceIDs = append(evidenceIDs, item.ID)
 	}
 	capabilities := make([]model.Capability, 0, len(role.Capabilities))
+	ignoredNonResourceURLs := 0
 	for _, capability := range role.Capabilities {
+		if strings.HasPrefix(capability.Action, "kubernetes.non_resource_url.") && !strings.HasPrefix(binding.Name, "cluster/") {
+			ignoredNonResourceURLs++
+			continue
+		}
 		capability.EvidenceIDs = append([]string(nil), evidenceIDs...)
+		capability.Resource, capability.Environment = effectiveKubernetesResource(capability.Resource, role.Name, binding.Name)
+		// The declared role scope no longer describes the binding-specialized
+		// resource. Let the final normalization pass infer the effective scope.
+		capability.Scope = nil
 		capabilities = append(capabilities, capability)
 	}
-	return effectiveGrant{Role: role.Name, RoleID: role.ID, Binding: binding.Name, BindingID: binding.ID, Capabilities: capabilities, Evidence: evidence}
+	return effectiveGrant{Role: role.Name, RoleID: role.ID, Binding: binding.Name, BindingID: binding.ID, Capabilities: capabilities, Evidence: evidence}, ignoredNonResourceURLs
+}
+
+func effectiveKubernetesResource(resource, roleName, bindingName string) (string, string) {
+	if strings.Contains(resource, "/non-resource-url") {
+		return resource, "cluster"
+	}
+	prefix := "kubernetes:" + roleName + "/"
+	suffix := strings.TrimPrefix(resource, prefix)
+	if strings.HasPrefix(bindingName, "cluster/") {
+		return "kubernetes:cluster/" + suffix, "cluster"
+	}
+	namespace := namespaceOf(bindingName)
+	return "kubernetes:" + namespace + "/" + suffix, namespace
 }
 
 func applyGrant(asset *model.Asset, grant effectiveGrant) {

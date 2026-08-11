@@ -81,16 +81,32 @@ func roleAsset(root *yaml.Node, sourcePath, kind, namespace, name string, eviden
 	rules := mapping(root, "rules")
 	if rules != nil && rules.Kind == yaml.SequenceNode {
 		for _, rule := range rules.Content {
-			apiGroups := scalarList(mapping(rule, "apiGroups"), "core")
-			resources := scalarList(mapping(rule, "resources"), "*")
 			verbs := scalarList(mapping(rule, "verbs"), "*")
-			for _, apiGroup := range apiGroups {
-				for _, resource := range resources {
+			if resourcesNode := mapping(rule, "resources"); resourcesNode != nil {
+				apiGroups := scalarList(mapping(rule, "apiGroups"), "core")
+				resources := scalarList(resourcesNode, "*")
+				resourceNames := scalarList(mapping(rule, "resourceNames"), "*")
+				for _, apiGroup := range apiGroups {
+					for _, resource := range resources {
+						for _, resourceName := range resourceNames {
+							for _, verb := range verbs {
+								asset.Capabilities = append(asset.Capabilities, model.Capability{
+									Action:   "kubernetes." + normalizeSegment(resource) + "." + normalizeSegment(verb),
+									Resource: "kubernetes:" + qualified + "/" + normalizeSegment(apiGroup) + "/" + resource + "/" + resourceName,
+									Effect:   rbacEffect(verb), Environment: environment, EvidenceIDs: []string{evidence.ID},
+								})
+							}
+						}
+					}
+				}
+			}
+			nonResourceURLs := mapping(rule, "nonResourceURLs")
+			if nonResourceURLs != nil {
+				for _, url := range scalarList(nonResourceURLs, "*") {
 					for _, verb := range verbs {
 						asset.Capabilities = append(asset.Capabilities, model.Capability{
-							Action:   "kubernetes." + normalizeSegment(resource) + "." + normalizeSegment(verb),
-							Resource: "kubernetes:" + qualified + "/" + normalizeSegment(apiGroup) + "/" + resource,
-							Effect:   rbacEffect(verb), Environment: environment, EvidenceIDs: []string{evidence.ID},
+							Action: "kubernetes.non_resource_url." + normalizeSegment(verb), Resource: "kubernetes:cluster/non-resource-url" + url,
+							Effect: rbacEffect(verb), Environment: "cluster", EvidenceIDs: []string{evidence.ID},
 						})
 					}
 				}

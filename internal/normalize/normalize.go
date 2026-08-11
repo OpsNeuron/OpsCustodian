@@ -17,23 +17,30 @@ func BOM(bom *model.AgentBOM) {
 		asset.Dependencies = uniqueReferences(asset.Dependencies)
 		asset.Credentials = uniqueCredentials(asset.Credentials)
 		for capabilityIndex := range asset.Capabilities {
-			capability := &asset.Capabilities[capabilityIndex]
-			capability.Action = normalizeAction(capability.Action)
-			capability.Effect = strings.ToLower(strings.TrimSpace(capability.Effect))
-			capability.Resource = strings.TrimSpace(strings.ReplaceAll(capability.Resource, "\\", "/"))
-			capability.Environment = strings.ToLower(strings.TrimSpace(capability.Environment))
-			capability.EvidenceIDs = uniqueStrings(capability.EvidenceIDs)
-			if capability.Scope == nil {
-				capability.Scope = inferScope(capability.Resource)
-			} else {
-				capability.Scope.Kind = strings.ToLower(strings.TrimSpace(capability.Scope.Kind))
-				capability.Scope.Values = normalizedPath(capability.Scope.Values)
-			}
+			normalizeCapability(&asset.Capabilities[capabilityIndex])
 		}
 		asset.Capabilities = uniqueCapabilities(asset.Capabilities)
 		sort.Slice(asset.Capabilities, func(i, j int) bool {
 			return capabilitySortKey(asset.Capabilities[i]) < capabilitySortKey(asset.Capabilities[j])
 		})
+	}
+	for pathIndex := range bom.AccessPaths {
+		normalizeCapability(&bom.AccessPaths[pathIndex].Capability)
+		bom.AccessPaths[pathIndex].EvidenceIDs = uniqueStrings(bom.AccessPaths[pathIndex].EvidenceIDs)
+	}
+}
+
+func normalizeCapability(capability *model.Capability) {
+	capability.Action = normalizeAction(capability.Action)
+	capability.Effect = strings.ToLower(strings.TrimSpace(capability.Effect))
+	capability.Resource = strings.TrimSpace(strings.ReplaceAll(capability.Resource, "\\", "/"))
+	capability.Environment = strings.ToLower(strings.TrimSpace(capability.Environment))
+	capability.EvidenceIDs = uniqueStrings(capability.EvidenceIDs)
+	if capability.Scope == nil {
+		capability.Scope = inferScope(capability.Resource)
+	} else {
+		capability.Scope.Kind = strings.ToLower(strings.TrimSpace(capability.Scope.Kind))
+		capability.Scope.Values = normalizedPath(capability.Scope.Values)
 	}
 }
 

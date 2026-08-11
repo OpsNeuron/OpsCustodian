@@ -74,6 +74,7 @@ Missing exit items:
 - Fixed-point Kubernetes aggregated ClusterRole composition with selector and evidence propagation.
 - Bounded, deterministic Aggregated ClusterRole cycle-path diagnostics.
 - Effective-access unit test foundation for RBAC scope, access paths, token precedence, aggregation, and cycles.
+- Kubernetes parser unit tests for stable evidence, token projection, exact RBAC rules, aggregation selectors, and malformed documents.
 
 ## Remaining path to 1.0
 

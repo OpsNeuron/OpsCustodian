@@ -78,6 +78,7 @@ a representative repository without manually assembling an inventory.
 - Aggregated Kubernetes ClusterRoles. *(selector matching and fixed-point composition implemented, pending validation)*
 - Aggregated ClusterRole cycle analysis. *(canonical bounded cycle paths implemented, pending validation)*
 - Effective-access unit tests. *(initial Kubernetes RBAC, token, aggregation, and cycle coverage implemented, pending validation)*
+- Kubernetes parser unit tests. *(workload, token, RBAC, aggregation, and error-contract coverage implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

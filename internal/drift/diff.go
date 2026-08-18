@@ -442,6 +442,8 @@ func compareMCPProvenance(before, after model.Agent) []Change {
 	switch {
 	case oldValue.TLS && !newValue.TLS && oldValue.SourceType == "remote-endpoint" && newValue.SourceType == "remote-endpoint":
 		changeType, reasons = "mcp-transport-downgraded", []string{"remote MCP transport changed from TLS to plaintext or unknown"}
+	case oldValue.SourceType == "local-path" && newValue.SourceType == "external-local-path":
+		changeType, reasons = "mcp-repository-boundary-escaped", []string{"MCP executable moved from the scanned repository revision to a path outside the repository"}
 	case oldValue.Pinned && !newValue.Pinned:
 		changeType, reasons = "mcp-runtime-pin-weakened", []string{"MCP runtime changed from " + oldValue.PinType + " to " + newValue.PinType}
 		if oldValue.Integrity == "sha256" && newValue.Integrity != "sha256" {

@@ -1,0 +1,52 @@
+{
+  "apiVersion": "opscustodian.dev/v1alpha1",
+  "kind": "AgentBOM",
+  "metadata": {"source": "github:acme/automation", "revision": "proposed", "generator": "mcp-drift-example", "normalizationVersion": "v1alpha1"},
+  "assets": [
+    {
+      "id": "mcp:.mcp.json:npm-server", "type": "mcp-server", "name": "npm-server",
+      "source": {"path": ".mcp.json"},
+      "runtime": {"type": "mcp-server", "reference": "npm:@acme/mcp-server@latest"},
+      "capabilities": [{"action": "mcp.tools.invoke", "resource": "mcp:npm-server", "effect": "execute", "evidenceIds": ["npm-evidence"]}],
+      "controls": [
+        {"type": "mcpServerProvenance", "value": {"transport": "stdio", "launcher": "npx", "sourceType": "npm-package", "registry": "npm", "package": "@acme/mcp-server", "version": "latest", "pinType": "latest", "pinned": false, "integrity": "none", "evidenceIds": ["npm-evidence"]}},
+        {"type": "mcpMutableRuntimeExposure", "value": true}
+      ],
+      "evidence": [{"id": "npm-evidence", "path": ".mcp.json", "line": 3, "parser": "mcp", "confidence": "high"}]
+    },
+    {
+      "id": "mcp:.mcp.json:remote-server", "type": "mcp-server", "name": "remote-server",
+      "source": {"path": ".mcp.json"},
+      "runtime": {"type": "mcp-server", "reference": "http://mcp.example.com/sse"},
+      "capabilities": [{"action": "mcp.tools.invoke", "resource": "mcp:remote-server", "effect": "execute", "evidenceIds": ["remote-evidence"]}],
+      "controls": [
+        {"type": "mcpServerProvenance", "value": {"transport": "remote", "sourceType": "remote-endpoint", "pinType": "endpoint-unversioned", "pinned": false, "integrity": "unknown", "endpointHost": "mcp.example.com", "tls": false, "evidenceIds": ["remote-evidence"]}},
+        {"type": "mcpMutableRuntimeExposure", "value": true},
+        {"type": "mcpInsecureTransportExposure", "value": true}
+      ],
+      "evidence": [{"id": "remote-evidence", "path": ".mcp.json", "line": 8, "parser": "mcp", "confidence": "high"}]
+    },
+    {
+      "id": "mcp:.mcp.json:container-server", "type": "mcp-server", "name": "container-server",
+      "source": {"path": ".mcp.json"},
+      "runtime": {"type": "mcp-server", "reference": "oci:ghcr.io/acme/mcp:latest"},
+      "capabilities": [{"action": "mcp.tools.invoke", "resource": "mcp:container-server", "effect": "execute", "evidenceIds": ["container-evidence"]}],
+      "controls": [
+        {"type": "mcpServerProvenance", "value": {"transport": "stdio", "launcher": "docker", "sourceType": "oci-image", "registry": "oci", "package": "ghcr.io/acme/mcp:latest", "pinType": "tag", "pinned": false, "integrity": "none", "evidenceIds": ["container-evidence"]}},
+        {"type": "mcpMutableRuntimeExposure", "value": true}
+      ],
+      "evidence": [{"id": "container-evidence", "path": ".mcp.json", "line": 12, "parser": "mcp", "confidence": "high"}]
+    },
+    {
+      "id": "mcp:.mcp.json:local-server", "type": "mcp-server", "name": "local-server",
+      "source": {"path": ".mcp.json"},
+      "runtime": {"type": "mcp-server", "reference": "local:../shared/mcp.js"},
+      "capabilities": [{"action": "mcp.tools.invoke", "resource": "mcp:local-server", "effect": "execute", "evidenceIds": ["local-evidence"]}],
+      "controls": [
+        {"type": "mcpServerProvenance", "value": {"transport": "stdio", "launcher": "node", "sourceType": "external-local-path", "package": "../shared/mcp.js", "pinType": "outside-repository", "pinned": false, "integrity": "unknown", "evidenceIds": ["local-evidence"]}},
+        {"type": "mcpMutableRuntimeExposure", "value": true}
+      ],
+      "evidence": [{"id": "local-evidence", "path": ".mcp.json", "line": 16, "parser": "mcp", "confidence": "high"}]
+    }
+  ]
+}

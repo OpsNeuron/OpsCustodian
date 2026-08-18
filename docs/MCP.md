@@ -38,6 +38,11 @@ changes, version changes, and paths crossing outside the repository. Derived
 exposure controls are excluded from generic control drift so each change emits
 one explainable MCP finding with a stable ID and evidence location.
 
+The `examples/mcp-drift` baseline and proposed BOMs exercise version-to-latest,
+digest-to-tag, HTTPS-to-HTTP, and same-revision-to-outside-repository changes.
+They are used by the application test suite for terminal, JSON, SARIF, and
+severity-threshold exit contracts.
+
 ## Secret-safe references
 
 `runtime.reference` contains only a normalized execution identity such as

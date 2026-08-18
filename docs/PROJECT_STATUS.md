@@ -96,6 +96,7 @@ Missing exit items:
 - End-to-end access-path drift fixture covering JSON, terminal, SARIF, stable locations, report persistence, and severity-threshold exit behavior.
 - Secret-safe MCP runtime provenance for npm, Python, OCI, local executable, system executable, and remote endpoint sources with pinning and transport risk controls.
 - Semantic MCP provenance drift for pin/integrity weakening, TLS downgrade, registry/endpoint changes, source transitions, and repository-boundary escapes without duplicate opaque-control findings.
+- End-to-end MCP provenance drift fixture covering pin, digest, transport, repository-boundary, JSON, terminal, SARIF, stable-location, and threshold-exit contracts.
 
 ## Remaining path to 1.0
 

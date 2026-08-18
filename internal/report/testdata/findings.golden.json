@@ -1,0 +1,18 @@
+{
+  "apiVersion": "opscustodian.dev/findings/v1alpha1",
+  "source": "github:acme/platform",
+  "revision": "abc123",
+  "findings": [
+    {
+      "id": "finding-contract",
+      "type": "kubernetes-rbac-privilege-escalation",
+      "severity": "critical",
+      "assetId": "role:admin",
+      "title": "Role can escalate privileges",
+      "reason": "The role grants bind.",
+      "remediationId": "kubernetes.reduce-rbac-privileges",
+      "remediation": "Remove bind access.",
+      "evidence": []
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "OpsCustodian",
+          "informationUri": "https://github.com/OpsNeuron/OpsCustodian",
+          "semanticVersion": "0.1.0-pre",
+          "rules": [
+            {
+              "id": "kubernetes-rbac-privilege-escalation",
+              "name": "kubernetes-rbac-privilege-escalation",
+              "shortDescription": {
+                "text": "Kubernetes role can escalate privileges"
+              },
+              "help": {
+                "text": "Review the effective agent access and its source evidence before deployment."
+              },
+              "properties": {
+                "tags": [
+                  "security",
+                  "agentic-devops",
+                  "effective-access"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "automationDetails": {
+        "id": "opscustodian/current-state-findings"
+      },
+      "results": [
+        {
+          "ruleId": "kubernetes-rbac-privilege-escalation",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "role:admin: The role grants bind."
+          },
+          "partialFingerprints": {
+            "opscustodianFindingId/v1": "finding-contract"
+          },
+          "properties": {
+            "assetId": "role:admin",
+            "attributes": null,
+            "findingId": "finding-contract",
+            "remediation": "Remove bind access.",
+            "remediationId": "kubernetes.reduce-rbac-privileges",
+            "severity": "critical"
+          }
+        }
+      ]
+    }
+  ]
+}

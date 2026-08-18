@@ -1,0 +1,18 @@
+{
+  "deny": [
+    {
+      "id": "policy-contract",
+      "rule": "current-state-critical-finding",
+      "title": "Role can escalate privileges",
+      "message": "Current-state finding affects role:admin.",
+      "severity": "critical",
+      "agentId": "role:admin",
+      "remediationId": "kubernetes.reduce-rbac-privileges",
+      "remediation": "Remove bind access.",
+      "evidenceIds": [
+        "role-evidence"
+      ]
+    }
+  ],
+  "warn": []
+}

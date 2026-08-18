@@ -98,6 +98,7 @@ runtime authorization system.
 ## v1.0 — Organization ready
 
 - Stable Agent BOM and policy input contracts.
+- Golden compatibility tests for Agent BOM, finding, SARIF, and policy decision output. *(implemented)*
 - Multi-repository server mode with PostgreSQL.
 - REST API and Backstage integration.
 - Signed baselines and governed exceptions.

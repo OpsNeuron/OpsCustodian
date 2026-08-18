@@ -131,6 +131,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [MCP server provenance and pinning](docs/MCP.md)
 - [OpenTelemetry-compatible audit events](docs/AUDIT_EVENTS.md)
 - [Current-state findings](docs/FINDINGS.md)
+- [Public contract tests](docs/CONTRACT_TESTS.md)
 - [Stable remediation identifiers](docs/REMEDIATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)

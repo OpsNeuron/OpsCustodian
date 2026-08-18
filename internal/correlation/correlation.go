@@ -3,6 +3,7 @@ package correlation
 import (
 	"crypto/sha256"
 	"fmt"
+	"path"
 	"sort"
 	"strings"
 
@@ -11,8 +12,12 @@ import (
 
 func Build(bom *model.AgentBOM) {
 	assetsByKindAndName := map[string]string{}
+	workflowsByPath := map[string]string{}
 	for _, asset := range bom.Assets {
 		assetsByKindAndName[lookupKey(asset.Type, asset.Name)] = asset.ID
+		if asset.Type == "workflow" {
+			workflowsByPath[workflowPath(asset.Source.Path)] = asset.ID
+		}
 	}
 	relations := map[string]model.Relationship{}
 	for _, asset := range bom.Assets {
@@ -60,6 +65,12 @@ func Build(bom *model.AgentBOM) {
 				target, targetType = assetID, "asset"
 			}
 			relationType := "depends-on"
+			if dependency.Type == "reusable-workflow" && (strings.HasPrefix(dependency.Reference, "./") || strings.HasPrefix(dependency.Reference, "$/")) {
+				relationType = "calls-workflow"
+				if assetID, exists := workflowsByPath[workflowPath(dependency.Reference)]; exists {
+					target, targetType = assetID, "asset"
+				}
+			}
 			if asset.Type == "authorization-binding" && dependency.Type == "authorization-role" {
 				relationType = "grants-role"
 			}
@@ -71,6 +82,13 @@ func Build(bom *model.AgentBOM) {
 		bom.Relationships = append(bom.Relationships, relation)
 	}
 	sort.Slice(bom.Relationships, func(i, j int) bool { return bom.Relationships[i].ID < bom.Relationships[j].ID })
+}
+
+func workflowPath(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, "\\", "/"))
+	value = strings.TrimPrefix(value, "./")
+	value = strings.TrimPrefix(value, "$/")
+	return strings.TrimPrefix(path.Clean("/"+value), "/")
 }
 
 func relationship(from, relationType, to, targetType, confidence string, evidenceIDs []string) model.Relationship {

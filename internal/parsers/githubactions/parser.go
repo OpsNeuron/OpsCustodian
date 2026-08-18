@@ -60,17 +60,7 @@ type githubDependencyIntegrity struct {
 	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
 }
 
-type githubReusableWorkflowCall struct {
-	Job              string   `json:"job" yaml:"job"`
-	Reference        string   `json:"reference" yaml:"reference"`
-	Locator          string   `json:"locator,omitempty" yaml:"locator,omitempty"`
-	Local            bool     `json:"local" yaml:"local"`
-	PermissionSource string   `json:"permissionSource" yaml:"permissionSource"`
-	SecretMode       string   `json:"secretMode" yaml:"secretMode"`
-	SecretNames      []string `json:"secretNames,omitempty" yaml:"secretNames,omitempty"`
-	Resolution       string   `json:"resolution" yaml:"resolution"`
-	EvidenceIDs      []string `json:"evidenceIds" yaml:"evidenceIds"`
-}
+type githubReusableWorkflowCall = model.GitHubReusableWorkflowCall
 
 var secretPattern = regexp.MustCompile(`(?i)secrets\.([A-Z0-9_]+)`)
 var githubExpressionPattern = regexp.MustCompile(`(?s)\$\{\{.*?\}\}`)

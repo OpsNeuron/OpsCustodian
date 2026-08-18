@@ -3,6 +3,7 @@
 /dist/
 *.exe
 *.test
+/.gocache/
 
 # Coverage and profiling
 coverage.out

@@ -123,6 +123,38 @@ type Control struct {
 	Value any    `json:"value" yaml:"value"`
 }
 
+// GitHubReusableWorkflowCall is the normalized, secret-safe contract emitted
+// by the GitHub Actions parser and consumed by effective-access composition.
+type GitHubReusableWorkflowCall struct {
+	Job              string   `json:"job" yaml:"job"`
+	Reference        string   `json:"reference" yaml:"reference"`
+	Locator          string   `json:"locator,omitempty" yaml:"locator,omitempty"`
+	Local            bool     `json:"local" yaml:"local"`
+	PermissionSource string   `json:"permissionSource" yaml:"permissionSource"`
+	SecretMode       string   `json:"secretMode" yaml:"secretMode"`
+	SecretNames      []string `json:"secretNames,omitempty" yaml:"secretNames,omitempty"`
+	Resolution       string   `json:"resolution" yaml:"resolution"`
+	EvidenceIDs      []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
+// GitHubReusableWorkflowHop describes one resolved edge in a nested reusable
+// workflow call chain. EffectivePermissions is always bounded by every caller
+// encountered earlier in the chain.
+type GitHubReusableWorkflowHop struct {
+	Depth                int          `json:"depth" yaml:"depth"`
+	CallerID             string       `json:"callerId" yaml:"callerId"`
+	CalleeID             string       `json:"calleeId" yaml:"calleeId"`
+	Job                  string       `json:"job" yaml:"job"`
+	Path                 []string     `json:"path" yaml:"path"`
+	PermissionSource     string       `json:"permissionSource" yaml:"permissionSource"`
+	PermissionResolution string       `json:"permissionResolution" yaml:"permissionResolution"`
+	EffectivePermissions []Capability `json:"effectivePermissions,omitempty" yaml:"effectivePermissions,omitempty"`
+	SecretMode           string       `json:"secretMode" yaml:"secretMode"`
+	EffectiveSecretMode  string       `json:"effectiveSecretMode" yaml:"effectiveSecretMode"`
+	SecretNames          []string     `json:"secretNames,omitempty" yaml:"secretNames,omitempty"`
+	EvidenceIDs          []string     `json:"evidenceIds,omitempty" yaml:"evidenceIds,omitempty"`
+}
+
 type Evidence struct {
 	ID          string `json:"id" yaml:"id"`
 	Path        string `json:"path" yaml:"path"`

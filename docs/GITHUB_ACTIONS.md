@@ -160,6 +160,19 @@ secret modes:
 - `inherit`: all organization, repository, and environment secrets visible to
   the caller may be passed to the directly called workflow.
 
+After parsing, OpsCustodian resolves same-revision local calls to workflow
+assets and emits `calls-workflow` relationships. The
+`githubReusableWorkflowComposition` control records every nested hop, its call
+path, caller permission ceiling, and effective secret mode. Nested token
+permissions are intersected with the preceding caller ceiling, so composition
+never models a called workflow as increasing `GITHUB_TOKEN` access.
+
+The offline composer reports `GITHUB_REUSABLE_WORKFLOW_UNRESOLVED`,
+`GITHUB_REUSABLE_WORKFLOW_CYCLE`, and
+`GITHUB_REUSABLE_WORKFLOW_DEPTH_LIMIT`. External reusable workflows remain
+explicit unresolved trust boundaries; OpsCustodian does not fetch remote code
+or infer its permissions.
+
 `secrets: inherit` emits `githubReusableWorkflowSecretInheritance` and a broad
 secret-set reference, never secret values. Secrets do not automatically flow to
 the next nested workflow; every direct call must explicitly pass or inherit

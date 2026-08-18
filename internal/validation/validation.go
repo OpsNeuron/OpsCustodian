@@ -199,7 +199,7 @@ func validAssetType(value string) bool {
 
 func validRelationshipType(value string) bool {
 	switch value {
-	case "uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "owned-by", "runs-as", "binds-subject", "grants-role":
+	case "uses-tool", "uses-mcp-server", "uses-credential", "depends-on", "calls-workflow", "owned-by", "runs-as", "binds-subject", "grants-role":
 		return true
 	default:
 		return false

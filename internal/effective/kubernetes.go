@@ -37,10 +37,11 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 			bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(role, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION", "role grants privilege-escalation capabilities: "+strings.Join(signals, ", ")))
 			appendFinding(bom, model.Finding{
 				Type: "kubernetes-rbac-privilege-escalation", Severity: "critical", AssetID: role.ID,
-				Title:       "Kubernetes role can escalate privileges",
-				Reason:      "Role grants privilege-escalation capabilities: " + strings.Join(signals, ", "),
-				Remediation: "Remove wildcard, bind, escalate, impersonate, or equivalent privilege-management permissions from the role.",
-				Evidence:    assetFindingEvidence(role, "kubernetes"), Attributes: map[string]any{"signals": signals},
+				Title:         "Kubernetes role can escalate privileges",
+				Reason:        "Role grants privilege-escalation capabilities: " + strings.Join(signals, ", "),
+				RemediationID: "kubernetes.reduce-rbac-privileges",
+				Remediation:   "Remove wildcard, bind, escalate, impersonate, or equivalent privilege-management permissions from the role.",
+				Evidence:      assetFindingEvidence(role, "kubernetes"), Attributes: map[string]any{"signals": signals},
 			})
 		}
 	}
@@ -405,7 +406,7 @@ func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, decla
 		bom.Findings = append(bom.Findings, model.Finding{
 			ID: fmt.Sprintf("finding-%x", sum[:8]), Type: "kubernetes-effective-access-expansion",
 			Severity: severity, AssetID: asset.ID, Title: "Declared access is narrower than effective Kubernetes access",
-			Reason: message, Remediation: "Reduce the bound RBAC role, narrow the binding subject or scope, and disable unnecessary token exposure.",
+			Reason: message, RemediationID: "kubernetes.reduce-effective-access", Remediation: "Reduce the bound RBAC role, narrow the binding subject or scope, and disable unnecessary token exposure.",
 			Evidence: findingEvidence(bom, asset.ID, inherited), Attributes: map[string]any{
 				"declaredCapabilityCount": len(declaredSet), "effectiveCapabilityCount": len(effectiveSet),
 				"inheritedCapabilityCount": len(inherited), "inheritedActions": actions,
@@ -575,8 +576,9 @@ func applyEffectiveServiceAccountToken(bom *model.AgentBOM, workload, identity *
 	appendFinding(bom, model.Finding{
 		Type: "kubernetes-service-account-token-exposure", Severity: severity, AssetID: workload.ID,
 		Title: "Workload receives a ServiceAccount token", Reason: reason,
-		Remediation: "Set automountServiceAccountToken to false unless the workload requires Kubernetes API access.",
-		Evidence:    assetFindingEvidence(workload, "kubernetes"), Attributes: map[string]any{
+		RemediationID: "kubernetes.disable-token-automount",
+		Remediation:   "Set automountServiceAccountToken to false unless the workload requires Kubernetes API access.",
+		Evidence:      assetFindingEvidence(workload, "kubernetes"), Attributes: map[string]any{
 			"serviceAccount": identity.Name, "source": source, "enabled": true,
 		},
 	})
@@ -617,10 +619,11 @@ func applyProjectedTokenFindings(bom *model.AgentBOM) {
 			sort.Strings(signals)
 			appendFinding(bom, model.Finding{
 				Type: "kubernetes-projected-token-risk", Severity: severity, AssetID: asset.ID,
-				Title:       "Projected ServiceAccount token has risky settings",
-				Reason:      "Mounted projected token has risk signals: " + strings.Join(signals, ", "),
-				Remediation: "Use a workload-specific audience and an expiration of at most 3600 seconds.",
-				Evidence:    assetFindingEvidence(asset, "kubernetes"), Attributes: map[string]any{
+				Title:         "Projected ServiceAccount token has risky settings",
+				Reason:        "Mounted projected token has risk signals: " + strings.Join(signals, ", "),
+				RemediationID: "kubernetes.harden-projected-token",
+				Remediation:   "Use a workload-specific audience and an expiration of at most 3600 seconds.",
+				Evidence:      assetFindingEvidence(asset, "kubernetes"), Attributes: map[string]any{
 					"audience": audience, "expirationSeconds": expiration, "mountedBy": mountedBy, "signals": signals,
 				},
 			})

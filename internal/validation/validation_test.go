@@ -45,7 +45,7 @@ func TestValidateFindingEvidenceContract(t *testing.T) {
 	bom := validAccessPathBOM()
 	bom.Findings = []model.Finding{{
 		ID: "finding-test", Type: "effective-access-expansion", Severity: "high", AssetID: "identity:agent",
-		Title: "Effective access expanded", Reason: "RBAC adds inherited access",
+		Title: "Effective access expanded", Reason: "RBAC adds inherited access", RemediationID: "kubernetes.reduce-access", Remediation: "Reduce access.",
 		Evidence: []model.FindingEvidence{{AssetID: "role:reader", EvidenceID: "role-evidence"}},
 	}}
 	if issues := Validate(bom); len(issues) != 0 {
@@ -62,6 +62,8 @@ func TestValidateFindingEvidenceContract(t *testing.T) {
 		{"unknown evidence asset", "unknown-asset", func(f *model.Finding) { f.Evidence[0].AssetID = "missing" }},
 		{"unknown evidence", "unknown-evidence", func(f *model.Finding) { f.Evidence[0].EvidenceID = "missing" }},
 		{"missing evidence", "required", func(f *model.Finding) { f.Evidence = nil }},
+		{"invalid remediation id", "invalid-remediation-id", func(f *model.Finding) { f.RemediationID = "Invalid Value" }},
+		{"missing remediation", "required", func(f *model.Finding) { f.Remediation = "" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

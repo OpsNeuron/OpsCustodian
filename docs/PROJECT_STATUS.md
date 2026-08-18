@@ -104,6 +104,7 @@ Missing exit items:
 - Structured Kubernetes findings for RBAC privilege escalation, effective ServiceAccount token exposure, and risky projected token audience/lifetime.
 - Vendor-neutral current-state MCP findings for mutable runtime identities, insecure remote transport, and repository-boundary escape.
 - Structured GitHub Actions findings for privileged triggers, untrusted executable data flow, self-hosted runner exposure, and mutable dependencies.
+- Stable namespace-qualified remediation IDs shared by Agent BOM, terminal, SARIF, HTML, audit events, and future policy/API/UI consumers.
 
 ## Remaining path to 1.0
 

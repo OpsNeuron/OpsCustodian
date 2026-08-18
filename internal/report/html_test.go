@@ -20,7 +20,7 @@ func TestWriteInventoryHTMLRendersSafeSelfContainedAccessPaths(t *testing.T) {
 	assertHTMLContains(t, html,
 		`id="path-search"`, `id="path-effect"`, `id="path-escalation"`,
 		`data-query=`, `&rarr;`, `&middot;`, `querySelectorAll('.access-path')`,
-		`&lt;script&gt;alert(1)&lt;/script&gt;`, `kubernetes:cluster/*/*`, `Current-state findings`, `finding-html`, `Reduce &lt;admin&gt; access.`,
+		`&lt;script&gt;alert(1)&lt;/script&gt;`, `kubernetes:cluster/*/*`, `Current-state findings`, `finding-html`, `kubernetes.reduce-access`, `Reduce &lt;admin&gt; access.`,
 	)
 	if strings.Contains(html, "#ZgotmplZ") {
 		t.Fatal("report contains html/template sanitization sentinel #ZgotmplZ")
@@ -84,7 +84,7 @@ func reportTestBOM() model.AgentBOM {
 		},
 		Findings: []model.Finding{{
 			ID: "finding-html", Type: "effective-access-expansion", Severity: "critical", AssetID: "workload:test",
-			Title: "Effective access expanded", Reason: "Inherited administrator capability", Remediation: "Reduce <admin> access.",
+			Title: "Effective access expanded", Reason: "Inherited administrator capability", RemediationID: "kubernetes.reduce-access", Remediation: "Reduce <admin> access.",
 			Evidence: []model.FindingEvidence{{AssetID: "role:test", EvidenceID: "role-evidence"}},
 		}},
 	}

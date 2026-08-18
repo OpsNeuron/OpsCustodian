@@ -2,9 +2,12 @@ package validation
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/opscustodian/opscustodian/internal/model"
 )
+
+var remediationIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Issue struct {
 	Path    string `json:"path" yaml:"path"`
@@ -193,6 +196,12 @@ func Validate(bom model.AgentBOM) []Issue {
 		}
 		if finding.Type == "" || finding.Title == "" || finding.Reason == "" {
 			issues = append(issues, issue(base, "incomplete-finding", "type, title, and reason are required"))
+		}
+		if !remediationIDPattern.MatchString(finding.RemediationID) {
+			issues = append(issues, issue(base+".remediationId", "invalid-remediation-id", "remediation ID must use lowercase namespace.action-name form"))
+		}
+		if finding.Remediation == "" {
+			issues = append(issues, issue(base+".remediation", "required", "finding remediation guidance is required"))
 		}
 		if !validFindingSeverity(finding.Severity) {
 			issues = append(issues, issue(base+".severity", "invalid-severity", "finding severity must be info, low, medium, high, or critical"))

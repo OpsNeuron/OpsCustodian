@@ -34,6 +34,7 @@ func WriteFindings(w io.Writer, bom model.AgentBOM, format string) error {
 			fmt.Fprintf(w, "  Type:        %s\n", finding.Type)
 			fmt.Fprintf(w, "  Reason:      %s\n", finding.Reason)
 			if finding.Remediation != "" {
+				fmt.Fprintf(w, "  Remediation ID: %s\n", finding.RemediationID)
 				fmt.Fprintf(w, "  Remediation: %s\n", finding.Remediation)
 			}
 		}
@@ -72,7 +73,7 @@ func writeFindingsSARIF(w io.Writer, bom model.AgentBOM) error {
 			Message:             sarifMessage{Text: finding.AssetID + ": " + finding.Reason},
 			Locations:           findingSARIFLocations(bom, finding.Evidence),
 			PartialFingerprints: map[string]string{"opscustodianFindingId/v1": finding.ID},
-			Properties:          map[string]any{"findingId": finding.ID, "assetId": finding.AssetID, "severity": finding.Severity, "remediation": finding.Remediation, "attributes": finding.Attributes},
+			Properties:          map[string]any{"findingId": finding.ID, "assetId": finding.AssetID, "severity": finding.Severity, "remediationId": finding.RemediationID, "remediation": finding.Remediation, "attributes": finding.Attributes},
 		})
 	}
 	log := sarifLog{Version: "2.1.0", Schema: "https://json.schemastore.org/sarif-2.1.0.json", Runs: []sarifRun{{

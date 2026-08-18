@@ -69,7 +69,7 @@ func TestFromBOMEmitsMinimizedCurrentStateFinding(t *testing.T) {
 		Metadata: model.DocumentMetadata{Source: "github:acme/platform", Revision: "abc123", GeneratedAt: "2026-08-18T10:00:00Z"},
 		Findings: []model.Finding{{
 			ID: "finding-123", Type: "kubernetes-effective-access-expansion", Severity: "critical", AssetID: "workload:agent",
-			Title: "secret-title", Reason: "secret-reason", Remediation: "secret-remediation",
+			Title: "secret-title", Reason: "secret-reason", RemediationID: "kubernetes.reduce-access", Remediation: "secret-remediation",
 			Evidence:   []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "evidence"}},
 			Attributes: map[string]any{"secret-key": "secret-value"},
 		}},
@@ -77,6 +77,9 @@ func TestFromBOMEmitsMinimizedCurrentStateFinding(t *testing.T) {
 	events := FromBOM(bom, time.Now())
 	if len(events) != 2 || events[1].EventName != "opscustodian.finding.detected" || events[1].SeverityNumber != 21 || events[1].Attributes["opscustodian.finding.id"] != "finding-123" {
 		t.Fatalf("unexpected current-state finding event: %#v", events)
+	}
+	if events[1].Attributes["opscustodian.remediation.id"] != "kubernetes.reduce-access" {
+		t.Fatalf("finding event missing remediation identifier: %#v", events[1])
 	}
 	var output bytes.Buffer
 	if err := WriteJSONLines(&output, events); err != nil {

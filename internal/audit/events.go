@@ -62,6 +62,7 @@ func FromBOM(bom model.AgentBOM, occurredAt time.Time) []Event {
 			"opscustodian.finding.id":       finding.ID,
 			"opscustodian.finding.type":     finding.Type,
 			"opscustodian.finding.severity": finding.Severity,
+			"opscustodian.remediation.id":   finding.RemediationID,
 			"opscustodian.asset.id":         finding.AssetID,
 			"opscustodian.location.count":   len(finding.Evidence),
 		}))

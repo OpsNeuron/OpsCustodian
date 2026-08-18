@@ -46,10 +46,11 @@ func ComposeGitHubActionsFindings(bom *model.AgentBOM) {
 			})
 			appendFinding(bom, model.Finding{
 				Type: "github-actions-privileged-trigger", Severity: "medium", AssetID: asset.ID,
-				Title:       "Workflow uses a privileged trigger boundary",
-				Reason:      "Workflow trigger can bridge lower-trust activity into a privileged repository context.",
-				Remediation: "Avoid privileged triggers where possible and never execute or check out untrusted content in their jobs.",
-				Evidence:    firstParserEvidence(asset, "github-actions"), Attributes: map[string]any{"exposures": triggers},
+				Title:         "Workflow uses a privileged trigger boundary",
+				Reason:        "Workflow trigger can bridge lower-trust activity into a privileged repository context.",
+				RemediationID: "github-actions.restrict-privileged-trigger",
+				Remediation:   "Avoid privileged triggers where possible and never execute or check out untrusted content in their jobs.",
+				Evidence:      firstParserEvidence(asset, "github-actions"), Attributes: map[string]any{"exposures": triggers},
 			})
 		}
 
@@ -64,10 +65,11 @@ func ComposeGitHubActionsFindings(bom *model.AgentBOM) {
 			}
 			appendFinding(bom, model.Finding{
 				Type: "github-actions-untrusted-data-flow", Severity: severity, AssetID: asset.ID,
-				Title:       "Untrusted GitHub event data reaches an executable sink",
-				Reason:      "Workflow passes attacker-influenced event data into a runner shell, workspace, or privileged artifact flow.",
-				Remediation: "Use fixed trusted references and pass untrusted strings through quoted environment variables rather than expression interpolation.",
-				Evidence:    evidenceForControlItems(asset, flowEvidenceIDs(flows)), Attributes: map[string]any{"flows": sanitizedFlows(flows)},
+				Title:         "Untrusted GitHub event data reaches an executable sink",
+				Reason:        "Workflow passes attacker-influenced event data into a runner shell, workspace, or privileged artifact flow.",
+				RemediationID: "github-actions.remove-untrusted-data-flow",
+				Remediation:   "Use fixed trusted references and pass untrusted strings through quoted environment variables rather than expression interpolation.",
+				Evidence:      evidenceForControlItems(asset, flowEvidenceIDs(flows)), Attributes: map[string]any{"flows": sanitizedFlows(flows)},
 			})
 		}
 
@@ -80,10 +82,11 @@ func ComposeGitHubActionsFindings(bom *model.AgentBOM) {
 			}
 			appendFinding(bom, model.Finding{
 				Type: "github-actions-self-hosted-runner-exposure", Severity: severity, AssetID: asset.ID,
-				Title:       "Workflow executes on a self-hosted runner",
-				Reason:      "Self-hosted runners do not provide GitHub-hosted ephemeral isolation guarantees.",
-				Remediation: "Use ephemeral isolated runners, restrict trigger trust, and prevent untrusted jobs from sharing persistent runner state.",
-				Evidence:    evidenceForControlItems(asset, runnerEvidenceIDs(runners)), Attributes: map[string]any{"runners": sanitizedRunners(runners), "untrustedDataFlow": len(flows) > 0},
+				Title:         "Workflow executes on a self-hosted runner",
+				Reason:        "Self-hosted runners do not provide GitHub-hosted ephemeral isolation guarantees.",
+				RemediationID: "github-actions.isolate-self-hosted-runner",
+				Remediation:   "Use ephemeral isolated runners, restrict trigger trust, and prevent untrusted jobs from sharing persistent runner state.",
+				Evidence:      evidenceForControlItems(asset, runnerEvidenceIDs(runners)), Attributes: map[string]any{"runners": sanitizedRunners(runners), "untrustedDataFlow": len(flows) > 0},
 			})
 		}
 
@@ -92,10 +95,11 @@ func ComposeGitHubActionsFindings(bom *model.AgentBOM) {
 		if len(dependencies) > 0 {
 			appendFinding(bom, model.Finding{
 				Type: "github-actions-mutable-dependency", Severity: "high", AssetID: asset.ID,
-				Title:       "Workflow executes a mutable dependency reference",
-				Reason:      "External action, reusable workflow, or container reference can resolve to different code without a repository change.",
-				Remediation: "Pin GitHub actions and reusable workflows to a full commit SHA and containers to a SHA-256 digest.",
-				Evidence:    evidenceForControlItems(asset, dependencyEvidenceIDs(dependencies)), Attributes: map[string]any{"dependencies": sanitizedDependencies(dependencies)},
+				Title:         "Workflow executes a mutable dependency reference",
+				Reason:        "External action, reusable workflow, or container reference can resolve to different code without a repository change.",
+				RemediationID: "github-actions.pin-dependency",
+				Remediation:   "Pin GitHub actions and reusable workflows to a full commit SHA and containers to a SHA-256 digest.",
+				Evidence:      evidenceForControlItems(asset, dependencyEvidenceIDs(dependencies)), Attributes: map[string]any{"dependencies": sanitizedDependencies(dependencies)},
 			})
 		}
 	}

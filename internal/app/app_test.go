@@ -257,7 +257,7 @@ func validFindingAppBOM() model.AgentBOM {
 	})
 	bom.Findings = []model.Finding{{
 		ID: "finding-current", Type: "effective-access-expansion", Severity: "critical", AssetID: "workload:agent",
-		Title: "Effective access expanded", Reason: "RBAC grants administrator access",
+		Title: "Effective access expanded", Reason: "RBAC grants administrator access", RemediationID: "kubernetes.reduce-access", Remediation: "Reduce access.",
 		Evidence: []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "role-evidence"}},
 	}}
 	return bom

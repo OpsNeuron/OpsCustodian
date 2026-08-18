@@ -66,6 +66,7 @@ a representative repository without manually assembling an inventory.
 ## v0.4 — Effective access
 
 - Offline GitHub Actions current-state findings. *(privileged triggers, untrusted data flow, self-hosted runners, and mutable dependencies implemented)*
+- Stable remediation vocabulary. *(namespace-qualified remediation IDs and catalog implemented; auto-fix intentionally deferred)*
 
 - Kubernetes workload and ServiceAccount correlation. *(initial offline parser and runs-as graph implemented, pending validation)*
 - Kubernetes RBAC role/binding correlation. *(initial offline parser and graph implemented, pending validation)*

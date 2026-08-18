@@ -21,15 +21,16 @@ type AgentBOM struct {
 // Unlike Diagnostic, it describes analyzed repository state rather than parser
 // health; unlike drift.Change, it does not require a baseline document.
 type Finding struct {
-	ID          string            `json:"id" yaml:"id"`
-	Type        string            `json:"type" yaml:"type"`
-	Severity    string            `json:"severity" yaml:"severity"`
-	AssetID     string            `json:"assetId" yaml:"assetId"`
-	Title       string            `json:"title" yaml:"title"`
-	Reason      string            `json:"reason" yaml:"reason"`
-	Remediation string            `json:"remediation,omitempty" yaml:"remediation,omitempty"`
-	Evidence    []FindingEvidence `json:"evidence" yaml:"evidence"`
-	Attributes  map[string]any    `json:"attributes,omitempty" yaml:"attributes,omitempty"`
+	ID            string            `json:"id" yaml:"id"`
+	Type          string            `json:"type" yaml:"type"`
+	Severity      string            `json:"severity" yaml:"severity"`
+	AssetID       string            `json:"assetId" yaml:"assetId"`
+	Title         string            `json:"title" yaml:"title"`
+	Reason        string            `json:"reason" yaml:"reason"`
+	RemediationID string            `json:"remediationId" yaml:"remediationId"`
+	Remediation   string            `json:"remediation,omitempty" yaml:"remediation,omitempty"`
+	Evidence      []FindingEvidence `json:"evidence" yaml:"evidence"`
+	Attributes    map[string]any    `json:"attributes,omitempty" yaml:"attributes,omitempty"`
 }
 
 type FindingEvidence struct {

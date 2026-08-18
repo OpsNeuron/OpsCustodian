@@ -17,7 +17,7 @@ func TestWriteFindingsAcrossTerminalJSONAndSARIF(t *testing.T) {
 			if err := WriteFindings(&output, bom, format); err != nil {
 				t.Fatalf("WriteFindings(%s): %v", format, err)
 			}
-			if !strings.Contains(output.String(), "finding-stable") || !strings.Contains(output.String(), "kubernetes-effective-access-expansion") {
+			if !strings.Contains(output.String(), "finding-stable") || !strings.Contains(output.String(), "kubernetes-effective-access-expansion") || !strings.Contains(output.String(), "kubernetes.reduce-access") {
 				t.Fatalf("%s output missing finding identity: %s", format, output.String())
 			}
 			if format == "sarif" {
@@ -51,7 +51,7 @@ func findingsTestBOM() model.AgentBOM {
 		Assets:   []model.Asset{{ID: "role:admin", Evidence: []model.Evidence{{ID: "role-evidence", Path: "rbac.yaml", Line: 12, Parser: "kubernetes", Confidence: "high"}}}},
 		Findings: []model.Finding{{
 			ID: "finding-stable", Type: "kubernetes-effective-access-expansion", Severity: "critical", AssetID: "workload:agent",
-			Title: "Effective access expanded", Reason: "RBAC grants administrator access", Remediation: "Reduce the role.",
+			Title: "Effective access expanded", Reason: "RBAC grants administrator access", RemediationID: "kubernetes.reduce-access", Remediation: "Reduce the role.",
 			Evidence: []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "role-evidence"}},
 		}},
 	}

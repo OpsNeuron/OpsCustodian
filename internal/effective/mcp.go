@@ -25,19 +25,21 @@ func ComposeMCPFindings(bom *model.AgentBOM) {
 		if provenance.SourceType == "external-local-path" {
 			appendFinding(bom, model.Finding{
 				Type: "mcp-repository-boundary-escape", Severity: "high", AssetID: asset.ID,
-				Title:       "MCP runtime executes outside the repository boundary",
-				Reason:      "MCP executable path is outside the scanned repository revision.",
-				Remediation: "Move the executable into the governed repository or replace it with an immutable, verified package or image reference.",
-				Evidence:    evidence, Attributes: attributes,
+				Title:         "MCP runtime executes outside the repository boundary",
+				Reason:        "MCP executable path is outside the scanned repository revision.",
+				RemediationID: "mcp.enforce-repository-boundary",
+				Remediation:   "Move the executable into the governed repository or replace it with an immutable, verified package or image reference.",
+				Evidence:      evidence, Attributes: attributes,
 			})
 		}
 		if provenance.SourceType == "remote-endpoint" && !provenance.TLS {
 			appendFinding(bom, model.Finding{
 				Type: "mcp-insecure-transport", Severity: "high", AssetID: asset.ID,
-				Title:       "Remote MCP server does not use TLS",
-				Reason:      "Remote MCP endpoint uses plaintext or an unknown transport scheme.",
-				Remediation: "Use an HTTPS endpoint with certificate validation and keep credentials outside the URL.",
-				Evidence:    evidence, Attributes: attributes,
+				Title:         "Remote MCP server does not use TLS",
+				Reason:        "Remote MCP endpoint uses plaintext or an unknown transport scheme.",
+				RemediationID: "mcp.require-tls",
+				Remediation:   "Use an HTTPS endpoint with certificate validation and keep credentials outside the URL.",
+				Evidence:      evidence, Attributes: attributes,
 			})
 		}
 		if mutableMCPRuntime(provenance) {
@@ -47,10 +49,11 @@ func ComposeMCPFindings(bom *model.AgentBOM) {
 			}
 			appendFinding(bom, model.Finding{
 				Type: "mcp-runtime-unpinned", Severity: severity, AssetID: asset.ID,
-				Title:       "MCP runtime identity is mutable or unverified",
-				Reason:      fmt.Sprintf("MCP runtime uses %s pinning with %s integrity.", provenance.PinType, provenance.Integrity),
-				Remediation: "Pin packages to an exact version and OCI images to a SHA-256 digest; govern system executable versions outside the BOM.",
-				Evidence:    evidence, Attributes: attributes,
+				Title:         "MCP runtime identity is mutable or unverified",
+				Reason:        fmt.Sprintf("MCP runtime uses %s pinning with %s integrity.", provenance.PinType, provenance.Integrity),
+				RemediationID: "mcp.pin-runtime",
+				Remediation:   "Pin packages to an exact version and OCI images to a SHA-256 digest; govern system executable versions outside the BOM.",
+				Evidence:      evidence, Attributes: attributes,
 			})
 		}
 	}

@@ -8,10 +8,14 @@ OpsCustodian distinguishes three result types:
 
 Findings are versioned as part of the Agent BOM `v1alpha1` contract. Every
 finding has a stable ID, type, severity, subject asset, human-readable reason,
-optional remediation, structured attributes, and at least one evidence
+stable `remediationId`, human-readable remediation, structured attributes, and at least one evidence
 reference. Evidence references contain both `assetId` and `evidenceId` because
 evidence IDs are local to an asset and an effective access chain can cross a
 workload, identity, binding, and role.
+
+Consumers must key automation on `remediationId`, not remediation prose. IDs
+use lowercase `namespace.action-name` form and are cataloged in
+[`REMEDIATIONS.md`](REMEDIATIONS.md).
 
 ## Kubernetes effective-access expansion
 

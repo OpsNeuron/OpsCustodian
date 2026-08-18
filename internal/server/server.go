@@ -1,9 +1,11 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/opscustodian/opscustodian/internal/contracts"
@@ -18,6 +20,7 @@ type API struct {
 type listResponse[T any] struct {
 	APIVersion string `json:"apiVersion"`
 	Items      []T    `json:"items"`
+	NextCursor string `json:"nextCursor,omitempty"`
 }
 
 type valueResponse[T any] struct {
@@ -40,6 +43,8 @@ func NewHandler(reader store.Reader, buildVersion string) http.Handler {
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
 	mux.HandleFunc("GET /api/v1/repositories", api.repositories)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
+	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
+	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	return securityHeaders(mux)
 }
@@ -53,15 +58,66 @@ func (api *API) contracts(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
-	items, err := api.reader.ListRepositories(request.Context())
+	page, ok := requestPage(w, request, "repositories")
+	if !ok {
+		return
+	}
+	result, err := api.reader.ListRepositories(request.Context(), page)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository inventory is unavailable")
 		return
 	}
-	if items == nil {
-		items = []store.RepositorySummary{}
+	if result.Items == nil {
+		result.Items = []store.RepositorySummary{}
 	}
-	writeJSON(w, http.StatusOK, listResponse[store.RepositorySummary]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items})
+	writeJSON(w, http.StatusOK, listResponse[store.RepositorySummary]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("repositories", result.NextCursor)})
+}
+
+func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {
+	repositoryID := request.PathValue("repositoryID")
+	if !validRepositoryID(repositoryID) {
+		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	page, ok := requestPage(w, request, "snapshots:"+repositoryID)
+	if !ok {
+		return
+	}
+	result, err := api.reader.ListSnapshots(request.Context(), repositoryID, page)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "repository-not-found", "repository was not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "snapshot history is unavailable")
+		return
+	}
+	if result.Items == nil {
+		result.Items = []store.SnapshotSummary{}
+	}
+	writeJSON(w, http.StatusOK, listResponse[store.SnapshotSummary]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("snapshots:"+repositoryID, result.NextCursor)})
+}
+
+func (api *API) snapshotBOM(w http.ResponseWriter, request *http.Request) {
+	repositoryID, snapshotID := request.PathValue("repositoryID"), request.PathValue("snapshotID")
+	if !validRepositoryID(repositoryID) {
+		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if !validSnapshotID(snapshotID) {
+		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "snapshot ID is invalid")
+		return
+	}
+	snapshot, err := api.reader.Snapshot(request.Context(), repositoryID, snapshotID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "snapshot-not-found", "snapshot was not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository snapshot is unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, valueResponse[store.Snapshot]{APIVersion: contracts.ControlPlaneAPIVersion, Value: snapshot})
 }
 
 func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
@@ -92,15 +148,20 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return
 	}
-	items, err := api.reader.ListFindings(request.Context(), filter)
+	page, ok := requestPage(w, request, "findings")
+	if !ok {
+		return
+	}
+	filter.Page = page
+	result, err := api.reader.ListFindings(request.Context(), filter)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store-read-failed", "finding inventory is unavailable")
 		return
 	}
-	if items == nil {
-		items = []store.FindingRecord{}
+	if result.Items == nil {
+		result.Items = []store.FindingRecord{}
 	}
-	writeJSON(w, http.StatusOK, listResponse[store.FindingRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items})
+	writeJSON(w, http.StatusOK, listResponse[store.FindingRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("findings", result.NextCursor)})
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -114,15 +175,52 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 func validRepositoryID(value string) bool {
-	if !strings.HasPrefix(value, "repository-") || len(value) != len("repository-")+16 {
+	return validOpaqueID(value, "repository-")
+}
+
+func validSnapshotID(value string) bool {
+	return validOpaqueID(value, "snapshot-")
+}
+
+func validOpaqueID(value, prefix string) bool {
+	if !strings.HasPrefix(value, prefix) || len(value) != len(prefix)+16 {
 		return false
 	}
-	for _, character := range value[len("repository-"):] {
+	for _, character := range value[len(prefix):] {
 		if !strings.ContainsRune("0123456789abcdef", character) {
 			return false
 		}
 	}
 	return true
+}
+
+func requestPage(w http.ResponseWriter, request *http.Request, scope string) (store.PageRequest, bool) {
+	page := store.PageRequest{Limit: 50}
+	if raw := request.URL.Query().Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit < 1 || limit > 200 {
+			writeError(w, http.StatusBadRequest, "invalid-limit", "limit must be an integer between 1 and 200")
+			return store.PageRequest{}, false
+		}
+		page.Limit = limit
+	}
+	if raw := request.URL.Query().Get("cursor"); raw != "" {
+		decoded, err := base64.RawURLEncoding.DecodeString(raw)
+		prefix := "v1\x00" + scope + "\x00"
+		if err != nil || len(decoded) > 512 || !strings.HasPrefix(string(decoded), prefix) {
+			writeError(w, http.StatusBadRequest, "invalid-cursor", "cursor is invalid or unsupported")
+			return store.PageRequest{}, false
+		}
+		page.Cursor = strings.TrimPrefix(string(decoded), prefix)
+	}
+	return page, true
+}
+
+func encodeCursor(scope, value string) string {
+	if value == "" {
+		return ""
+	}
+	return base64.RawURLEncoding.EncodeToString([]byte("v1\x00" + scope + "\x00" + value))
 }
 
 func validSeverity(value string) bool {

@@ -26,7 +26,37 @@ type RepositorySummary struct {
 
 type Snapshot struct {
 	RepositoryID string         `json:"repositoryId"`
+	SnapshotID   string         `json:"snapshotId"`
 	BOM          model.AgentBOM `json:"bom"`
+}
+
+type SnapshotSummary struct {
+	ID           string `json:"id"`
+	RepositoryID string `json:"repositoryId"`
+	Revision     string `json:"revision"`
+	GeneratedAt  string `json:"generatedAt,omitempty"`
+	AssetCount   int    `json:"assetCount"`
+	FindingCount int    `json:"findingCount"`
+}
+
+type PageRequest struct {
+	Limit  int
+	Cursor string
+}
+
+type RepositoryPage struct {
+	Items      []RepositorySummary
+	NextCursor string
+}
+
+type SnapshotPage struct {
+	Items      []SnapshotSummary
+	NextCursor string
+}
+
+type FindingPage struct {
+	Items      []FindingRecord
+	NextCursor string
 }
 
 type FindingRecord struct {
@@ -39,12 +69,15 @@ type FindingRecord struct {
 type FindingFilter struct {
 	RepositoryID string
 	Severity     string
+	Page         PageRequest
 }
 
 type Reader interface {
-	ListRepositories(context.Context) ([]RepositorySummary, error)
+	ListRepositories(context.Context, PageRequest) (RepositoryPage, error)
 	LatestSnapshot(context.Context, string) (Snapshot, error)
-	ListFindings(context.Context, FindingFilter) ([]FindingRecord, error)
+	Snapshot(context.Context, string, string) (Snapshot, error)
+	ListSnapshots(context.Context, string, PageRequest) (SnapshotPage, error)
+	ListFindings(context.Context, FindingFilter) (FindingPage, error)
 }
 
 type Writer interface {
@@ -58,7 +91,7 @@ type Memory struct {
 
 type memoryRepository struct {
 	source    string
-	revisions map[string]model.AgentBOM
+	snapshots map[string]model.AgentBOM
 	latest    string
 }
 
@@ -69,6 +102,11 @@ func NewMemory() *Memory {
 func RepositoryID(source string) string {
 	sum := sha256.Sum256([]byte(source))
 	return fmt.Sprintf("repository-%x", sum[:8])
+}
+
+func SnapshotID(repositoryID, revision string) string {
+	sum := sha256.Sum256([]byte(repositoryID + "\x00" + revision))
+	return fmt.Sprintf("snapshot-%x", sum[:8])
 }
 
 func (memory *Memory) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snapshot, error) {
@@ -83,34 +121,36 @@ func (memory *Memory) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snap
 		return Snapshot{}, err
 	}
 	id := RepositoryID(cloned.Metadata.Source)
+	snapshotID := SnapshotID(id, cloned.Metadata.Revision)
 	memory.mu.Lock()
 	defer memory.mu.Unlock()
 	repository := memory.repositories[id]
 	if repository == nil {
-		repository = &memoryRepository{source: cloned.Metadata.Source, revisions: map[string]model.AgentBOM{}}
+		repository = &memoryRepository{source: cloned.Metadata.Source, snapshots: map[string]model.AgentBOM{}}
 		memory.repositories[id] = repository
 	}
-	repository.revisions[cloned.Metadata.Revision] = cloned
-	repository.latest = cloned.Metadata.Revision
-	return Snapshot{RepositoryID: id, BOM: cloned}, nil
+	repository.snapshots[snapshotID] = cloned
+	repository.latest = snapshotID
+	return Snapshot{RepositoryID: id, SnapshotID: snapshotID, BOM: cloned}, nil
 }
 
-func (memory *Memory) ListRepositories(ctx context.Context) ([]RepositorySummary, error) {
+func (memory *Memory) ListRepositories(ctx context.Context, page PageRequest) (RepositoryPage, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return RepositoryPage{}, err
 	}
 	memory.mu.RLock()
 	defer memory.mu.RUnlock()
 	result := make([]RepositorySummary, 0, len(memory.repositories))
 	for id, repository := range memory.repositories {
-		latest := repository.revisions[repository.latest]
+		latest := repository.snapshots[repository.latest]
 		result = append(result, RepositorySummary{
-			ID: id, Source: repository.source, LatestRevision: repository.latest,
-			SnapshotCount: len(repository.revisions), AssetCount: len(latest.Assets), FindingCount: len(latest.Findings),
+			ID: id, Source: repository.source, LatestRevision: latest.Metadata.Revision,
+			SnapshotCount: len(repository.snapshots), AssetCount: len(latest.Assets), FindingCount: len(latest.Findings),
 		})
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
-	return result, nil
+	items, next := pageSlice(result, page, func(value RepositorySummary) string { return value.ID })
+	return RepositoryPage{Items: items, NextCursor: next}, nil
 }
 
 func (memory *Memory) LatestSnapshot(ctx context.Context, repositoryID string) (Snapshot, error) {
@@ -123,18 +163,64 @@ func (memory *Memory) LatestSnapshot(ctx context.Context, repositoryID string) (
 		memory.mu.RUnlock()
 		return Snapshot{}, ErrNotFound
 	}
-	bom := repository.revisions[repository.latest]
+	snapshotID := repository.latest
+	bom := repository.snapshots[snapshotID]
 	memory.mu.RUnlock()
 	cloned, err := cloneBOM(bom)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{RepositoryID: repositoryID, BOM: cloned}, nil
+	return Snapshot{RepositoryID: repositoryID, SnapshotID: snapshotID, BOM: cloned}, nil
 }
 
-func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) ([]FindingRecord, error) {
+func (memory *Memory) Snapshot(ctx context.Context, repositoryID, snapshotID string) (Snapshot, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return Snapshot{}, err
+	}
+	memory.mu.RLock()
+	repository := memory.repositories[repositoryID]
+	if repository == nil {
+		memory.mu.RUnlock()
+		return Snapshot{}, ErrNotFound
+	}
+	bom, exists := repository.snapshots[snapshotID]
+	memory.mu.RUnlock()
+	if !exists {
+		return Snapshot{}, ErrNotFound
+	}
+	cloned, err := cloneBOM(bom)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{RepositoryID: repositoryID, SnapshotID: snapshotID, BOM: cloned}, nil
+}
+
+func (memory *Memory) ListSnapshots(ctx context.Context, repositoryID string, page PageRequest) (SnapshotPage, error) {
+	if err := ctx.Err(); err != nil {
+		return SnapshotPage{}, err
+	}
+	memory.mu.RLock()
+	repository := memory.repositories[repositoryID]
+	if repository == nil {
+		memory.mu.RUnlock()
+		return SnapshotPage{}, ErrNotFound
+	}
+	result := make([]SnapshotSummary, 0, len(repository.snapshots))
+	for id, bom := range repository.snapshots {
+		result = append(result, SnapshotSummary{
+			ID: id, RepositoryID: repositoryID, Revision: bom.Metadata.Revision, GeneratedAt: bom.Metadata.GeneratedAt,
+			AssetCount: len(bom.Assets), FindingCount: len(bom.Findings),
+		})
+	}
+	memory.mu.RUnlock()
+	sort.Slice(result, func(i, j int) bool { return snapshotSortKey(result[i]) < snapshotSortKey(result[j]) })
+	items, next := pageSlice(result, page, snapshotSortKey)
+	return SnapshotPage{Items: items, NextCursor: next}, nil
+}
+
+func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) (FindingPage, error) {
+	if err := ctx.Err(); err != nil {
+		return FindingPage{}, err
 	}
 	memory.mu.RLock()
 	result := make([]FindingRecord, 0)
@@ -142,19 +228,46 @@ func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) ([
 		if filter.RepositoryID != "" && filter.RepositoryID != id {
 			continue
 		}
-		bom := repository.revisions[repository.latest]
+		bom := repository.snapshots[repository.latest]
 		for _, finding := range bom.Findings {
 			if filter.Severity != "" && filter.Severity != finding.Severity {
 				continue
 			}
-			result = append(result, FindingRecord{RepositoryID: id, Source: repository.source, Revision: repository.latest, Finding: finding})
+			result = append(result, FindingRecord{RepositoryID: id, Source: repository.source, Revision: bom.Metadata.Revision, Finding: finding})
 		}
 	}
 	memory.mu.RUnlock()
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].RepositoryID+"\x00"+result[i].Finding.ID < result[j].RepositoryID+"\x00"+result[j].Finding.ID
 	})
-	return result, nil
+	items, next := pageSlice(result, filter.Page, findingSortKey)
+	return FindingPage{Items: items, NextCursor: next}, nil
+}
+
+func snapshotSortKey(value SnapshotSummary) string {
+	return value.GeneratedAt + "\x00" + value.ID
+}
+
+func findingSortKey(value FindingRecord) string {
+	return value.RepositoryID + "\x00" + value.Finding.ID
+}
+
+func pageSlice[T any](values []T, page PageRequest, key func(T) string) ([]T, string) {
+	start := 0
+	if page.Cursor != "" {
+		start = sort.Search(len(values), func(index int) bool { return key(values[index]) > page.Cursor })
+	}
+	limit := page.Limit
+	if limit <= 0 || limit > len(values)-start {
+		limit = len(values) - start
+	}
+	end := start + limit
+	items := append([]T(nil), values[start:end]...)
+	next := ""
+	if end < len(values) && len(items) > 0 {
+		next = key(items[len(items)-1])
+	}
+	return items, next
 }
 
 func cloneBOM(value model.AgentBOM) (model.AgentBOM, error) {

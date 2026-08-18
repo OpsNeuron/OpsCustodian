@@ -16,6 +16,14 @@ import (
 func TestReadOnlyAPIListsRepositoriesFindingsAndLatestBOM(t *testing.T) {
 	memory := store.NewMemory()
 	bom := serverTestBOM()
+	previous := serverTestBOM()
+	previous.Metadata.Revision = "before"
+	previous.Metadata.GeneratedAt = "2026-08-17T00:00:00Z"
+	previous.Findings[0].ID = "finding-before"
+	if _, err := memory.PutSnapshot(context.Background(), previous); err != nil {
+		t.Fatal(err)
+	}
+	bom.Metadata.GeneratedAt = "2026-08-18T00:00:00Z"
 	snapshot, err := memory.PutSnapshot(context.Background(), bom)
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +37,21 @@ func TestReadOnlyAPIListsRepositoriesFindingsAndLatestBOM(t *testing.T) {
 	assertResponse(t, findings, http.StatusOK, `"id":"finding-server"`, `"remediationId":"kubernetes.reduce-rbac-privileges"`)
 
 	latest := performRequest(t, handler, http.MethodGet, "/api/v1/repositories/"+snapshot.RepositoryID+"/bom")
-	assertResponse(t, latest, http.StatusOK, `"repositoryId":"`+snapshot.RepositoryID+`"`, `"revision":"abc123"`)
+	assertResponse(t, latest, http.StatusOK, `"repositoryId":"`+snapshot.RepositoryID+`"`, `"snapshotId":"`+snapshot.SnapshotID+`"`, `"revision":"abc123"`)
+
+	history := performRequest(t, handler, http.MethodGet, "/api/v1/repositories/"+snapshot.RepositoryID+"/snapshots?limit=1")
+	assertResponse(t, history, http.StatusOK, `"generatedAt":"2026-08-17T00:00:00Z"`, `"nextCursor":`)
+	var page struct {
+		Items      []store.SnapshotSummary `json:"items"`
+		NextCursor string                  `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(history.Body.Bytes(), &page); err != nil || len(page.Items) != 1 || page.NextCursor == "" {
+		t.Fatalf("invalid history page: %s, %v", history.Body.String(), err)
+	}
+	next := performRequest(t, handler, http.MethodGet, "/api/v1/repositories/"+snapshot.RepositoryID+"/snapshots?limit=1&cursor="+page.NextCursor)
+	assertResponse(t, next, http.StatusOK, `"revision":"abc123"`)
+	specific := performRequest(t, handler, http.MethodGet, "/api/v1/repositories/"+snapshot.RepositoryID+"/snapshots/"+snapshot.SnapshotID+"/bom")
+	assertResponse(t, specific, http.StatusOK, `"snapshotId":"`+snapshot.SnapshotID+`"`)
 }
 
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
@@ -46,6 +68,27 @@ func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
 	}
 }
 
+func TestPaginationCursorIsBoundToCollectionScope(t *testing.T) {
+	memory := store.NewMemory()
+	for _, source := range []string{"github:acme/a", "github:acme/b"} {
+		bom := serverTestBOM()
+		bom.Metadata.Source = source
+		if _, err := memory.PutSnapshot(context.Background(), bom); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := NewHandler(memory, "dev")
+	response := performRequest(t, handler, http.MethodGet, "/api/v1/repositories?limit=1")
+	var page struct {
+		NextCursor string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil || page.NextCursor == "" {
+		t.Fatalf("repository page has no cursor: %s, %v", response.Body.String(), err)
+	}
+	misused := performRequest(t, handler, http.MethodGet, "/api/v1/findings?cursor="+page.NextCursor)
+	assertResponse(t, misused, http.StatusBadRequest, `"code":"invalid-cursor"`)
+}
+
 func TestReadOnlyAPIRejectsInvalidFiltersPathsAndMutation(t *testing.T) {
 	handler := NewHandler(store.NewMemory(), "dev")
 	tests := []struct {
@@ -53,7 +96,10 @@ func TestReadOnlyAPIRejectsInvalidFiltersPathsAndMutation(t *testing.T) {
 		status             int
 	}{
 		{http.MethodGet, "/api/v1/findings?severity=urgent", "invalid-severity", http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/findings?limit=0", "invalid-limit", http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/findings?cursor=invalid", "invalid-cursor", http.StatusBadRequest},
 		{http.MethodGet, "/api/v1/repositories/not-an-id/bom", "invalid-repository-id", http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/repositories/repository-0000000000000000/snapshots/not-a-snapshot/bom", "invalid-snapshot-id", http.StatusBadRequest},
 		{http.MethodGet, "/api/v1/repositories/repository-0000000000000000/bom", "repository-not-found", http.StatusNotFound},
 		{http.MethodPost, "/api/v1/repositories", "", http.StatusMethodNotAllowed},
 	}

@@ -100,6 +100,7 @@ runtime authorization system.
 
 - Persistence-neutral snapshot reader/writer boundary. *(initial interface and memory implementation complete)*
 - Versioned read-only repository and finding API. *(initial tested HTTP handler complete; not network-exposed)*
+- Keyset pagination, repository snapshot history, and OpenAPI contract. *(implemented in the read-only handler)*
 - PostgreSQL persistence and migrations.
 - Multi-repository ingestion and historical Finding lifecycle.
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.

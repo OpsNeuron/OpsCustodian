@@ -12,12 +12,20 @@ the same boundary intended for PostgreSQL.
 | `GET` | `/api/v1/contracts` | Build and supported contract discovery |
 | `GET` | `/api/v1/repositories` | Deterministic repository summaries |
 | `GET` | `/api/v1/repositories/{repositoryId}/bom` | Latest repository snapshot |
+| `GET` | `/api/v1/repositories/{repositoryId}/snapshots` | Repository snapshot history |
+| `GET` | `/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom` | One immutable snapshot |
 | `GET` | `/api/v1/findings` | Findings across latest repository snapshots |
 
-The findings endpoint accepts exact `repositoryId` and `severity` filters. All
-API envelopes use `opscustodian.dev/control-plane/v1alpha1`. Collection
-responses emit explicit empty arrays, and repository IDs are deterministic
-hash-derived identifiers rather than raw filesystem paths.
+The findings endpoint accepts exact `repositoryId` and `severity` filters.
+Collection endpoints use keyset pagination with `limit` (default 50, maximum
+200) and an opaque versioned `cursor`. All API envelopes use
+`opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit
+empty arrays. Repository and snapshot IDs are deterministic hash-derived
+identifiers rather than raw filesystem paths or revisions.
+
+The OpenAPI 3.1 source of truth is [`api/openapi.yaml`](../api/openapi.yaml).
+A Go conformance test ensures every implemented read-only route remains
+documented under the same API contract version.
 
 ## Persistence boundary
 
@@ -37,7 +45,7 @@ The handler sets `no-store`, `nosniff`, frame denial, and a restrictive Content
 Security Policy. It returns bounded public error messages rather than internal
 store errors.
 
-Authentication, authorization, tenant isolation, pagination, request limits,
+Authentication, authorization, tenant isolation, request-body/server limits,
 and audit middleware are not implemented yet. Consequently this handler is not
 connected to a CLI listener and must not be exposed to a network. A future
 `serve` command will default to loopback and will not support non-loopback binds

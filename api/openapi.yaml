@@ -1,0 +1,137 @@
+openapi: 3.1.0
+info:
+  title: OpsCustodian Control Plane API
+  version: 0.5.0-alpha
+  description: Read-only organization inventory and effective-access API.
+x-opscustodian-api-version: opscustodian.dev/control-plane/v1alpha1
+servers:
+  - url: http://127.0.0.1:8080
+    description: Future loopback-only development server
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          description: Process is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { const: ok }
+  /api/v1/contracts:
+    get:
+      operationId: getContracts
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+  /api/v1/repositories:
+    get:
+      operationId: listRepositories
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+  /api/v1/repositories/{repositoryId}/bom:
+    get:
+      operationId: getLatestRepositoryBOM
+      parameters:
+        - { $ref: "#/components/parameters/RepositoryID" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "404": { $ref: "#/components/responses/APIError" }
+  /api/v1/repositories/{repositoryId}/snapshots:
+    get:
+      operationId: listRepositorySnapshots
+      parameters:
+        - { $ref: "#/components/parameters/RepositoryID" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "404": { $ref: "#/components/responses/APIError" }
+  /api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom:
+    get:
+      operationId: getRepositorySnapshotBOM
+      parameters:
+        - { $ref: "#/components/parameters/RepositoryID" }
+        - { $ref: "#/components/parameters/SnapshotID" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "404": { $ref: "#/components/responses/APIError" }
+  /api/v1/findings:
+    get:
+      operationId: listFindings
+      parameters:
+        - name: repositoryId
+          in: query
+          schema: { $ref: "#/components/schemas/RepositoryID" }
+        - name: severity
+          in: query
+          schema: { enum: [info, low, medium, high, critical] }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+components:
+  parameters:
+    RepositoryID:
+      name: repositoryId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/RepositoryID" }
+    SnapshotID:
+      name: snapshotId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/SnapshotID" }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque versioned keyset cursor returned by the previous page.
+      schema: { type: string, maxLength: 700 }
+  schemas:
+    RepositoryID:
+      type: string
+      pattern: ^repository-[0-9a-f]{16}$
+    SnapshotID:
+      type: string
+      pattern: ^snapshot-[0-9a-f]{16}$
+    APIError:
+      type: object
+      required: [apiVersion, error]
+      properties:
+        apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+  responses:
+    JSONSuccess:
+      description: Versioned successful response; concrete envelope depends on operation.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [apiVersion]
+            properties:
+              apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+            additionalProperties: true
+    APIError:
+      description: Public-safe API error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/APIError" }

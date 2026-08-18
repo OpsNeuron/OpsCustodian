@@ -36,6 +36,8 @@ ON CONFLICT (organization_id, repository_id, snapshot_id, finding_id) DO NOTHING
 
 type postgresDatabase interface {
 	BeginTx(context.Context, *sql.TxOptions) (postgresTransaction, error)
+	QueryContext(context.Context, string, ...any) (postgresRows, error)
+	QueryRowContext(context.Context, string, ...any) postgresRow
 }
 
 type postgresTransaction interface {
@@ -49,6 +51,13 @@ type postgresRow interface {
 	Scan(...any) error
 }
 
+type postgresRows interface {
+	Next() bool
+	Scan(...any) error
+	Err() error
+	Close() error
+}
+
 type sqlDatabase struct{ value *sql.DB }
 type sqlTransaction struct{ value *sql.Tx }
 
@@ -59,6 +68,12 @@ func (database sqlDatabase) BeginTx(ctx context.Context, options *sql.TxOptions)
 	}
 	return sqlTransaction{value: transaction}, nil
 }
+func (database sqlDatabase) QueryContext(ctx context.Context, query string, args ...any) (postgresRows, error) {
+	return database.value.QueryContext(ctx, query, args...)
+}
+func (database sqlDatabase) QueryRowContext(ctx context.Context, query string, args ...any) postgresRow {
+	return database.value.QueryRowContext(ctx, query, args...)
+}
 func (transaction sqlTransaction) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	return transaction.value.ExecContext(ctx, query, args...)
 }
@@ -68,30 +83,36 @@ func (transaction sqlTransaction) QueryRowContext(ctx context.Context, query str
 func (transaction sqlTransaction) Commit() error   { return transaction.value.Commit() }
 func (transaction sqlTransaction) Rollback() error { return transaction.value.Rollback() }
 
-type PostgresWriter struct {
+type Postgres struct {
 	database                postgresDatabase
 	organizationID          string
 	organizationDisplayName string
 }
 
-func NewPostgresWriter(database *sql.DB, organizationID, displayName string) (*PostgresWriter, error) {
+type PostgresWriter = Postgres
+
+func NewPostgresWriter(database *sql.DB, organizationID, displayName string) (*Postgres, error) {
 	if database == nil {
 		return nil, fmt.Errorf("PostgreSQL database is required")
 	}
 	return newPostgresWriter(sqlDatabase{value: database}, organizationID, displayName)
 }
 
-func newPostgresWriter(database postgresDatabase, organizationID, displayName string) (*PostgresWriter, error) {
+func NewPostgres(database *sql.DB, organizationID, displayName string) (*Postgres, error) {
+	return NewPostgresWriter(database, organizationID, displayName)
+}
+
+func newPostgresWriter(database postgresDatabase, organizationID, displayName string) (*Postgres, error) {
 	if !organizationIDPattern.MatchString(organizationID) {
 		return nil, fmt.Errorf("invalid organization ID %q", organizationID)
 	}
 	if displayName == "" {
 		return nil, fmt.Errorf("organization display name is required")
 	}
-	return &PostgresWriter{database: database, organizationID: organizationID, organizationDisplayName: displayName}, nil
+	return &Postgres{database: database, organizationID: organizationID, organizationDisplayName: displayName}, nil
 }
 
-func (writer *PostgresWriter) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snapshot, error) {
+func (writer *Postgres) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return Snapshot{}, err
 	}

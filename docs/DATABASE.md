@@ -61,3 +61,23 @@ Reusing that revision with different BOM content is rejected rather than
 silently overwriting history. Unit tests exercise transaction ordering,
 pre-database validation, commit, rollback, and immutable-revision conflicts
 through a driver-neutral fake transaction.
+
+## Snapshot reader
+
+The PostgreSQL adapter also implements the persistence-neutral `Reader`
+contract. Every query is constrained by `organization_id`, repository and
+snapshot lists use bounded keyset pagination, and missing records map to the
+same public `ErrNotFound` contract as the in-memory store. Stored Agent BOM
+JSON is decoded and validated again before it crosses the storage boundary.
+
+Repository inventory, latest and historical snapshots, current findings, and
+episode-aware Finding lifecycle projections are computed without loading an
+organization's full history into process memory. The lifecycle query uses the
+immutable snapshot ingestion sequence to distinguish reintroduction from a
+continuously persisting Finding.
+
+Driver-neutral tests cover row decoding, tenant arguments, pagination cursors,
+not-found behavior, and rejection of invalid persisted BOMs. SQL execution,
+query plans, migration application, concurrent ingestion, and rollback against
+a real PostgreSQL server remain explicitly deferred to final integration
+validation.

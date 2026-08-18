@@ -122,6 +122,7 @@ Missing exit items:
 - Episode-aware Finding lifecycle projection with introduced, persisting, resolved, and reintroduced semantics plus source-derived observation timestamps.
 - Embedded PostgreSQL migration catalog and transactional runner with tenant-scoped schema, immutable snapshot/Finding storage, checksums, advisory locking, rollback, and newer-database rejection.
 - Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, idempotent re-ingestion, immutable revision-conflict rejection, and Finding projection.
+- Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 
 The handler is intentionally not connected to a network listener until
 authentication, authorization, request limits, and safe bind defaults are

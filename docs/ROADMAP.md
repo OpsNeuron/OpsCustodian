@@ -101,9 +101,9 @@ runtime authorization system.
 - Persistence-neutral snapshot reader/writer boundary. *(initial interface and memory implementation complete)*
 - Versioned read-only repository and finding API. *(initial tested HTTP handler complete; not network-exposed)*
 - Keyset pagination, repository snapshot history, and OpenAPI contract. *(implemented in the read-only handler)*
-- Cross-snapshot Finding lifecycle projection and filtering. *(episode-aware in-memory implementation and API complete; durable transitions require PostgreSQL)*
+- Cross-snapshot Finding lifecycle projection and filtering. *(episode-aware in-memory and PostgreSQL query implementations complete; real database validation pending)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
-- PostgreSQL snapshot writer. *(transactional and driver-neutral implementation complete; Reader and real database validation pending)*
+- PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Multi-repository ingestion and historical Finding lifecycle.
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration.

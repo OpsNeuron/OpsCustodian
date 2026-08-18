@@ -99,3 +99,50 @@ This stage requires the source to occur inside a GitHub expression in the
 assigned to a step or job environment variable and the script references the
 quoted shell variable. That distinction follows GitHub's recommendation to
 keep untrusted expression expansion out of generated scripts.
+
+## Runner trust
+
+Every statically declared `runs-on` value is recorded in
+`githubRunnerSelections` with job evidence. Classification is deliberately
+bounded:
+
+- a standard `ubuntu-*`, `windows-*`, or `macos-*` label is classified as
+  `github-hosted`;
+- an explicit `self-hosted` label is classified as `self-hosted` and emits
+  `githubSelfHostedRunnerExposure`;
+- expression-selected labels, custom labels, and runner groups remain
+  `unknown` and emit `githubRunnerSelectionUnknown`.
+
+Custom labels cannot prove a GitHub-hosted runner because self-hosted runners
+can omit the default label, including some Actions Runner Controller setups.
+Runner groups may contain either larger GitHub-hosted runners or self-hosted
+runners. Resolving those cases requires repository, organization, or enterprise
+API enrichment.
+
+The risk engine treats explicit self-hosting as an additional persistence and
+isolation concern. When an untrusted data flow reaches that runner, a separate
+factor records the possibility that compromise survives beyond the current
+job; it does not claim persistence is proven.
+
+## Dependency integrity
+
+Step actions and job-level reusable workflows are added to the asset dependency
+graph and summarized in `githubDependencyIntegrity`. OpsCustodian distinguishes:
+
+- `full-commit-sha`: an external action or reusable workflow pinned to a full
+  40-character commit SHA;
+- `container-digest`: a container action pinned to a SHA-256 digest;
+- `same-commit`: a local action or reusable workflow loaded from the caller's
+  checked-out revision;
+- `tag-or-branch`, `container-tag`, and `unversioned`: mutable external code;
+- `dynamic`: an expression-selected reference that cannot be resolved offline.
+
+Mutable and unresolved external dependencies emit
+`githubMutableDependencyExposure`. This is a supply-chain exposure, not proof
+that the dependency is compromised. The risk engine combines it with effective
+write permissions, OIDC, secrets, privileged triggers, data flow, deployment
+environment, and runner trust.
+
+Only a full commit SHA is treated as an immutable GitHub action pin. A version
+tag remains operationally useful, but its target can be moved or deleted. The
+same integrity model applies to external reusable workflows.

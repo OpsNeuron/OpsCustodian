@@ -258,6 +258,101 @@ jobs:
 	}
 }
 
+func TestParseClassifiesRunnerTrustWithoutGuessingDynamicOrGroupedRunners(t *testing.T) {
+	artifact := discovery.Artifact{
+		RelPath: ".github/workflows/runners.yml",
+		Content: []byte(`name: runner trust
+on: push
+jobs:
+  hosted:
+    runs-on: ubuntu-latest
+  persistent:
+    runs-on: [self-hosted, linux, x64]
+  dynamic:
+    runs-on: ${{ matrix.runner }}
+  grouped:
+    runs-on:
+      group: production-runners
+      labels: linux
+`),
+	}
+	assets, err := (Parser{}).Parse(context.Background(), artifact)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	asset := assets[0]
+	selections := runnerControlValues(t, asset.Controls, "githubRunnerSelections")
+	if len(selections) != 4 {
+		t.Fatalf("runner selections = %#v, want 4", selections)
+	}
+	wantKinds := map[string]string{"hosted": "github-hosted", "persistent": "self-hosted", "dynamic": "unknown", "grouped": "unknown"}
+	for _, selection := range selections {
+		if selection.Kind != wantKinds[selection.Job] || len(selection.EvidenceIDs) != 2 || !assetHasEvidence(asset, selection.EvidenceIDs[1]) {
+			t.Fatalf("unexpected runner selection: %#v", selection)
+		}
+	}
+	selfHosted := runnerControlValues(t, asset.Controls, "githubSelfHostedRunnerExposure")
+	if len(selfHosted) != 1 || selfHosted[0].Job != "persistent" {
+		t.Fatalf("unexpected self-hosted exposure: %#v", selfHosted)
+	}
+	unknown := runnerControlValues(t, asset.Controls, "githubRunnerSelectionUnknown")
+	if len(unknown) != 2 || unknown[0].Job != "dynamic" || !unknown[0].Dynamic || unknown[1].Job != "grouped" || unknown[1].Group != "production-runners" {
+		t.Fatalf("unexpected unknown runner selections: %#v", unknown)
+	}
+}
+
+func TestParseClassifiesActionAndReusableWorkflowIntegrity(t *testing.T) {
+	sha := "a824008085750b8e136effc585c3cd6082bd575f"
+	digest := "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	artifact := discovery.Artifact{
+		RelPath: ".github/workflows/dependencies.yml",
+		Content: []byte(`name: dependencies
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: acme/verified-action@` + sha + `
+      - uses: ./local-action
+      - uses: docker://alpine:3.20
+      - uses: docker://ghcr.io/acme/tool@` + digest + `
+  deploy:
+    uses: acme/platform/.github/workflows/deploy.yml@main
+`),
+	}
+	assets, err := (Parser{}).Parse(context.Background(), artifact)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	asset := assets[0]
+	dependencies := dependencyControlValues(t, asset.Controls, "githubDependencyIntegrity")
+	if len(dependencies) != 6 || len(asset.Dependencies) != 6 {
+		t.Fatalf("dependency inventory = %#v, references = %#v", dependencies, asset.Dependencies)
+	}
+	wantPins := map[string]string{
+		"actions/checkout": "tag-or-branch",
+		"acme/verified-action": "full-commit-sha",
+		"./local-action": "same-commit",
+		"alpine": "container-tag",
+		"ghcr.io/acme/tool": "container-digest",
+		"acme/platform/.github/workflows/deploy.yml": "tag-or-branch",
+	}
+	for _, dependency := range dependencies {
+		if dependency.PinType != wantPins[dependency.Reference] || len(dependency.EvidenceIDs) != 2 || !assetHasEvidence(asset, dependency.EvidenceIDs[1]) {
+			t.Fatalf("unexpected dependency integrity: %#v", dependency)
+		}
+		wantImmutable := dependency.PinType == "full-commit-sha" || dependency.PinType == "container-digest" || dependency.PinType == "same-commit"
+		if dependency.Immutable != wantImmutable {
+			t.Fatalf("dependency immutability = %t, want %t: %#v", dependency.Immutable, wantImmutable, dependency)
+		}
+	}
+	mutable := dependencyControlValues(t, asset.Controls, "githubMutableDependencyExposure")
+	if len(mutable) != 3 {
+		t.Fatalf("mutable dependencies = %#v, want checkout tag, container tag, and reusable workflow branch", mutable)
+	}
+}
+
 func capabilitySummaries(t *testing.T, capabilities []model.Capability) []string {
 	t.Helper()
 	result := make([]string, 0, len(capabilities))
@@ -315,4 +410,30 @@ func assetHasEvidence(asset model.Asset, evidenceID string) bool {
 		}
 	}
 	return false
+}
+
+func runnerControlValues(t *testing.T, controls []model.Control, controlType string) []githubRunnerSelection {
+	t.Helper()
+	control := controlOfType(controls, controlType)
+	if control == nil {
+		t.Fatalf("runner control %q is missing in %#v", controlType, controls)
+	}
+	values, ok := control.Value.([]githubRunnerSelection)
+	if !ok {
+		t.Fatalf("runner control %q has unexpected value %#v", controlType, control.Value)
+	}
+	return values
+}
+
+func dependencyControlValues(t *testing.T, controls []model.Control, controlType string) []githubDependencyIntegrity {
+	t.Helper()
+	control := controlOfType(controls, controlType)
+	if control == nil {
+		t.Fatalf("dependency control %q is missing in %#v", controlType, controls)
+	}
+	values, ok := control.Value.([]githubDependencyIntegrity)
+	if !ok {
+		t.Fatalf("dependency control %q has unexpected value %#v", controlType, control.Value)
+	}
+	return values
 }

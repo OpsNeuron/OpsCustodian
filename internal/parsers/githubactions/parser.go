@@ -39,8 +39,31 @@ type githubUntrustedDataFlow struct {
 	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
 }
 
+type githubRunnerSelection struct {
+	Job         string   `json:"job" yaml:"job"`
+	Kind        string   `json:"kind" yaml:"kind"`
+	Labels      []string `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Group       string   `json:"group,omitempty" yaml:"group,omitempty"`
+	Dynamic     bool     `json:"dynamic,omitempty" yaml:"dynamic,omitempty"`
+	Reason      string   `json:"reason" yaml:"reason"`
+	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
+type githubDependencyIntegrity struct {
+	Job         string   `json:"job" yaml:"job"`
+	Kind        string   `json:"kind" yaml:"kind"`
+	Reference   string   `json:"reference" yaml:"reference"`
+	Locator     string   `json:"locator,omitempty" yaml:"locator,omitempty"`
+	PinType     string   `json:"pinType" yaml:"pinType"`
+	Immutable   bool     `json:"immutable" yaml:"immutable"`
+	Reason      string   `json:"reason" yaml:"reason"`
+	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
 var secretPattern = regexp.MustCompile(`(?i)secrets\.([A-Z0-9_]+)`)
 var githubExpressionPattern = regexp.MustCompile(`(?s)\$\{\{.*?\}\}`)
+var fullCommitSHAPattern = regexp.MustCompile(`(?i)^[0-9a-f]{40}$`)
+var containerDigestPattern = regexp.MustCompile(`(?i)@sha256:[0-9a-f]{64}$`)
 
 var untrustedRunContexts = []string{
 	"github.event.comment.body",
@@ -107,6 +130,8 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 	if jobs != nil && jobs.Kind == yaml.MappingNode {
 		var unspecifiedJobs, disabledJobs []string
 		var untrustedDataFlows []githubUntrustedDataFlow
+		var runnerSelections, selfHostedRunners, unknownRunners []githubRunnerSelection
+		var dependencies, mutableDependencies []githubDependencyIntegrity
 		for i := 0; i+1 < len(jobs.Content); i += 2 {
 			jobName, job := jobs.Content[i].Value, jobs.Content[i+1]
 			environmentName, environmentURL, environmentNode := jobEnvironment(mappingValue(job, "environment"))
@@ -115,6 +140,18 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 				ID: jobEvidence, Path: a.RelPath, Line: job.Line, Column: job.Column,
 				Parser: "github-actions", Confidence: "high", Observation: "job " + jobName,
 			})
+			if runsOn := mappingValue(job, "runs-on"); runsOn != nil {
+				runnerEvidenceID := stableID("gha-runner", a.RelPath+":"+jobName)
+				agent.Evidence = append(agent.Evidence, permissionEvidence(a.RelPath, runsOn, runnerEvidenceID, "runner selection for job "+jobName))
+				selection := parseRunnerSelection(jobName, runsOn, []string{jobEvidence, runnerEvidenceID})
+				runnerSelections = append(runnerSelections, selection)
+				switch selection.Kind {
+				case "self-hosted":
+					selfHostedRunners = append(selfHostedRunners, selection)
+				case "unknown":
+					unknownRunners = append(unknownRunners, selection)
+				}
+			}
 			effectivePermissions := workflowPermissions
 			permissionEvidenceID := workflowPermissionEvidence
 			jobPermissions := mappingValue(job, "permissions")
@@ -150,6 +187,17 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 			flows, flowEvidence := analyzeJobDataFlows(a.RelPath, jobName, job, triggers, jobEvidence)
 			untrustedDataFlows = append(untrustedDataFlows, flows...)
 			agent.Evidence = append(agent.Evidence, flowEvidence...)
+			jobDependencies, dependencyEvidence := analyzeJobDependencies(a.RelPath, jobName, job, jobEvidence)
+			dependencies = append(dependencies, jobDependencies...)
+			agent.Evidence = append(agent.Evidence, dependencyEvidence...)
+			for _, dependency := range jobDependencies {
+				agent.Dependencies = append(agent.Dependencies, model.Reference{
+					Type: dependency.Kind, Reference: dependency.Reference, Locator: dependency.Locator,
+				})
+				if !dependency.Immutable && dependency.PinType != "same-commit" {
+					mutableDependencies = append(mutableDependencies, dependency)
+				}
+			}
 		}
 		if len(unspecifiedJobs) > 0 {
 			agent.Controls = append(agent.Controls, model.Control{Type: "githubTokenPermissionsUnspecified", Value: unspecifiedJobs})
@@ -159,6 +207,21 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		}
 		if len(untrustedDataFlows) > 0 {
 			agent.Controls = append(agent.Controls, model.Control{Type: "githubUntrustedDataFlow", Value: untrustedDataFlows})
+		}
+		if len(runnerSelections) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubRunnerSelections", Value: runnerSelections})
+		}
+		if len(selfHostedRunners) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubSelfHostedRunnerExposure", Value: selfHostedRunners})
+		}
+		if len(unknownRunners) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubRunnerSelectionUnknown", Value: unknownRunners})
+		}
+		if len(dependencies) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubDependencyIntegrity", Value: dependencies})
+		}
+		if len(mutableDependencies) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubMutableDependencyExposure", Value: mutableDependencies})
 		}
 	} else {
 		agent.Capabilities = append(agent.Capabilities,
@@ -277,6 +340,66 @@ func workflowTriggers(node *yaml.Node) []string {
 	return result
 }
 
+func parseRunnerSelection(job string, node *yaml.Node, evidenceIDs []string) githubRunnerSelection {
+	selection := githubRunnerSelection{Job: job, Kind: "unknown", EvidenceIDs: evidenceIDs}
+	if node == nil {
+		selection.Reason = "runner selection is absent"
+		return selection
+	}
+	switch node.Kind {
+	case yaml.ScalarNode:
+		selection.Labels = []string{strings.TrimSpace(node.Value)}
+	case yaml.SequenceNode:
+		for _, child := range node.Content {
+			if child.Kind == yaml.ScalarNode && strings.TrimSpace(child.Value) != "" {
+				selection.Labels = append(selection.Labels, strings.TrimSpace(child.Value))
+			}
+		}
+	case yaml.MappingNode:
+		selection.Group = strings.TrimSpace(scalarValue(mappingValue(node, "group")))
+		labels := mappingValue(node, "labels")
+		if labels != nil && labels.Kind == yaml.SequenceNode {
+			for _, child := range labels.Content {
+				if child.Kind == yaml.ScalarNode && strings.TrimSpace(child.Value) != "" {
+					selection.Labels = append(selection.Labels, strings.TrimSpace(child.Value))
+				}
+			}
+		} else if value := strings.TrimSpace(scalarValue(labels)); value != "" {
+			selection.Labels = append(selection.Labels, value)
+		}
+	}
+	for _, label := range selection.Labels {
+		lower := strings.ToLower(label)
+		if strings.Contains(lower, "${{") {
+			selection.Dynamic = true
+		}
+		if lower == "self-hosted" {
+			selection.Kind = "self-hosted"
+			selection.Reason = "job explicitly targets a self-hosted runner label"
+			return selection
+		}
+	}
+	if selection.Dynamic {
+		selection.Reason = "runner label is selected dynamically and cannot be classified offline"
+		return selection
+	}
+	if selection.Group != "" {
+		selection.Reason = "runner group may contain a larger or self-hosted runner and requires GitHub API enrichment"
+		return selection
+	}
+	if len(selection.Labels) == 1 && githubHostedRunnerLabel(strings.ToLower(selection.Labels[0])) {
+		selection.Kind = "github-hosted"
+		selection.Reason = "job targets a standard GitHub-hosted runner label"
+		return selection
+	}
+	selection.Reason = "custom runner labels cannot prove hosting or isolation without repository configuration"
+	return selection
+}
+
+func githubHostedRunnerLabel(label string) bool {
+	return strings.HasPrefix(label, "ubuntu-") || strings.HasPrefix(label, "windows-") || strings.HasPrefix(label, "macos-")
+}
+
 func privilegedTriggerExposures(triggers []string) []githubTriggerExposure {
 	var result []githubTriggerExposure
 	for _, event := range triggers {
@@ -358,12 +481,104 @@ func analyzeJobDataFlows(path, jobName string, job *yaml.Node, triggers []string
 			flows = append(flows, githubUntrustedDataFlow{
 				Job: jobName, Trigger: triggerForContext(source, triggerSet), Source: source,
 				Sink: "runner-shell", Action: "run:" + shell,
-				Reason: "event-controlled expression is interpolated directly into a generated runner script",
+				Reason:      "event-controlled expression is interpolated directly into a generated runner script",
 				EvidenceIDs: []string{jobEvidenceID, flowEvidenceID},
 			})
 		}
 	}
 	return flows, evidence
+}
+
+func analyzeJobDependencies(path, jobName string, job *yaml.Node, jobEvidenceID string) ([]githubDependencyIntegrity, []model.Evidence) {
+	var dependencies []githubDependencyIntegrity
+	var evidence []model.Evidence
+	if reusable := mappingValue(job, "uses"); reusable != nil {
+		dependency, itemEvidence := classifyDependency(path, jobName, "reusable-workflow", scalarValue(reusable), reusable, "job", jobEvidenceID)
+		if dependency.Reference != "" {
+			dependencies = append(dependencies, dependency)
+			evidence = append(evidence, itemEvidence)
+		}
+	}
+	steps := mappingValue(job, "steps")
+	if steps == nil || steps.Kind != yaml.SequenceNode {
+		return dependencies, evidence
+	}
+	for index, step := range steps.Content {
+		if step.Kind != yaml.MappingNode {
+			continue
+		}
+		usesNode := mappingValue(step, "uses")
+		uses := strings.TrimSpace(scalarValue(usesNode))
+		if uses == "" {
+			continue
+		}
+		kind := "github-action"
+		if strings.HasPrefix(strings.ToLower(uses), "docker://") {
+			kind = "container-action"
+		} else if strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "$/") {
+			kind = "local-action"
+		}
+		dependency, itemEvidence := classifyDependency(path, jobName, kind, uses, usesNode, fmt.Sprintf("step-%d", index), jobEvidenceID)
+		dependencies = append(dependencies, dependency)
+		evidence = append(evidence, itemEvidence)
+	}
+	return dependencies, evidence
+}
+
+func classifyDependency(path, jobName, kind, uses string, node *yaml.Node, discriminator, jobEvidenceID string) (githubDependencyIntegrity, model.Evidence) {
+	uses = strings.TrimSpace(uses)
+	reference, locator := splitDependencyReference(uses)
+	dependency := githubDependencyIntegrity{
+		Job: jobName, Kind: kind, Reference: reference, Locator: locator,
+		EvidenceIDs: []string{jobEvidenceID},
+	}
+	switch {
+	case kind == "local-action" || strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "$/"):
+		dependency.PinType, dependency.Immutable = "same-commit", true
+		dependency.Reason = "local dependency is loaded from the caller workflow commit"
+	case strings.Contains(uses, "${{"):
+		dependency.PinType = "dynamic"
+		dependency.Reason = "dependency reference is expression-selected and cannot be resolved offline"
+	case kind == "container-action" && containerDigestPattern.MatchString(uses):
+		dependency.PinType, dependency.Immutable = "container-digest", true
+		dependency.Reason = "container action is pinned to a SHA-256 digest"
+	case kind == "container-action":
+		dependency.PinType = "container-tag"
+		dependency.Reason = "container action tag or implicit latest reference is mutable"
+	case fullCommitSHAPattern.MatchString(locator):
+		dependency.PinType, dependency.Immutable = "full-commit-sha", true
+		dependency.Reason = "GitHub dependency is pinned to a full commit SHA"
+	case locator == "":
+		dependency.PinType = "unversioned"
+		dependency.Reason = "external GitHub dependency has no explicit ref"
+	default:
+		dependency.PinType = "tag-or-branch"
+		dependency.Reason = "GitHub tag or branch reference can move to different code"
+	}
+	evidenceID := stableID("gha-dependency", path+":"+jobName+":"+discriminator+":"+uses)
+	dependency.EvidenceIDs = append(dependency.EvidenceIDs, evidenceID)
+	itemEvidence := model.Evidence{
+		ID: evidenceID, Path: path, Line: node.Line, Column: node.Column,
+		Parser: "github-actions", Confidence: "high", Observation: "dependency " + uses + " in job " + jobName,
+	}
+	return dependency, itemEvidence
+}
+
+func splitDependencyReference(uses string) (string, string) {
+	if strings.HasPrefix(strings.ToLower(uses), "docker://") {
+		value := strings.TrimPrefix(uses, "docker://")
+		if index := strings.LastIndex(value, "@sha256:"); index >= 0 {
+			return value[:index], value[index+1:]
+		}
+		if index := strings.LastIndex(value, ":"); index > strings.LastIndex(value, "/") {
+			return value[:index], value[index+1:]
+		}
+		return value, "latest"
+	}
+	if index := strings.LastIndex(uses, "@"); index > 0 {
+		return uses[:index], uses[index+1:]
+	}
+	return uses, ""
 }
 
 func directUntrustedRunSources(run string) []string {

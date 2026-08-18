@@ -23,6 +23,8 @@ func TestCapabilityRiskCalibration(t *testing.T) {
 		{name: "production OIDC federation", asset: riskAsset("high"), capability: riskCapability("github.oidc_token.issue", "github:oidc-token", "execute", "production"), score: 80, level: "critical", factors: []string{"effect", "production", "oidc-token", "high-confidence"}},
 		{name: "privileged trigger write", asset: privilegedTriggerAsset(), capability: riskCapability("github.contents.*", "github:repository", "write", "development"), score: 85, level: "critical", factors: []string{"effect", "broad-scope", "privileged-trigger", "high-confidence"}},
 		{name: "privileged trigger data flow", asset: untrustedDataFlowAsset(), capability: riskCapability("github.contents.*", "github:repository", "write", "development"), score: 100, level: "critical", factors: []string{"privileged-trigger", "untrusted-data-flow"}},
+		{name: "self hosted runner", asset: selfHostedRunnerAsset(), capability: riskCapability("github.contents.*", "github:repository", "read", "development"), score: 50, level: "medium", factors: []string{"effect", "broad-scope", "self-hosted-runner", "high-confidence"}},
+		{name: "mutable action dependency", asset: mutableDependencyAsset(), capability: riskCapability("github.contents.*", "github:repository", "write", "development"), score: 80, level: "critical", factors: []string{"effect", "broad-scope", "mutable-dependency", "high-confidence"}},
 		{name: "human approval mitigation", asset: controlledRiskAsset("humanApproval"), capability: riskCapability("deploy.update", "kubernetes:production/apps/deployment", "write", "production"), score: 50, level: "medium", factors: []string{"human-approval"}},
 		{name: "safe output mitigation", asset: controlledRiskAsset("safeOutputs"), capability: riskCapability("github.safe_output.add.comment", "github:acme/repo", "write", "development"), score: 30, level: "low", factors: []string{"safe-output"}},
 		{name: "low confidence", asset: riskAsset("low"), capability: riskCapability("kubernetes.pods.get", "kubernetes:development/core/pods/app", "read", "development"), score: 5, level: "info", factors: []string{"low-confidence"}},
@@ -85,6 +87,18 @@ func privilegedTriggerAsset() model.Asset {
 func untrustedDataFlowAsset() model.Asset {
 	asset := privilegedTriggerAsset()
 	asset.Controls = append(asset.Controls, model.Control{Type: "githubUntrustedDataFlow", Value: true})
+	return asset
+}
+
+func selfHostedRunnerAsset() model.Asset {
+	asset := riskAsset("high")
+	asset.Controls = []model.Control{{Type: "githubSelfHostedRunnerExposure", Value: true}}
+	return asset
+}
+
+func mutableDependencyAsset() model.Asset {
+	asset := riskAsset("high")
+	asset.Controls = []model.Control{{Type: "githubMutableDependencyExposure", Value: true}}
 	return asset
 }
 

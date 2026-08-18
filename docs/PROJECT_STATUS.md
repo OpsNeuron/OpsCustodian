@@ -88,6 +88,8 @@ Missing exit items:
 - Deterministic workflow-trigger inventory and conservative privileged trust-boundary exposure for `pull_request_target` and `workflow_run`, integrated into explainable capability risk.
 - Initial evidence-backed GitHub Actions source-to-sink analysis for privileged untrusted checkout refs and cross-run artifact consumption, without flagging safe default checkout behavior.
 - Direct GitHub Actions script-injection paths from attacker-influenced event expressions to runner shells, with safe environment-variable indirection excluded by construction.
+- Evidence-backed runner selection inventory with explicit self-hosted exposure, dynamic/group/custom unknown states, and persistent-compromise risk only when combined with untrusted data flow.
+- GitHub Actions dependency graph and integrity classification for external actions, reusable workflows, local actions, container tags/digests, full commit SHAs, and dynamic references.
 
 ## Remaining path to 1.0
 

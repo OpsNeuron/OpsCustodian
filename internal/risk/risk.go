@@ -51,6 +51,15 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if hasControl(asset, "githubUntrustedDataFlow") {
 		add(&assessment, "untrusted-data-flow", 30, "workflow moves lower-trust event data into an executable or privileged runner sink")
 	}
+	if hasControl(asset, "githubSelfHostedRunnerExposure") {
+		add(&assessment, "self-hosted-runner", 20, "workflow executes on a runner without GitHub-hosted ephemeral isolation guarantees")
+		if hasControl(asset, "githubUntrustedDataFlow") {
+			add(&assessment, "persistent-runner-compromise", 15, "untrusted execution may persist beyond one job on a self-hosted runner")
+		}
+	}
+	if hasControl(asset, "githubMutableDependencyExposure") {
+		add(&assessment, "mutable-dependency", 20, "workflow executes an external action, workflow, or container reference that can move to different code")
+	}
 	if strings.HasPrefix(capability.Action, "kubernetes.") {
 		switch {
 		case strings.HasSuffix(capability.Action, ".bind"):

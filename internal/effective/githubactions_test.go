@@ -37,6 +37,22 @@ func TestComposeGitHubReusableWorkflowsResolvesAndBoundsNestedCalls(t *testing.T
 	if hops[1].EffectiveSecretMode != "inherited" {
 		t.Fatalf("nested secret mode = %q, expected inherited", hops[1].EffectiveSecretMode)
 	}
+	if len(bom.AccessPaths) != 3 {
+		t.Fatalf("expected root and independently callable workflow paths, got %#v", bom.AccessPaths)
+	}
+	var nestedPath model.AccessPath
+	for _, accessPath := range bom.AccessPaths {
+		if accessPath.Origin == "workflow:root" && len(accessPath.Steps) == 3 {
+			nestedPath = accessPath
+			break
+		}
+	}
+	if len(nestedPath.Steps) != 3 || nestedPath.Steps[1].Kind != "delegation" || nestedPath.Steps[2].AssetID != "workflow:leaf" {
+		t.Fatalf("unexpected nested delegation path: %#v", nestedPath)
+	}
+	if nestedPath.Capability.Effect != "read" {
+		t.Fatalf("delegation path escaped caller ceiling: %#v", nestedPath.Capability)
+	}
 }
 
 func TestComposeGitHubReusableWorkflowsReportsCycle(t *testing.T) {

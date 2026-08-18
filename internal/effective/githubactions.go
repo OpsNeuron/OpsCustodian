@@ -1,6 +1,8 @@
 package effective
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"path"
 	"sort"
 	"strings"
@@ -21,6 +23,10 @@ type reusableWorkflowEdge struct {
 // calculates the permission and secret envelope across nested call chains.
 // External calls intentionally remain unresolved because scanning is offline.
 func ComposeGitHubReusableWorkflows(bom *model.AgentBOM) {
+	accessPaths := make(map[string]model.AccessPath, len(bom.AccessPaths))
+	for _, accessPath := range bom.AccessPaths {
+		accessPaths[accessPath.ID] = accessPath
+	}
 	byPath := map[string]int{}
 	for i := range bom.Assets {
 		if bom.Assets[i].Type == "workflow" {
@@ -78,7 +84,7 @@ func ComposeGitHubReusableWorkflows(bom *model.AgentBOM) {
 			continue
 		}
 		var hops []model.GitHubReusableWorkflowHop
-		walkReusableWorkflows(bom, edges, root, root, nil, "caller-visible", []int{root}, &hops, diagnostics)
+		walkReusableWorkflows(bom, edges, root, root, nil, "caller-visible", []int{root}, &hops, accessPaths, diagnostics)
 		if len(hops) > 0 {
 			bom.Assets[root].Controls = append(bom.Assets[root].Controls, model.Control{
 				Type: "githubReusableWorkflowComposition", Value: hops,
@@ -88,9 +94,14 @@ func ComposeGitHubReusableWorkflows(bom *model.AgentBOM) {
 	for _, diagnostic := range diagnostics {
 		bom.Diagnostics = append(bom.Diagnostics, diagnostic)
 	}
+	bom.AccessPaths = make([]model.AccessPath, 0, len(accessPaths))
+	for _, accessPath := range accessPaths {
+		bom.AccessPaths = append(bom.AccessPaths, accessPath)
+	}
+	sort.Slice(bom.AccessPaths, func(i, j int) bool { return bom.AccessPaths[i].ID < bom.AccessPaths[j].ID })
 }
 
-func walkReusableWorkflows(bom *model.AgentBOM, edges map[int][]reusableWorkflowEdge, root, caller int, inheritedPermissions []model.Capability, availableSecrets string, stack []int, hops *[]model.GitHubReusableWorkflowHop, diagnostics map[string]model.Diagnostic) {
+func walkReusableWorkflows(bom *model.AgentBOM, edges map[int][]reusableWorkflowEdge, root, caller int, inheritedPermissions []model.Capability, availableSecrets string, stack []int, hops *[]model.GitHubReusableWorkflowHop, accessPaths map[string]model.AccessPath, diagnostics map[string]model.Diagnostic) {
 	for _, edge := range edges[caller] {
 		depth := len(stack)
 		if depth > maxReusableWorkflowDepth {
@@ -118,13 +129,33 @@ func walkReusableWorkflows(bom *model.AgentBOM, edges map[int][]reusableWorkflow
 			SecretMode: edge.call.SecretMode, EffectiveSecretMode: effectiveSecrets,
 			SecretNames: append([]string(nil), edge.call.SecretNames...), EvidenceIDs: append([]string(nil), edge.call.EvidenceIDs...),
 		})
+		appendReusableWorkflowAccessPaths(bom, root, pathIDs, effectivePermissions, edge.call.EvidenceIDs, accessPaths)
 
 		if stackContains(stack, edge.callee) {
 			addReusableDiagnostic(diagnostics, bom.Assets[root], "GITHUB_REUSABLE_WORKFLOW_CYCLE", "reusable workflow cycle detected: "+strings.Join(pathIDs, " -> "))
 			continue
 		}
 		nextStack := append(append([]int(nil), stack...), edge.callee)
-		walkReusableWorkflows(bom, edges, root, edge.callee, effectivePermissions, effectiveSecrets, nextStack, hops, diagnostics)
+		walkReusableWorkflows(bom, edges, root, edge.callee, effectivePermissions, effectiveSecrets, nextStack, hops, accessPaths, diagnostics)
+	}
+}
+
+func appendReusableWorkflowAccessPaths(bom *model.AgentBOM, root int, pathIDs []string, permissions []model.Capability, callEvidence []string, accessPaths map[string]model.AccessPath) {
+	steps := []model.AccessPathStep{{Kind: "origin", AssetID: bom.Assets[root].ID}}
+	for _, assetID := range pathIDs[1:] {
+		steps = append(steps, model.AccessPathStep{Kind: "delegation", AssetID: assetID})
+	}
+	for _, permission := range permissions {
+		evidenceIDs := appendUniqueStrings(permission.EvidenceIDs, callEvidence...)
+		identity := bom.Assets[root].ID + "\x00" + strings.Join(pathIDs, "\x00") + "\x00" + capabilityIdentity(permission)
+		sum := sha256.Sum256([]byte(identity))
+		accessPath := model.AccessPath{
+			ID: fmt.Sprintf("access-path-%x", sum[:8]), Origin: bom.Assets[root].ID,
+			Steps: append([]model.AccessPathStep(nil), steps...), Capability: permission,
+			Confidence: "high", EvidenceIDs: evidenceIDs,
+		}
+		accessPath.Capability.EvidenceIDs = evidenceIDs
+		accessPaths[accessPath.ID] = accessPath
 	}
 }
 

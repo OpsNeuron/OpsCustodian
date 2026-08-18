@@ -167,6 +167,11 @@ path, caller permission ceiling, and effective secret mode. Nested token
 permissions are intersected with the preceding caller ceiling, so composition
 never models a called workflow as increasing `GITHUB_TOKEN` access.
 
+Each resolved effective permission also produces a provider-neutral access path
+whose `origin` is the caller and whose `delegation` steps are the reusable
+workflows in call order. These paths use the same Agent BOM contract, HTML
+explorer, validation, and policy surfaces as Kubernetes effective-access paths.
+
 The offline composer reports `GITHUB_REUSABLE_WORKFLOW_UNRESOLVED`,
 `GITHUB_REUSABLE_WORKFLOW_CYCLE`, and
 `GITHUB_REUSABLE_WORKFLOW_DEPTH_LIMIT`. External reusable workflows remain

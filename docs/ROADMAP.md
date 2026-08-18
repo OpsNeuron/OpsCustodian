@@ -84,6 +84,7 @@ a representative repository without manually assembling an inventory.
 - Scanner integration test. *(temporary-repository full-pipeline invariants and deterministic repeat scan implemented, pending validation)*
 - Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*
 - Optional GitHub API enrichment.
+- Local GitHub reusable-workflow composition and delegation access paths. *(implemented offline with permission ceilings, secret propagation, and bounded cycle analysis)*
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.
 - Provenance and pinning checks for MCP servers.

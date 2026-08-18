@@ -155,7 +155,7 @@ func Validate(bom model.AgentBOM) []Issue {
 		for stepIndex, step := range accessPath.Steps {
 			stepBase := fmt.Sprintf("%s.steps[%d]", base, stepIndex)
 			if !validAccessPathStepKind(step.Kind) {
-				issues = append(issues, issue(stepBase+".kind", "invalid-step-kind", "access path step kind must be origin, principal, grant, or entitlement"))
+				issues = append(issues, issue(stepBase+".kind", "invalid-step-kind", "access path step kind must be origin, principal, grant, entitlement, or delegation"))
 			}
 			if _, exists := agentIDs[step.AssetID]; !exists {
 				issues = append(issues, issue(stepBase+".assetId", "unknown-step-asset", "access path step must reference an asset in this BOM"))
@@ -220,5 +220,5 @@ func validConfidence(value string) bool {
 }
 
 func validAccessPathStepKind(value string) bool {
-	return value == "origin" || value == "principal" || value == "grant" || value == "entitlement"
+	return value == "origin" || value == "principal" || value == "grant" || value == "entitlement" || value == "delegation"
 }

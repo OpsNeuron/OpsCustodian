@@ -150,7 +150,7 @@
       "additionalProperties": false,
       "required": ["kind", "assetId"],
       "properties": {
-        "kind": { "enum": ["origin", "principal", "grant", "entitlement"] },
+        "kind": { "enum": ["origin", "principal", "grant", "entitlement", "delegation"] },
         "assetId": { "type": "string", "minLength": 1 }
       }
     },

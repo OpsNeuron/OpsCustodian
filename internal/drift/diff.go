@@ -2,6 +2,7 @@ package drift
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -54,6 +55,7 @@ func Compare(before, after model.AgentBOM) Report {
 		report.Changes = append(report.Changes, compareCapabilities(previous, current)...)
 		report.Changes = append(report.Changes, compareCredentials(previous, current)...)
 		report.Changes = append(report.Changes, compareControls(previous, current)...)
+		report.Changes = append(report.Changes, compareMCPProvenance(previous, current)...)
 	}
 	for id, previous := range oldAgents {
 		if _, exists := newAgents[id]; !exists {
@@ -418,7 +420,91 @@ func controlDriftSupported(control model.Control) bool {
 	// Composition is derived from source calls and permissions. Its meaningful
 	// changes are reported through access-path drift rather than as an opaque
 	// formatted control value.
-	return control.Type != "githubReusableWorkflowComposition"
+	switch control.Type {
+	case "githubReusableWorkflowComposition", "mcpServerProvenance", "mcpMutableRuntimeExposure", "mcpInsecureTransportExposure":
+		return false
+	default:
+		return true
+	}
+}
+
+func compareMCPProvenance(before, after model.Agent) []Change {
+	if before.Type != "mcp-server" || after.Type != "mcp-server" {
+		return nil
+	}
+	oldValue, oldFound := mcpProvenance(before.Controls)
+	newValue, newFound := mcpProvenance(after.Controls)
+	if !oldFound || !newFound || mcpProvenanceEqual(oldValue, newValue) {
+		return nil
+	}
+	assessment := risk.MCPProvenanceChange(oldValue, newValue)
+	changeType, reasons := "mcp-runtime-changed", []string{"MCP runtime provenance changed"}
+	switch {
+	case oldValue.TLS && !newValue.TLS && oldValue.SourceType == "remote-endpoint" && newValue.SourceType == "remote-endpoint":
+		changeType, reasons = "mcp-transport-downgraded", []string{"remote MCP transport changed from TLS to plaintext or unknown"}
+	case oldValue.Pinned && !newValue.Pinned:
+		changeType, reasons = "mcp-runtime-pin-weakened", []string{"MCP runtime changed from " + oldValue.PinType + " to " + newValue.PinType}
+		if oldValue.Integrity == "sha256" && newValue.Integrity != "sha256" {
+			reasons = append(reasons, "content-addressed SHA-256 integrity was removed")
+		}
+	case oldValue.Registry != newValue.Registry || oldValue.EndpointHost != newValue.EndpointHost:
+		changeType, reasons = "mcp-runtime-origin-changed", []string{"MCP registry or endpoint host changed"}
+	case oldValue.SourceType != newValue.SourceType:
+		changeType, reasons = "mcp-runtime-source-changed", []string{"MCP runtime source changed from " + oldValue.SourceType + " to " + newValue.SourceType}
+	case oldValue.Version != newValue.Version:
+		reasons = []string{"MCP runtime version changed from " + displayValue(oldValue.Version) + " to " + displayValue(newValue.Version)}
+	}
+	return []Change{{
+		Type: changeType, Severity: assessment.Level, AgentID: after.ID, Subject: after.Name,
+		Before: mcpProvenanceSummary(oldValue), After: mcpProvenanceSummary(newValue), Reason: strings.Join(reasons, "; "),
+		Locations: agentLocations(after, newValue.EvidenceIDs), Risk: assessment,
+	}}
+}
+
+func mcpProvenance(controls []model.Control) (model.MCPServerProvenance, bool) {
+	for _, control := range controls {
+		if control.Type != "mcpServerProvenance" {
+			continue
+		}
+		if value, ok := control.Value.(model.MCPServerProvenance); ok {
+			return value, true
+		}
+		content, err := json.Marshal(control.Value)
+		if err != nil {
+			return model.MCPServerProvenance{}, false
+		}
+		var value model.MCPServerProvenance
+		if err := json.Unmarshal(content, &value); err != nil {
+			return model.MCPServerProvenance{}, false
+		}
+		return value, true
+	}
+	return model.MCPServerProvenance{}, false
+}
+
+func mcpProvenanceEqual(left, right model.MCPServerProvenance) bool {
+	return left.Transport == right.Transport && left.Launcher == right.Launcher && left.SourceType == right.SourceType &&
+		left.Registry == right.Registry && left.Package == right.Package && left.Version == right.Version &&
+		left.PinType == right.PinType && left.Pinned == right.Pinned && left.Integrity == right.Integrity &&
+		left.EndpointHost == right.EndpointHost && left.TLS == right.TLS
+}
+
+func mcpProvenanceSummary(value model.MCPServerProvenance) string {
+	identity := value.Package
+	if identity == "" {
+		identity = value.EndpointHost
+	}
+	if value.Version != "" {
+		identity += "@" + value.Version
+	}
+	return value.SourceType + ":" + displayValue(identity) + " (" + value.PinType + ", " + value.Integrity + ")"
+}
+
+func displayValue(value string) string {
+	if value == "" {
+		return "unspecified"
+	}
+	return value
 }
 
 func Find(report Report, id string) (Change, bool) {

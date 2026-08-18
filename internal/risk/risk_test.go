@@ -77,6 +77,25 @@ func TestDelegatedAccessPathRisk(t *testing.T) {
 	assertAssessment(t, assessment, 100, "critical", "effective-access-path", "delegated-access", "effect-escalation", "access-path-rerouted")
 }
 
+func TestMCPProvenanceChangeRisk(t *testing.T) {
+	tests := []struct {
+		name          string
+		before, after model.MCPServerProvenance
+		score         int
+		level         string
+		factors       []string
+	}{
+		{name: "exact version to latest", before: model.MCPServerProvenance{Pinned: true, PinType: "exact-version", Integrity: "version"}, after: model.MCPServerProvenance{PinType: "latest", Integrity: "none"}, score: 65, level: "high", factors: []string{"mcp-provenance-change", "mcp-pin-weakened"}},
+		{name: "digest to tag", before: model.MCPServerProvenance{Pinned: true, PinType: "digest", Integrity: "sha256"}, after: model.MCPServerProvenance{PinType: "tag", Integrity: "none"}, score: 95, level: "critical", factors: []string{"mcp-provenance-change", "mcp-pin-weakened", "mcp-integrity-weakened"}},
+		{name: "https to http", before: model.MCPServerProvenance{SourceType: "remote-endpoint", TLS: true}, after: model.MCPServerProvenance{SourceType: "remote-endpoint"}, score: 80, level: "critical", factors: []string{"mcp-provenance-change", "mcp-transport-downgrade"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assertAssessment(t, MCPProvenanceChange(test.before, test.after), test.score, test.level, test.factors...)
+		})
+	}
+}
+
 func riskAsset(confidence string) model.Asset {
 	return model.Asset{Evidence: []model.Evidence{{ID: "evidence", Path: "fixture", Parser: "test", Confidence: confidence}}}
 }

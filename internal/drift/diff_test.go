@@ -1,6 +1,7 @@
 package drift
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -161,6 +162,67 @@ func TestCompareSuppressesOpaqueReusableCompositionControlDrift(t *testing.T) {
 	if len(report.Changes) != 0 {
 		t.Fatalf("derived composition emitted opaque control drift: %#v", report.Changes)
 	}
+}
+
+func TestCompareClassifiesMCPProvenanceDriftFromPersistedBOM(t *testing.T) {
+	before := model.AgentBOM{Metadata: model.DocumentMetadata{Revision: "baseline"}, Assets: []model.Asset{
+		mcpDriftAsset("mcp:npm", "npm", model.MCPServerProvenance{Transport: "stdio", SourceType: "npm-package", Registry: "npm", Package: "@acme/server", Version: "1.2.3", PinType: "exact-version", Pinned: true, Integrity: "version"}),
+		mcpDriftAsset("mcp:remote", "remote", model.MCPServerProvenance{Transport: "remote", SourceType: "remote-endpoint", EndpointHost: "mcp.example.com", TLS: true, PinType: "endpoint-unversioned", Integrity: "unknown"}),
+		mcpDriftAsset("mcp:oci", "oci", model.MCPServerProvenance{Transport: "stdio", SourceType: "oci-image", Registry: "oci", Package: "ghcr.io/acme/server@sha256:aaa", PinType: "digest", Pinned: true, Integrity: "sha256"}),
+	}}
+	after := model.AgentBOM{Metadata: model.DocumentMetadata{Revision: "proposed"}, Assets: []model.Asset{
+		mcpDriftAsset("mcp:npm", "npm", model.MCPServerProvenance{Transport: "stdio", SourceType: "npm-package", Registry: "npm", Package: "@acme/server", Version: "latest", PinType: "latest", Integrity: "none"}),
+		mcpDriftAsset("mcp:remote", "remote", model.MCPServerProvenance{Transport: "remote", SourceType: "remote-endpoint", EndpointHost: "mcp.example.com", TLS: false, PinType: "endpoint-unversioned", Integrity: "unknown"}),
+		mcpDriftAsset("mcp:oci", "oci", model.MCPServerProvenance{Transport: "stdio", SourceType: "oci-image", Registry: "oci", Package: "ghcr.io/acme/server:latest", PinType: "tag", Integrity: "none"}),
+	}}
+	// Persisted BOM controls decode as map[string]any. This is the real CLI diff
+	// path and must behave identically to in-memory parser output.
+	before, after = persistedBOM(t, before), persistedBOM(t, after)
+	report := Compare(before, after)
+
+	pin := requireChange(t, report, "mcp-runtime-pin-weakened", "npm")
+	if pin.Risk.Score != 65 || pin.Severity != "high" {
+		t.Fatalf("unexpected npm pin downgrade: %#v", pin)
+	}
+	transport := requireChange(t, report, "mcp-transport-downgraded", "remote")
+	if transport.Risk.Score != 80 || transport.Severity != "critical" {
+		t.Fatalf("unexpected transport downgrade: %#v", transport)
+	}
+	digest := requireChange(t, report, "mcp-runtime-pin-weakened", "oci")
+	if digest.Risk.Score != 95 || digest.Severity != "critical" {
+		t.Fatalf("unexpected digest downgrade: %#v", digest)
+	}
+	for _, change := range report.Changes {
+		if change.Type == "control-changed" || change.Type == "control-removed" {
+			t.Fatalf("MCP semantic drift duplicated by opaque control drift: %#v", change)
+		}
+	}
+	if repeated := Compare(before, after); !reflect.DeepEqual(report, repeated) {
+		t.Fatalf("MCP provenance drift is not deterministic:\nfirst: %#v\nsecond: %#v", report, repeated)
+	}
+}
+
+func mcpDriftAsset(id, name string, provenance model.MCPServerProvenance) model.Asset {
+	evidenceID := id + ":evidence"
+	provenance.EvidenceIDs = []string{evidenceID}
+	return model.Asset{
+		ID: id, Type: "mcp-server", Name: name, Source: model.Source{Path: ".mcp.json"}, Capabilities: []model.Capability{},
+		Controls: []model.Control{{Type: "mcpServerProvenance", Value: provenance}},
+		Evidence: []model.Evidence{{ID: evidenceID, Path: ".mcp.json", Line: 3, Parser: "mcp", Confidence: "high"}},
+	}
+}
+
+func persistedBOM(t *testing.T, value model.AgentBOM) model.AgentBOM {
+	t.Helper()
+	content, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal persisted BOM: %v", err)
+	}
+	var result model.AgentBOM
+	if err := json.Unmarshal(content, &result); err != nil {
+		t.Fatalf("unmarshal persisted BOM: %v", err)
+	}
+	return result
 }
 
 func accessPathFixture(id string, capability model.Capability, delegation string) model.AccessPath {

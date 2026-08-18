@@ -29,6 +29,15 @@ and credential references. A provenance change on an existing MCP asset is
 also treated as a supply-chain control change even when its invocation
 capability remains otherwise identical.
 
+## Semantic drift
+
+Persisted baseline and proposed BOMs are compared using the typed provenance
+contract. OpsCustodian distinguishes pin weakening, SHA-256 integrity loss,
+TLS-to-plaintext downgrade, registry or endpoint changes, runtime source
+changes, version changes, and paths crossing outside the repository. Derived
+exposure controls are excluded from generic control drift so each change emits
+one explainable MCP finding with a stable ID and evidence location.
+
 ## Secret-safe references
 
 `runtime.reference` contains only a normalized execution identity such as

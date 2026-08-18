@@ -124,6 +124,30 @@ func AccessPath(asset model.Asset, path model.AccessPath, effectExpanded, scopeE
 	return finalize(assessment)
 }
 
+func MCPProvenanceChange(before, after model.MCPServerProvenance) Assessment {
+	assessment := Assessment{}
+	add(&assessment, "mcp-provenance-change", 25, "MCP runtime provenance changed")
+	if before.Pinned && !after.Pinned {
+		add(&assessment, "mcp-pin-weakened", 40, "MCP runtime changed from a pinned to an unpinned identity")
+	}
+	if before.Integrity == "sha256" && after.Integrity != "sha256" {
+		add(&assessment, "mcp-integrity-weakened", 30, "MCP runtime lost content-addressed SHA-256 integrity")
+	}
+	if before.TLS && !after.TLS && before.SourceType == "remote-endpoint" && after.SourceType == "remote-endpoint" {
+		add(&assessment, "mcp-transport-downgrade", 55, "MCP endpoint transport changed from TLS to plaintext or unknown")
+	}
+	if before.SourceType != after.SourceType {
+		add(&assessment, "mcp-source-changed", 25, "MCP runtime source type changed")
+	}
+	if before.Registry != after.Registry || before.EndpointHost != after.EndpointHost {
+		add(&assessment, "mcp-origin-changed", 20, "MCP registry or remote endpoint host changed")
+	}
+	if after.SourceType == "external-local-path" {
+		add(&assessment, "mcp-outside-repository", 30, "MCP executable path crosses the repository boundary")
+	}
+	return finalize(assessment)
+}
+
 func Credential(asset model.Asset, credential model.CredentialReference) Assessment {
 	assessment := Assessment{}
 	add(&assessment, "credential", 45, "asset gained a credential reference")

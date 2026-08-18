@@ -79,6 +79,20 @@ func run(ctx context.Context, args []string) error {
 		}
 		return app.Explain(app.ExplainOptions{Report: *reportPath, FindingID: fs.Arg(0)})
 
+	case "findings":
+		fs := flag.NewFlagSet("findings", flag.ContinueOnError)
+		bom := fs.String("bom", "", "Agent BOM containing current-state findings")
+		format := fs.String("format", "terminal", "output format: terminal, json, or sarif")
+		output := fs.String("output", "-", "output file, or - for stdout")
+		failOn := fs.String("fail-on", "", "exit 2 at or above severity: info, low, medium, high, critical")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *bom == "" {
+			return fmt.Errorf("usage: opscustodian findings --bom <agentbom> [flags]")
+		}
+		return app.Findings(app.FindingsOptions{BOM: *bom, Format: *format, FailOn: *failOn, Output: *output})
+
 	case "check":
 		fs := flag.NewFlagSet("check", flag.ContinueOnError)
 		bom := fs.String("bom", "", "Agent BOM to evaluate")
@@ -155,6 +169,7 @@ Usage:
   opscustodian scan [flags] [path]
   opscustodian diff [flags] <before> <after>
   opscustodian explain --report <report.json> <finding-id>
+  opscustodian findings --bom <agentbom> [--format terminal|json|sarif] [--fail-on high]
   opscustodian check --bom <agentbom> [flags]
   opscustodian report --bom <agentbom> [--output report.html]
   opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
@@ -164,6 +179,7 @@ Commands:
   scan     discover agentic assets and emit an Agent BOM
   diff     compare two Agent BOM documents semantically
   explain  explain one finding from a JSON drift report
+  findings render and enforce current-state Agent BOM findings
   check    evaluate Agent BOM and optional drift with OPA/Rego
   report   render a local read-only HTML inventory report
   events   convert scan or drift results into OpenTelemetry-compatible JSONL events

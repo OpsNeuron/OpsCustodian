@@ -34,6 +34,7 @@ repository configuration
 
 ```bash
 opscustodian scan . --output agentbom.json
+opscustodian findings --bom agentbom.json --format terminal --fail-on high
 opscustodian diff baseline.json proposed.json
 opscustodian check --baseline baseline.json --bom proposed.json --policy ./policies
 opscustodian explain --report drift.json <finding-id>

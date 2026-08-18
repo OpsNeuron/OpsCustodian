@@ -85,7 +85,7 @@ a representative repository without manually assembling an inventory.
 - Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Local GitHub reusable-workflow composition and delegation access paths. *(implemented offline with permission ceilings, secret propagation, and bounded cycle analysis)*
-- Declared-versus-effective access findings. *(versioned finding contract and initial Kubernetes effective-access expansion producer implemented)*
+- Declared-versus-effective access findings. *(versioned contract, initial Kubernetes producer, terminal/JSON/SARIF/HTML consumers, and CI threshold implemented)*
 - OpenTelemetry audit events. *(versioned offline JSONL event envelope, CLI conversion, and guarded OTLP/HTTP JSON exporter implemented)*
 - Provenance and pinning checks for MCP servers. *(initial offline npm, Python, OCI, local-path, executable, and remote-endpoint classification implemented)*
 

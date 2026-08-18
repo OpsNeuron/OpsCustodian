@@ -231,6 +231,38 @@ func TestEventsPreservesLocalJSONLWhenOTLPExportFails(t *testing.T) {
 	}
 }
 
+func TestFindingsPreservesReportBeforeThresholdExit(t *testing.T) {
+	tempDir := t.TempDir()
+	bomPath, reportPath := filepath.Join(tempDir, "bom.json"), filepath.Join(tempDir, "findings.sarif")
+	bom := validFindingAppBOM()
+	writeTestBOM(t, bomPath, bom)
+	err := Findings(FindingsOptions{BOM: bomPath, Format: "sarif", Output: reportPath, FailOn: "high"})
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 2 {
+		t.Fatalf("Findings() error = %#v, want exit code 2", err)
+	}
+	content, readErr := os.ReadFile(reportPath)
+	if readErr != nil || !strings.Contains(string(content), `"ruleId": "effective-access-expansion"`) {
+		t.Fatalf("SARIF report was not preserved: %s, %v", content, readErr)
+	}
+	if err := Findings(FindingsOptions{BOM: "missing.json", FailOn: "urgent"}); err == nil || !strings.Contains(err.Error(), "unsupported fail-on") {
+		t.Fatalf("threshold validation did not precede IO: %v", err)
+	}
+}
+
+func validFindingAppBOM() model.AgentBOM {
+	bom := testBOM("current", []model.Asset{
+		{ID: "workload:agent", Type: "workload", Name: "agent", Source: model.Source{Path: "runtime.yaml"}, Capabilities: []model.Capability{}, Evidence: []model.Evidence{{ID: "runtime-evidence", Path: "runtime.yaml", Parser: "test", Confidence: "high"}}},
+		{ID: "role:admin", Type: "authorization-role", Name: "admin", Source: model.Source{Path: "rbac.yaml"}, Capabilities: []model.Capability{}, Evidence: []model.Evidence{{ID: "role-evidence", Path: "rbac.yaml", Line: 12, Parser: "test", Confidence: "high"}}},
+	})
+	bom.Findings = []model.Finding{{
+		ID: "finding-current", Type: "effective-access-expansion", Severity: "critical", AssetID: "workload:agent",
+		Title: "Effective access expanded", Reason: "RBAC grants administrator access",
+		Evidence: []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "role-evidence"}},
+	}}
+	return bom
+}
+
 func testBOM(revision string, assets []model.Asset) model.AgentBOM {
 	return model.AgentBOM{
 		APIVersion: model.APIVersion,

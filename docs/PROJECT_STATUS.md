@@ -100,6 +100,7 @@ Missing exit items:
 - Versioned OpenTelemetry-compatible JSONL audit-event contract for scan summaries, diagnostics, semantic findings, and diff summaries with secret-safe attribute minimization.
 - Opt-in OTLP/HTTP JSON log export with TLS-by-default endpoint validation, environment-only authentication headers, bounded timeout, redirect prevention, and partial-rejection handling.
 - Versioned current-state finding contract with cross-asset evidence references and initial Kubernetes declared-versus-effective access expansion findings.
+- Current-state finding terminal, JSON, SARIF, HTML, and CI severity-threshold consumers with stable fingerprints and evidence locations.
 
 ## Remaining path to 1.0
 

@@ -37,6 +37,10 @@ type DiffOptions struct {
 	Before, After, Format, FailOn, Output string
 }
 
+type FindingsOptions struct {
+	BOM, Format, FailOn, Output string
+}
+
 type ExplainOptions struct {
 	Report, FindingID string
 }
@@ -117,6 +121,35 @@ func Diff(opts DiffOptions) error {
 		for _, change := range value.Changes {
 			if severityRank(change.Severity) >= threshold {
 				return &ExitError{Code: 2, Err: fmt.Errorf("semantic drift reached %s threshold", opts.FailOn)}
+			}
+		}
+	}
+	return nil
+}
+
+func Findings(opts FindingsOptions) error {
+	if opts.FailOn != "" && severityRank(opts.FailOn) == 0 {
+		return fmt.Errorf("unsupported fail-on severity %q; expected info, low, medium, high, or critical", opts.FailOn)
+	}
+	bom, err := readBOM(opts.BOM)
+	if err != nil {
+		return fmt.Errorf("read Agent BOM: %w", err)
+	}
+	if issues := validation.Validate(bom); len(issues) > 0 {
+		return fmt.Errorf("Agent BOM failed validation: %s", formatValidationIssues(issues))
+	}
+	w, closeWriter, err := outputWriter(opts.Output)
+	if err != nil {
+		return err
+	}
+	defer closeWriter()
+	if err := report.WriteFindings(w, bom, opts.Format); err != nil {
+		return err
+	}
+	if threshold := severityRank(opts.FailOn); threshold > 0 {
+		for _, finding := range bom.Findings {
+			if severityRank(finding.Severity) >= threshold {
+				return &ExitError{Code: 2, Err: fmt.Errorf("current-state findings reached %s threshold", opts.FailOn)}
 			}
 		}
 	}

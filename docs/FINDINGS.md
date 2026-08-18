@@ -28,3 +28,19 @@ Current-state findings also produce minimized
 `opscustodian.finding.detected` audit events. Finding reasons, remediation text,
 and arbitrary structured attributes are deliberately not copied into audit
 events.
+
+## CLI and CI enforcement
+
+The same persisted Agent BOM can be rendered without rescanning:
+
+```bash
+opscustodian findings --bom agentbom.json --format terminal
+opscustodian findings --bom agentbom.json --format json --output findings.json
+opscustodian findings --bom agentbom.json --format sarif --output findings.sarif
+```
+
+`--fail-on info|low|medium|high|critical` writes the selected report first and
+then exits with code `2` when a finding meets the threshold. This makes the
+result suitable for CI and GitHub code scanning while preserving the report on
+policy failure. SARIF locations are resolved through the finding's cross-asset
+evidence references rather than inferred from message text.

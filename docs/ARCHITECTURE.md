@@ -194,6 +194,8 @@ internal/drift/         semantic comparison
 internal/risk/          explainable prioritization
 internal/policy/        OPA adapter and policy input
 internal/report/        output formats and redaction
+internal/store/         persistence reader/writer boundary and snapshot stores
+internal/server/        read-only versioned control-plane HTTP API
 internal/config/        configuration loading
 pkg/sdk/                intentionally public integration contracts
 schemas/                versioned interchange schemas

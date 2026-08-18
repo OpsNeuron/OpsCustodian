@@ -9,7 +9,8 @@ opscustodian version --format json
 ```
 
 The registry currently reports Agent BOM, normalization, findings, policy
-input, audit-event, and SARIF versions from one source of truth.
+input, audit-event, control-plane API, and SARIF versions from one source of
+truth.
 
 ## Agent BOM reader rules
 

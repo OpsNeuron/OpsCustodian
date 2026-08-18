@@ -1,14 +1,15 @@
 package contracts
 
 const (
-	AgentBOMAPIVersion    = "opscustodian.dev/v1alpha1"
-	AgentBOMKind          = "AgentBOM"
-	NormalizationVersion  = "v1alpha1"
-	FindingsAPIVersion    = "opscustodian.dev/findings/v1alpha1"
-	PolicyInputAPIVersion = "opscustodian.dev/policy-input/v1alpha1"
-	AuditEventAPIVersion  = "opscustodian.dev/audit-event/v1alpha1"
-	SARIFVersion          = "2.1.0"
-	SARIFSchema           = "https://json.schemastore.org/sarif-2.1.0.json"
+	AgentBOMAPIVersion     = "opscustodian.dev/v1alpha1"
+	AgentBOMKind           = "AgentBOM"
+	NormalizationVersion   = "v1alpha1"
+	FindingsAPIVersion     = "opscustodian.dev/findings/v1alpha1"
+	PolicyInputAPIVersion  = "opscustodian.dev/policy-input/v1alpha1"
+	AuditEventAPIVersion   = "opscustodian.dev/audit-event/v1alpha1"
+	ControlPlaneAPIVersion = "opscustodian.dev/control-plane/v1alpha1"
+	SARIFVersion           = "2.1.0"
+	SARIFSchema            = "https://json.schemastore.org/sarif-2.1.0.json"
 )
 
 type Info struct {
@@ -22,6 +23,7 @@ type ContractSet struct {
 	Findings      string `json:"findings"`
 	PolicyInput   string `json:"policyInput"`
 	AuditEvent    string `json:"auditEvent"`
+	ControlPlane  string `json:"controlPlane"`
 	SARIF         string `json:"sarif"`
 }
 
@@ -29,6 +31,6 @@ func BuildInfo(version string) Info {
 	return Info{Version: version, Contracts: ContractSet{
 		AgentBOM: AgentBOMAPIVersion, Normalization: NormalizationVersion,
 		Findings: FindingsAPIVersion, PolicyInput: PolicyInputAPIVersion,
-		AuditEvent: AuditEventAPIVersion, SARIF: SARIFVersion,
+		AuditEvent: AuditEventAPIVersion, ControlPlane: ControlPlaneAPIVersion, SARIF: SARIFVersion,
 	}}
 }

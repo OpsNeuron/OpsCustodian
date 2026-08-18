@@ -133,6 +133,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Current-state findings](docs/FINDINGS.md)
 - [Public contract tests](docs/CONTRACT_TESTS.md)
 - [Compatibility and versioning](docs/COMPATIBILITY.md)
+- [Read-only server foundation](docs/SERVER.md)
 - [Stable remediation identifiers](docs/REMEDIATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)

@@ -112,6 +112,17 @@ Missing exit items:
 - Deterministic Finding deduplication with evidence union, highest-severity preservation, stable signal identity, and explicit snapshot lifecycle semantics.
 - Central public-contract version registry, machine-readable CLI version output, and normalization compatibility enforcement with legacy-read support.
 
+### v0.5 Organization control plane — started
+
+- Persistence-neutral `Reader` and `Writer` interfaces for validated repository snapshots.
+- Thread-safe in-memory multi-repository history with deterministic repository IDs, latest-snapshot selection, defensive copies, and cancellation support.
+- Versioned read-only HTTP handler for health, contract discovery, repository inventory, latest Agent BOM, and cross-repository findings.
+- Explicit empty collections, deterministic ordering, validated filters, public-safe errors, and baseline response security headers.
+
+The handler is intentionally not connected to a network listener until
+authentication, authorization, request limits, and safe bind defaults are
+designed and tested.
+
 ## Remaining path to 1.0
 
 ### Phase A — Complete v0.3 normalization

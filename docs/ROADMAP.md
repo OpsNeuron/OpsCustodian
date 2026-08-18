@@ -96,6 +96,18 @@ a representative repository without manually assembling an inventory.
 Exit condition: repository declarations can be compared with at least one real
 runtime authorization system.
 
+## v0.5 — Organization control plane
+
+- Persistence-neutral snapshot reader/writer boundary. *(initial interface and memory implementation complete)*
+- Versioned read-only repository and finding API. *(initial tested HTTP handler complete; not network-exposed)*
+- PostgreSQL persistence and migrations.
+- Multi-repository ingestion and historical Finding lifecycle.
+- Authentication, authorization, tenant isolation, pagination, and audit middleware.
+- Safe loopback-first server command and operational configuration.
+
+Exit condition: a platform team can query reproducible inventory and Finding
+history across multiple repositories through an authenticated control plane.
+
 ## v1.0 — Organization ready
 
 - Stable Agent BOM and policy input contracts.

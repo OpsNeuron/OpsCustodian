@@ -31,6 +31,7 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		"/api/v1/repositories/{repositoryId}/snapshots",
 		"/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom",
 		"/api/v1/findings",
+		"/api/v1/finding-lifecycles",
 	}
 	for _, path := range paths {
 		if _, exists := document.Paths[path]["get"]; !exists {

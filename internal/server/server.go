@@ -46,6 +46,7 @@ func NewHandler(reader store.Reader, buildVersion string) http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
+	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
 	return securityHeaders(mux)
 }
 
@@ -148,7 +149,8 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return
 	}
-	page, ok := requestPage(w, request, "findings")
+	scope := "findings:" + filter.RepositoryID + ":" + filter.Severity
+	page, ok := requestPage(w, request, scope)
 	if !ok {
 		return
 	}
@@ -161,7 +163,42 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 	if result.Items == nil {
 		result.Items = []store.FindingRecord{}
 	}
-	writeJSON(w, http.StatusOK, listResponse[store.FindingRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("findings", result.NextCursor)})
+	writeJSON(w, http.StatusOK, listResponse[store.FindingRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor(scope, result.NextCursor)})
+}
+
+func (api *API) findingLifecycles(w http.ResponseWriter, request *http.Request) {
+	filter := store.FindingLifecycleFilter{
+		RepositoryID: request.URL.Query().Get("repositoryId"),
+		Severity:     strings.ToLower(request.URL.Query().Get("severity")),
+		Status:       strings.ToLower(request.URL.Query().Get("status")),
+	}
+	if filter.RepositoryID != "" && !validRepositoryID(filter.RepositoryID) {
+		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if filter.Severity != "" && !validSeverity(filter.Severity) {
+		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
+		return
+	}
+	if filter.Status != "" && !validLifecycleStatus(filter.Status) {
+		writeError(w, http.StatusBadRequest, "invalid-lifecycle-status", "status must be introduced, persisting, or resolved")
+		return
+	}
+	scope := "finding-lifecycles:" + filter.RepositoryID + ":" + filter.Severity + ":" + filter.Status
+	page, ok := requestPage(w, request, scope)
+	if !ok {
+		return
+	}
+	filter.Page = page
+	result, err := api.reader.ListFindingLifecycle(request.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "finding lifecycle is unavailable")
+		return
+	}
+	if result.Items == nil {
+		result.Items = []store.FindingLifecycleRecord{}
+	}
+	writeJSON(w, http.StatusOK, listResponse[store.FindingLifecycleRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor(scope, result.NextCursor)})
 }
 
 func securityHeaders(next http.Handler) http.Handler {
@@ -225,6 +262,10 @@ func encodeCursor(scope, value string) string {
 
 func validSeverity(value string) bool {
 	return value == "info" || value == "low" || value == "medium" || value == "high" || value == "critical"
+}
+
+func validLifecycleStatus(value string) bool {
+	return value == "introduced" || value == "persisting" || value == "resolved"
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string) {

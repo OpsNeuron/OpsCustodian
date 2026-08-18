@@ -52,6 +52,8 @@ func TestReadOnlyAPIListsRepositoriesFindingsAndLatestBOM(t *testing.T) {
 	assertResponse(t, next, http.StatusOK, `"revision":"abc123"`)
 	specific := performRequest(t, handler, http.MethodGet, "/api/v1/repositories/"+snapshot.RepositoryID+"/snapshots/"+snapshot.SnapshotID+"/bom")
 	assertResponse(t, specific, http.StatusOK, `"snapshotId":"`+snapshot.SnapshotID+`"`)
+	lifecycle := performRequest(t, handler, http.MethodGet, "/api/v1/finding-lifecycles?repositoryId="+snapshot.RepositoryID+"&status=introduced")
+	assertResponse(t, lifecycle, http.StatusOK, `"findingId":"finding-server"`, `"status":"introduced"`, `"firstObservedAt":"2026-08-18T00:00:00Z"`)
 }
 
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
@@ -96,6 +98,7 @@ func TestReadOnlyAPIRejectsInvalidFiltersPathsAndMutation(t *testing.T) {
 		status             int
 	}{
 		{http.MethodGet, "/api/v1/findings?severity=urgent", "invalid-severity", http.StatusBadRequest},
+		{http.MethodGet, "/api/v1/finding-lifecycles?status=unknown", "invalid-lifecycle-status", http.StatusBadRequest},
 		{http.MethodGet, "/api/v1/findings?limit=0", "invalid-limit", http.StatusBadRequest},
 		{http.MethodGet, "/api/v1/findings?cursor=invalid", "invalid-cursor", http.StatusBadRequest},
 		{http.MethodGet, "/api/v1/repositories/not-an-id/bom", "invalid-repository-id", http.StatusBadRequest},
@@ -116,7 +119,7 @@ func TestReadOnlyAPIRejectsInvalidFiltersPathsAndMutation(t *testing.T) {
 
 func TestReadOnlyAPIUsesExplicitEmptyArrays(t *testing.T) {
 	handler := NewHandler(store.NewMemory(), "dev")
-	for _, path := range []string{"/api/v1/repositories", "/api/v1/findings"} {
+	for _, path := range []string{"/api/v1/repositories", "/api/v1/findings", "/api/v1/finding-lifecycles"} {
 		response := performRequest(t, handler, http.MethodGet, path)
 		var envelope struct {
 			Items []json.RawMessage `json:"items"`

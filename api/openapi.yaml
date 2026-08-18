@@ -80,6 +80,24 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/JSONSuccess" }
         "400": { $ref: "#/components/responses/APIError" }
+  /api/v1/finding-lifecycles:
+    get:
+      operationId: listFindingLifecycles
+      parameters:
+        - name: repositoryId
+          in: query
+          schema: { $ref: "#/components/schemas/RepositoryID" }
+        - name: severity
+          in: query
+          schema: { enum: [info, low, medium, high, critical] }
+        - name: status
+          in: query
+          schema: { enum: [introduced, persisting, resolved] }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
 components:
   parameters:
     RepositoryID:

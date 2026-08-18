@@ -105,6 +105,65 @@ func TestMemoryRejectsInvalidInputAndHonorsContext(t *testing.T) {
 	}
 }
 
+func TestMemoryComputesFindingLifecycleEpisodes(t *testing.T) {
+	memory := NewMemory()
+	ctx := context.Background()
+	snapshots := []model.AgentBOM{
+		lifecycleBOM("r1", "2026-08-18T01:00:00Z", "finding-resolved"),
+		lifecycleBOM("r2", "2026-08-18T02:00:00Z", "finding-resolved", "finding-persisting"),
+		lifecycleBOM("r3", "2026-08-18T03:00:00Z", "finding-persisting"),
+		lifecycleBOM("r4", "2026-08-18T04:00:00Z", "finding-persisting", "finding-introduced"),
+	}
+	for _, bom := range snapshots {
+		if _, err := memory.PutSnapshot(ctx, bom); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err := memory.ListFindingLifecycle(ctx, FindingLifecycleFilter{RepositoryID: RepositoryID("github:acme/lifecycle"), Page: PageRequest{Limit: 10}})
+	if err != nil || len(page.Items) != 3 {
+		t.Fatalf("ListFindingLifecycle() = %#v, %v", page, err)
+	}
+	byID := map[string]FindingLifecycleRecord{}
+	for _, record := range page.Items {
+		byID[record.FindingID] = record
+	}
+	if value := byID["finding-resolved"]; value.Status != "resolved" || value.Occurrences != 2 || value.ResolvedRevision != "r3" || value.ResolvedAt != "2026-08-18T03:00:00Z" {
+		t.Errorf("unexpected resolved lifecycle: %#v", value)
+	}
+	if value := byID["finding-persisting"]; value.Status != "persisting" || value.Occurrences != 3 || value.FirstRevision != "r2" || value.LastRevision != "r4" {
+		t.Errorf("unexpected persisting lifecycle: %#v", value)
+	}
+	if value := byID["finding-introduced"]; value.Status != "introduced" || value.Occurrences != 1 || value.FirstObservedAt != "2026-08-18T04:00:00Z" {
+		t.Errorf("unexpected introduced lifecycle: %#v", value)
+	}
+	resolved, err := memory.ListFindingLifecycle(ctx, FindingLifecycleFilter{Status: "resolved", Page: PageRequest{Limit: 1}})
+	if err != nil || len(resolved.Items) != 1 || resolved.Items[0].FindingID != "finding-resolved" {
+		t.Fatalf("resolved lifecycle filter = %#v, %v", resolved, err)
+	}
+}
+
+func TestMemoryStartsNewLifecycleEpisodeAfterReintroduction(t *testing.T) {
+	memory := NewMemory()
+	ctx := context.Background()
+	for _, bom := range []model.AgentBOM{
+		lifecycleBOM("r1", "2026-08-18T01:00:00Z", "finding-returned"),
+		lifecycleBOM("r2", "2026-08-18T02:00:00Z"),
+		lifecycleBOM("r3", "2026-08-18T03:00:00Z", "finding-returned"),
+	} {
+		if _, err := memory.PutSnapshot(ctx, bom); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err := memory.ListFindingLifecycle(ctx, FindingLifecycleFilter{Page: PageRequest{Limit: 10}})
+	if err != nil || len(page.Items) != 1 {
+		t.Fatalf("ListFindingLifecycle() = %#v, %v", page, err)
+	}
+	value := page.Items[0]
+	if value.Status != "introduced" || value.Occurrences != 1 || value.FirstRevision != "r3" || value.FirstObservedAt != "2026-08-18T03:00:00Z" || value.ResolvedAt != "" {
+		t.Fatalf("reintroduced finding did not start a new episode: %#v", value)
+	}
+}
+
 func testBOM(source, revision, severity string) model.AgentBOM {
 	asset := model.Asset{
 		ID: "agent:" + revision, Type: "agent", Name: "agent", Source: model.Source{Path: "AGENTS.md"},
@@ -121,3 +180,25 @@ func testBOM(source, revision, severity string) model.AgentBOM {
 		}},
 	}
 }
+
+func lifecycleBOM(revision, generatedAt string, findingIDs ...string) model.AgentBOM {
+	asset := model.Asset{
+		ID: "agent:stable", Type: "agent", Name: "agent", Source: model.Source{Path: "AGENTS.md"},
+		Capabilities: []model.Capability{}, Evidence: []model.Evidence{{ID: "evidence", Path: "AGENTS.md", Parser: "test", Confidence: "high"}},
+	}
+	findings := make([]model.Finding, 0, len(findingIDs))
+	for _, id := range findingIDs {
+		findings = append(findings, model.Finding{
+			ID: id, Type: "test-finding", Severity: "high", AssetID: asset.ID,
+			Title: "Test finding", Reason: "Test risk.", RemediationID: "test.fix", Remediation: "Fix it.",
+			Evidence: []model.FindingEvidence{{AssetID: asset.ID, EvidenceID: "evidence"}},
+		})
+	}
+	return model.AgentBOM{
+		APIVersion: model.APIVersion, Kind: model.Kind,
+		Metadata: model.DocumentMetadata{Source: "github:acme/lifecycle", Revision: revision, GeneratedAt: generatedAt, NormalizationVersion: "v1alpha1"},
+		Assets:   assetSlice(asset), Findings: findings,
+	}
+}
+
+func assetSlice(asset model.Asset) []model.Asset { return []model.Asset{asset} }

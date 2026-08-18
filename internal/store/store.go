@@ -59,6 +59,33 @@ type FindingPage struct {
 	NextCursor string
 }
 
+type FindingLifecycleRecord struct {
+	RepositoryID     string        `json:"repositoryId"`
+	Source           string        `json:"source"`
+	FindingID        string        `json:"findingId"`
+	Status           string        `json:"status"`
+	FirstRevision    string        `json:"firstRevision"`
+	LastRevision     string        `json:"lastRevision"`
+	ResolvedRevision string        `json:"resolvedRevision,omitempty"`
+	FirstObservedAt  string        `json:"firstObservedAt,omitempty"`
+	LastObservedAt   string        `json:"lastObservedAt,omitempty"`
+	ResolvedAt       string        `json:"resolvedAt,omitempty"`
+	Occurrences      int           `json:"occurrences"`
+	Finding          model.Finding `json:"finding"`
+}
+
+type FindingLifecycleFilter struct {
+	RepositoryID string
+	Severity     string
+	Status       string
+	Page         PageRequest
+}
+
+type FindingLifecyclePage struct {
+	Items      []FindingLifecycleRecord
+	NextCursor string
+}
+
 type FindingRecord struct {
 	RepositoryID string        `json:"repositoryId"`
 	Source       string        `json:"source"`
@@ -78,6 +105,7 @@ type Reader interface {
 	Snapshot(context.Context, string, string) (Snapshot, error)
 	ListSnapshots(context.Context, string, PageRequest) (SnapshotPage, error)
 	ListFindings(context.Context, FindingFilter) (FindingPage, error)
+	ListFindingLifecycle(context.Context, FindingLifecycleFilter) (FindingLifecyclePage, error)
 }
 
 type Writer interface {
@@ -90,9 +118,15 @@ type Memory struct {
 }
 
 type memoryRepository struct {
-	source    string
-	snapshots map[string]model.AgentBOM
-	latest    string
+	source       string
+	snapshots    map[string]memorySnapshot
+	latest       string
+	nextSequence uint64
+}
+
+type memorySnapshot struct {
+	bom      model.AgentBOM
+	sequence uint64
 }
 
 func NewMemory() *Memory {
@@ -126,10 +160,16 @@ func (memory *Memory) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snap
 	defer memory.mu.Unlock()
 	repository := memory.repositories[id]
 	if repository == nil {
-		repository = &memoryRepository{source: cloned.Metadata.Source, snapshots: map[string]model.AgentBOM{}}
+		repository = &memoryRepository{source: cloned.Metadata.Source, snapshots: map[string]memorySnapshot{}}
 		memory.repositories[id] = repository
 	}
-	repository.snapshots[snapshotID] = cloned
+	stored, exists := repository.snapshots[snapshotID]
+	if !exists {
+		repository.nextSequence++
+		stored.sequence = repository.nextSequence
+	}
+	stored.bom = cloned
+	repository.snapshots[snapshotID] = stored
 	repository.latest = snapshotID
 	return Snapshot{RepositoryID: id, SnapshotID: snapshotID, BOM: cloned}, nil
 }
@@ -142,7 +182,7 @@ func (memory *Memory) ListRepositories(ctx context.Context, page PageRequest) (R
 	defer memory.mu.RUnlock()
 	result := make([]RepositorySummary, 0, len(memory.repositories))
 	for id, repository := range memory.repositories {
-		latest := repository.snapshots[repository.latest]
+		latest := repository.snapshots[repository.latest].bom
 		result = append(result, RepositorySummary{
 			ID: id, Source: repository.source, LatestRevision: latest.Metadata.Revision,
 			SnapshotCount: len(repository.snapshots), AssetCount: len(latest.Assets), FindingCount: len(latest.Findings),
@@ -164,7 +204,7 @@ func (memory *Memory) LatestSnapshot(ctx context.Context, repositoryID string) (
 		return Snapshot{}, ErrNotFound
 	}
 	snapshotID := repository.latest
-	bom := repository.snapshots[snapshotID]
+	bom := repository.snapshots[snapshotID].bom
 	memory.mu.RUnlock()
 	cloned, err := cloneBOM(bom)
 	if err != nil {
@@ -183,12 +223,12 @@ func (memory *Memory) Snapshot(ctx context.Context, repositoryID, snapshotID str
 		memory.mu.RUnlock()
 		return Snapshot{}, ErrNotFound
 	}
-	bom, exists := repository.snapshots[snapshotID]
+	stored, exists := repository.snapshots[snapshotID]
 	memory.mu.RUnlock()
 	if !exists {
 		return Snapshot{}, ErrNotFound
 	}
-	cloned, err := cloneBOM(bom)
+	cloned, err := cloneBOM(stored.bom)
 	if err != nil {
 		return Snapshot{}, err
 	}
@@ -206,7 +246,8 @@ func (memory *Memory) ListSnapshots(ctx context.Context, repositoryID string, pa
 		return SnapshotPage{}, ErrNotFound
 	}
 	result := make([]SnapshotSummary, 0, len(repository.snapshots))
-	for id, bom := range repository.snapshots {
+	for id, stored := range repository.snapshots {
+		bom := stored.bom
 		result = append(result, SnapshotSummary{
 			ID: id, RepositoryID: repositoryID, Revision: bom.Metadata.Revision, GeneratedAt: bom.Metadata.GeneratedAt,
 			AssetCount: len(bom.Assets), FindingCount: len(bom.Findings),
@@ -228,7 +269,7 @@ func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) (F
 		if filter.RepositoryID != "" && filter.RepositoryID != id {
 			continue
 		}
-		bom := repository.snapshots[repository.latest]
+		bom := repository.snapshots[repository.latest].bom
 		for _, finding := range bom.Findings {
 			if filter.Severity != "" && filter.Severity != finding.Severity {
 				continue
@@ -244,12 +285,95 @@ func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) (F
 	return FindingPage{Items: items, NextCursor: next}, nil
 }
 
+func (memory *Memory) ListFindingLifecycle(ctx context.Context, filter FindingLifecycleFilter) (FindingLifecyclePage, error) {
+	if err := ctx.Err(); err != nil {
+		return FindingLifecyclePage{}, err
+	}
+	memory.mu.RLock()
+	result := make([]FindingLifecycleRecord, 0)
+	for repositoryID, repository := range memory.repositories {
+		if filter.RepositoryID != "" && filter.RepositoryID != repositoryID {
+			continue
+		}
+		snapshots := make([]memorySnapshot, 0, len(repository.snapshots))
+		for _, snapshot := range repository.snapshots {
+			snapshots = append(snapshots, snapshot)
+		}
+		sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].sequence < snapshots[j].sequence })
+		states := lifecycleStates(repositoryID, repository.source, snapshots)
+		for _, state := range states {
+			if filter.Status != "" && filter.Status != state.Status {
+				continue
+			}
+			if filter.Severity != "" && filter.Severity != state.Finding.Severity {
+				continue
+			}
+			result = append(result, state)
+		}
+	}
+	memory.mu.RUnlock()
+	sort.Slice(result, func(i, j int) bool { return lifecycleSortKey(result[i]) < lifecycleSortKey(result[j]) })
+	items, next := pageSlice(result, filter.Page, lifecycleSortKey)
+	return FindingLifecyclePage{Items: items, NextCursor: next}, nil
+}
+
+type lifecycleState struct {
+	record FindingLifecycleRecord
+	active bool
+}
+
+func lifecycleStates(repositoryID, source string, snapshots []memorySnapshot) []FindingLifecycleRecord {
+	states := map[string]lifecycleState{}
+	for _, snapshot := range snapshots {
+		present := map[string]model.Finding{}
+		for _, finding := range snapshot.bom.Findings {
+			present[finding.ID] = finding
+			state, exists := states[finding.ID]
+			if !exists || !state.active {
+				state = lifecycleState{active: true, record: FindingLifecycleRecord{
+					RepositoryID: repositoryID, Source: source, FindingID: finding.ID, Status: "introduced",
+					FirstRevision: snapshot.bom.Metadata.Revision, LastRevision: snapshot.bom.Metadata.Revision,
+					FirstObservedAt: snapshot.bom.Metadata.GeneratedAt, LastObservedAt: snapshot.bom.Metadata.GeneratedAt,
+					Occurrences: 1, Finding: finding,
+				}}
+			} else {
+				state.record.Status = "persisting"
+				state.record.LastRevision = snapshot.bom.Metadata.Revision
+				state.record.LastObservedAt = snapshot.bom.Metadata.GeneratedAt
+				state.record.Occurrences++
+				state.record.Finding = finding
+			}
+			states[finding.ID] = state
+		}
+		for findingID, state := range states {
+			if state.active {
+				if _, exists := present[findingID]; !exists {
+					state.active = false
+					state.record.Status = "resolved"
+					state.record.ResolvedRevision = snapshot.bom.Metadata.Revision
+					state.record.ResolvedAt = snapshot.bom.Metadata.GeneratedAt
+					states[findingID] = state
+				}
+			}
+		}
+	}
+	result := make([]FindingLifecycleRecord, 0, len(states))
+	for _, state := range states {
+		result = append(result, state.record)
+	}
+	return result
+}
+
 func snapshotSortKey(value SnapshotSummary) string {
 	return value.GeneratedAt + "\x00" + value.ID
 }
 
 func findingSortKey(value FindingRecord) string {
 	return value.RepositoryID + "\x00" + value.Finding.ID
+}
+
+func lifecycleSortKey(value FindingLifecycleRecord) string {
+	return value.RepositoryID + "\x00" + value.FindingID
 }
 
 func pageSlice[T any](values []T, page PageRequest, key func(T) string) ([]T, string) {

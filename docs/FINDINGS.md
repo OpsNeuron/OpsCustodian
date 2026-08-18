@@ -30,7 +30,10 @@ An Agent BOM is a current-state snapshot and therefore contains only active
 Findings. A Finding with the same ID in consecutive snapshots is persisting, a
 new ID is introduced, and a previously present ID that disappears is resolved.
 First-observed and resolved timestamps require a persistent server and are not
-fabricated by the offline scanner.
+fabricated by the offline scanner. The v0.5 control-plane store derives current
+lifecycle episodes from ingestion order and exposes them through
+`GET /api/v1/finding-lifecycles`. Reintroduction after resolution begins a new
+episode rather than inflating the previous occurrence count.
 
 ## Kubernetes effective-access expansion
 

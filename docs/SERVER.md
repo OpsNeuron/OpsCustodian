@@ -15,6 +15,7 @@ the same boundary intended for PostgreSQL.
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots` | Repository snapshot history |
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom` | One immutable snapshot |
 | `GET` | `/api/v1/findings` | Findings across latest repository snapshots |
+| `GET` | `/api/v1/finding-lifecycles` | Current lifecycle episode for each Finding |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
@@ -22,6 +23,13 @@ Collection endpoints use keyset pagination with `limit` (default 50, maximum
 `opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit
 empty arrays. Repository and snapshot IDs are deterministic hash-derived
 identifiers rather than raw filesystem paths or revisions.
+
+Finding lifecycle queries accept `repositoryId`, `severity`, and `status`
+filters. `introduced` means the Finding first appears in its current episode,
+`persisting` means it remains across consecutive ingested snapshots, and
+`resolved` means a later snapshot no longer contains it. Reintroduction starts
+a new episode. Observation timestamps are copied only from snapshot
+`generatedAt`; missing source timestamps remain absent.
 
 The OpenAPI 3.1 source of truth is [`api/openapi.yaml`](../api/openapi.yaml).
 A Go conformance test ensures every implemented read-only route remains

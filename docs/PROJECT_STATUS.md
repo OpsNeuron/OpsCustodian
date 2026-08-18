@@ -94,6 +94,7 @@ Missing exit items:
 - Local reusable workflow composition with bounded nested permissions, secret propagation, cycle/depth diagnostics, direct call relationships, and provider-neutral delegation access paths.
 - Semantic effective-access path drift for additions, permission escalation, delegation/authorization rerouting, and removals with multi-asset evidence locations.
 - End-to-end access-path drift fixture covering JSON, terminal, SARIF, stable locations, report persistence, and severity-threshold exit behavior.
+- Secret-safe MCP runtime provenance for npm, Python, OCI, local executable, system executable, and remote endpoint sources with pinning and transport risk controls.
 
 ## Remaining path to 1.0
 

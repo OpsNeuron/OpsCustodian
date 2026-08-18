@@ -26,6 +26,8 @@ func TestCapabilityRiskCalibration(t *testing.T) {
 		{name: "self hosted runner", asset: selfHostedRunnerAsset(), capability: riskCapability("github.contents.*", "github:repository", "read", "development"), score: 50, level: "medium", factors: []string{"effect", "broad-scope", "self-hosted-runner", "high-confidence"}},
 		{name: "mutable action dependency", asset: mutableDependencyAsset(), capability: riskCapability("github.contents.*", "github:repository", "write", "development"), score: 80, level: "critical", factors: []string{"effect", "broad-scope", "mutable-dependency", "high-confidence"}},
 		{name: "reusable workflow secret inheritance", asset: reusableSecretInheritanceAsset(), capability: riskCapability("github.contents.*", "github:repository", "read", "development"), score: 55, level: "medium", factors: []string{"effect", "broad-scope", "reusable-secret-inheritance", "high-confidence"}},
+		{name: "unpinned MCP runtime", asset: controlledRiskAsset("mcpMutableRuntimeExposure"), capability: riskCapability("mcp.tools.invoke", "mcp:server", "execute", "development"), score: 50, level: "medium", factors: []string{"effect", "mcp-unpinned-runtime", "high-confidence"}},
+		{name: "insecure MCP transport", asset: insecureMCPAsset(), capability: riskCapability("mcp.tools.invoke", "mcp:server", "execute", "development"), score: 80, level: "critical", factors: []string{"effect", "mcp-unpinned-runtime", "mcp-insecure-transport", "high-confidence"}},
 		{name: "human approval mitigation", asset: controlledRiskAsset("humanApproval"), capability: riskCapability("deploy.update", "kubernetes:production/apps/deployment", "write", "production"), score: 50, level: "medium", factors: []string{"human-approval"}},
 		{name: "safe output mitigation", asset: controlledRiskAsset("safeOutputs"), capability: riskCapability("github.safe_output.add.comment", "github:acme/repo", "write", "development"), score: 30, level: "low", factors: []string{"safe-output"}},
 		{name: "low confidence", asset: riskAsset("low"), capability: riskCapability("kubernetes.pods.get", "kubernetes:development/core/pods/app", "read", "development"), score: 5, level: "info", factors: []string{"low-confidence"}},
@@ -53,6 +55,8 @@ func TestCredentialControlRelationshipAndAssetRisk(t *testing.T) {
 
 	control := Control(model.Control{Type: "humanApproval", Value: true}, true)
 	assertAssessment(t, control, 75, "high", "control-change", "approval-control")
+	provenance := Control(model.Control{Type: "mcpServerProvenance", Value: true}, false)
+	assertAssessment(t, provenance, 60, "high", "control-change", "mcp-provenance-control")
 
 	relationship := Relationship(model.Relationship{Type: "runs-as", TargetType: "asset"}, false)
 	assertAssessment(t, relationship, 45, "medium", "runtime-identity")
@@ -116,6 +120,12 @@ func mutableDependencyAsset() model.Asset {
 func reusableSecretInheritanceAsset() model.Asset {
 	asset := riskAsset("high")
 	asset.Controls = []model.Control{{Type: "githubReusableWorkflowSecretInheritance", Value: true}}
+	return asset
+}
+
+func insecureMCPAsset() model.Asset {
+	asset := riskAsset("high")
+	asset.Controls = []model.Control{{Type: "mcpMutableRuntimeExposure", Value: true}, {Type: "mcpInsecureTransportExposure", Value: true}}
 	return asset
 }
 

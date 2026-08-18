@@ -63,6 +63,12 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if hasControl(asset, "githubReusableWorkflowSecretInheritance") {
 		add(&assessment, "reusable-secret-inheritance", 25, "reusable workflow call inherits every secret visible to its caller")
 	}
+	if capability.Action == "mcp.tools.invoke" && hasControl(asset, "mcpMutableRuntimeExposure") {
+		add(&assessment, "mcp-unpinned-runtime", 20, "MCP server code or remote endpoint is not pinned to a verifiable runtime identity")
+	}
+	if capability.Action == "mcp.tools.invoke" && hasControl(asset, "mcpInsecureTransportExposure") {
+		add(&assessment, "mcp-insecure-transport", 30, "remote MCP endpoint does not declare TLS transport")
+	}
 	if strings.HasPrefix(capability.Action, "kubernetes.") {
 		switch {
 		case strings.HasSuffix(capability.Action, ".bind"):
@@ -147,6 +153,12 @@ func Control(control model.Control, removed bool) Assessment {
 		add(&assessment, "network-control", 15, "network restrictions changed")
 	case "safeOutputs":
 		add(&assessment, "safe-output-control", 25, "safe output restrictions changed")
+	case "mcpServerProvenance":
+		add(&assessment, "mcp-provenance-control", 25, "MCP runtime source, version, pin, integrity, or endpoint identity changed")
+	case "mcpMutableRuntimeExposure":
+		add(&assessment, "mcp-runtime-control", 20, "MCP runtime pinning exposure changed")
+	case "mcpInsecureTransportExposure":
+		add(&assessment, "mcp-transport-control", 30, "MCP transport security exposure changed")
 	}
 	return finalize(assessment)
 }

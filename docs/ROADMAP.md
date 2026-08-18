@@ -87,7 +87,7 @@ a representative repository without manually assembling an inventory.
 - Local GitHub reusable-workflow composition and delegation access paths. *(implemented offline with permission ceilings, secret propagation, and bounded cycle analysis)*
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.
-- Provenance and pinning checks for MCP servers.
+- Provenance and pinning checks for MCP servers. *(initial offline npm, Python, OCI, local-path, executable, and remote-endpoint classification implemented)*
 
 Exit condition: repository declarations can be compared with at least one real
 runtime authorization system.

@@ -155,6 +155,24 @@ type GitHubReusableWorkflowHop struct {
 	EvidenceIDs          []string     `json:"evidenceIds,omitempty" yaml:"evidenceIds,omitempty"`
 }
 
+// MCPServerProvenance records execution identity and pinning without retaining
+// arbitrary command arguments, environment values, URL credentials, or query
+// parameters.
+type MCPServerProvenance struct {
+	Transport    string   `json:"transport" yaml:"transport"`
+	Launcher     string   `json:"launcher,omitempty" yaml:"launcher,omitempty"`
+	SourceType   string   `json:"sourceType" yaml:"sourceType"`
+	Registry     string   `json:"registry,omitempty" yaml:"registry,omitempty"`
+	Package      string   `json:"package,omitempty" yaml:"package,omitempty"`
+	Version      string   `json:"version,omitempty" yaml:"version,omitempty"`
+	PinType      string   `json:"pinType" yaml:"pinType"`
+	Pinned       bool     `json:"pinned" yaml:"pinned"`
+	Integrity    string   `json:"integrity" yaml:"integrity"`
+	EndpointHost string   `json:"endpointHost,omitempty" yaml:"endpointHost,omitempty"`
+	TLS          bool     `json:"tls,omitempty" yaml:"tls,omitempty"`
+	EvidenceIDs  []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
 type Evidence struct {
 	ID          string `json:"id" yaml:"id"`
 	Path        string `json:"path" yaml:"path"`

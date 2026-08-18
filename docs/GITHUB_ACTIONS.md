@@ -146,3 +146,27 @@ environment, and runner trust.
 Only a full commit SHA is treated as an immutable GitHub action pin. A version
 tag remains operationally useful, but its target can be moved or deleted. The
 same integrity model applies to external reusable workflows.
+
+## Reusable workflow call boundaries
+
+Job-level reusable workflow calls emit an invocation capability and a
+`githubReusableWorkflowCalls` control. Each call records whether it is local or
+external, its pin, its effective caller permission source, and one of three
+secret modes:
+
+- `none`: no caller secrets are delegated;
+- `explicit`: only named secret inputs are mapped, while source secret values
+  remain reference-only credentials;
+- `inherit`: all organization, repository, and environment secrets visible to
+  the caller may be passed to the directly called workflow.
+
+`secrets: inherit` emits `githubReusableWorkflowSecretInheritance` and a broad
+secret-set reference, never secret values. Secrets do not automatically flow to
+the next nested workflow; every direct call must explicitly pass or inherit
+them again.
+
+Local calls remain `local-candidate` until the repository composition stage
+resolves the referenced workflow asset. External calls remain
+`external-unresolved`: the caller-side permissions and secret delegation are
+known, but the callee implementation, its nested dependencies, and the actual
+repository access policy require source or GitHub API enrichment.

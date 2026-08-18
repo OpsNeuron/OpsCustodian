@@ -60,6 +60,18 @@ type githubDependencyIntegrity struct {
 	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
 }
 
+type githubReusableWorkflowCall struct {
+	Job              string   `json:"job" yaml:"job"`
+	Reference        string   `json:"reference" yaml:"reference"`
+	Locator          string   `json:"locator,omitempty" yaml:"locator,omitempty"`
+	Local            bool     `json:"local" yaml:"local"`
+	PermissionSource string   `json:"permissionSource" yaml:"permissionSource"`
+	SecretMode       string   `json:"secretMode" yaml:"secretMode"`
+	SecretNames      []string `json:"secretNames,omitempty" yaml:"secretNames,omitempty"`
+	Resolution       string   `json:"resolution" yaml:"resolution"`
+	EvidenceIDs      []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
 var secretPattern = regexp.MustCompile(`(?i)secrets\.([A-Z0-9_]+)`)
 var githubExpressionPattern = regexp.MustCompile(`(?s)\$\{\{.*?\}\}`)
 var fullCommitSHAPattern = regexp.MustCompile(`(?i)^[0-9a-f]{40}$`)
@@ -132,6 +144,7 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		var untrustedDataFlows []githubUntrustedDataFlow
 		var runnerSelections, selfHostedRunners, unknownRunners []githubRunnerSelection
 		var dependencies, mutableDependencies []githubDependencyIntegrity
+		var reusableCalls, inheritedSecretCalls, externalReusableCalls []githubReusableWorkflowCall
 		for i := 0; i+1 < len(jobs.Content); i += 2 {
 			jobName, job := jobs.Content[i].Value, jobs.Content[i+1]
 			environmentName, environmentURL, environmentNode := jobEnvironment(mappingValue(job, "environment"))
@@ -168,6 +181,31 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 			evidenceIDs := []string{jobEvidence}
 			if permissionEvidenceID != "" {
 				evidenceIDs = append(evidenceIDs, permissionEvidenceID)
+			}
+			if reusableNode := mappingValue(job, "uses"); reusableNode != nil {
+				permissionSource := "repository-default-unknown"
+				if jobPermissions != nil {
+					permissionSource = "job"
+				} else if workflowPermissions != nil {
+					permissionSource = "workflow"
+				}
+				call, callEvidence := parseReusableWorkflowCall(a.RelPath, jobName, job, reusableNode, permissionSource, jobEvidence)
+				reusableCalls = append(reusableCalls, call)
+				agent.Evidence = append(agent.Evidence, callEvidence)
+				agent.Capabilities = append(agent.Capabilities, model.Capability{
+					Action: "github.reusable_workflow.invoke", Resource: "github:workflow:" + call.Reference,
+					Effect: "execute", Environment: environmentName, EvidenceIDs: call.EvidenceIDs,
+					Scope: githubJobScope(jobName),
+				})
+				if call.SecretMode == "inherit" {
+					inheritedSecretCalls = append(inheritedSecretCalls, call)
+					agent.Credentials = append(agent.Credentials, model.CredentialReference{
+						Type: "github-actions-secret-set", Reference: "caller-visible:" + call.Reference, ValueCaptured: false,
+					})
+				}
+				if !call.Local {
+					externalReusableCalls = append(externalReusableCalls, call)
+				}
 			}
 			agent.Capabilities = append(agent.Capabilities,
 				permissionCapabilities(effectivePermissions, evidenceIDs, jobName, environmentName)...)
@@ -222,6 +260,15 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		}
 		if len(mutableDependencies) > 0 {
 			agent.Controls = append(agent.Controls, model.Control{Type: "githubMutableDependencyExposure", Value: mutableDependencies})
+		}
+		if len(reusableCalls) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubReusableWorkflowCalls", Value: reusableCalls})
+		}
+		if len(inheritedSecretCalls) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubReusableWorkflowSecretInheritance", Value: inheritedSecretCalls})
+		}
+		if len(externalReusableCalls) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubReusableWorkflowExternalBoundary", Value: externalReusableCalls})
 		}
 	} else {
 		agent.Capabilities = append(agent.Capabilities,
@@ -523,6 +570,39 @@ func analyzeJobDependencies(path, jobName string, job *yaml.Node, jobEvidenceID 
 		evidence = append(evidence, itemEvidence)
 	}
 	return dependencies, evidence
+}
+
+func parseReusableWorkflowCall(path, jobName string, job, usesNode *yaml.Node, permissionSource, jobEvidenceID string) (githubReusableWorkflowCall, model.Evidence) {
+	uses := strings.TrimSpace(scalarValue(usesNode))
+	reference, locator := splitDependencyReference(uses)
+	local := strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "$/")
+	call := githubReusableWorkflowCall{
+		Job: jobName, Reference: reference, Locator: locator, Local: local,
+		PermissionSource: permissionSource, SecretMode: "none", Resolution: "external-unresolved",
+	}
+	if local {
+		call.Resolution = "local-candidate"
+	}
+	secretsNode := mappingValue(job, "secrets")
+	if secretsNode != nil && secretsNode.Kind == yaml.ScalarNode && strings.EqualFold(strings.TrimSpace(secretsNode.Value), "inherit") {
+		call.SecretMode = "inherit"
+	} else if secretsNode != nil && secretsNode.Kind == yaml.MappingNode {
+		call.SecretMode = "explicit"
+		for index := 0; index+1 < len(secretsNode.Content); index += 2 {
+			name := strings.TrimSpace(secretsNode.Content[index].Value)
+			if name != "" {
+				call.SecretNames = append(call.SecretNames, name)
+			}
+		}
+		sort.Strings(call.SecretNames)
+	}
+	evidenceID := stableID("gha-reusable-call", path+":"+jobName+":"+uses)
+	call.EvidenceIDs = []string{jobEvidenceID, evidenceID}
+	evidence := model.Evidence{
+		ID: evidenceID, Path: path, Line: usesNode.Line, Column: usesNode.Column,
+		Parser: "github-actions", Confidence: "high", Observation: "reusable workflow call " + uses + " in job " + jobName,
+	}
+	return call, evidence
 }
 
 func classifyDependency(path, jobName, kind, uses string, node *yaml.Node, discriminator, jobEvidenceID string) (githubDependencyIntegrity, model.Evidence) {

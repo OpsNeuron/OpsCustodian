@@ -331,11 +331,11 @@ jobs:
 		t.Fatalf("dependency inventory = %#v, references = %#v", dependencies, asset.Dependencies)
 	}
 	wantPins := map[string]string{
-		"actions/checkout": "tag-or-branch",
+		"actions/checkout":     "tag-or-branch",
 		"acme/verified-action": "full-commit-sha",
-		"./local-action": "same-commit",
-		"alpine": "container-tag",
-		"ghcr.io/acme/tool": "container-digest",
+		"./local-action":       "same-commit",
+		"alpine":               "container-tag",
+		"ghcr.io/acme/tool":    "container-digest",
 		"acme/platform/.github/workflows/deploy.yml": "tag-or-branch",
 	}
 	for _, dependency := range dependencies {
@@ -350,6 +350,64 @@ jobs:
 	mutable := dependencyControlValues(t, asset.Controls, "githubMutableDependencyExposure")
 	if len(mutable) != 3 {
 		t.Fatalf("mutable dependencies = %#v, want checkout tag, container tag, and reusable workflow branch", mutable)
+	}
+}
+
+func TestParseModelsReusableWorkflowPermissionAndSecretBoundary(t *testing.T) {
+	artifact := discovery.Artifact{
+		RelPath: ".github/workflows/caller.yml",
+		Content: []byte(`name: reusable caller
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  local:
+    uses: ./.github/workflows/local.yml
+    secrets: inherit
+  external:
+    permissions:
+      issues: write
+    uses: acme/platform/.github/workflows/deploy.yml@main
+    secrets:
+      deploy-token: ${{ secrets.DEPLOY_TOKEN }}
+`),
+	}
+	assets, err := (Parser{}).Parse(context.Background(), artifact)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	asset := assets[0]
+	calls := reusableCallControlValues(t, asset.Controls, "githubReusableWorkflowCalls")
+	if len(calls) != 2 {
+		t.Fatalf("reusable calls = %#v, want 2", calls)
+	}
+	local, external := calls[0], calls[1]
+	if local.Job != "local" || !local.Local || local.PermissionSource != "workflow" || local.SecretMode != "inherit" || local.Resolution != "local-candidate" {
+		t.Fatalf("unexpected local reusable call: %#v", local)
+	}
+	if external.Job != "external" || external.Local || external.PermissionSource != "job" || external.SecretMode != "explicit" || !reflect.DeepEqual(external.SecretNames, []string{"deploy-token"}) || external.Resolution != "external-unresolved" {
+		t.Fatalf("unexpected external reusable call: %#v", external)
+	}
+	if inherited := reusableCallControlValues(t, asset.Controls, "githubReusableWorkflowSecretInheritance"); len(inherited) != 1 || inherited[0].Job != "local" {
+		t.Fatalf("unexpected inherited secret calls: %#v", inherited)
+	}
+	if boundaries := reusableCallControlValues(t, asset.Controls, "githubReusableWorkflowExternalBoundary"); len(boundaries) != 1 || boundaries[0].Job != "external" {
+		t.Fatalf("unexpected external boundaries: %#v", boundaries)
+	}
+	if !hasCredentialReference(asset.Credentials, "github-actions-secret-set", "caller-visible:./.github/workflows/local.yml") {
+		t.Fatalf("inherited secret-set reference is missing: %#v", asset.Credentials)
+	}
+	if !hasCredentialReference(asset.Credentials, "github-actions-secret", "DEPLOY_TOKEN") {
+		t.Fatalf("explicit source secret reference is missing: %#v", asset.Credentials)
+	}
+	for _, call := range calls {
+		if len(call.EvidenceIDs) != 2 || !assetHasEvidence(asset, call.EvidenceIDs[1]) {
+			t.Fatalf("reusable call lacks owned evidence: %#v", call)
+		}
+		capability := requireScopedCapability(t, asset.Capabilities, "github.reusable_workflow.invoke", call.Job)
+		if capability.Effect != "execute" || len(capability.EvidenceIDs) != 2 {
+			t.Fatalf("unexpected reusable invocation capability: %#v", capability)
+		}
 	}
 }
 
@@ -436,4 +494,37 @@ func dependencyControlValues(t *testing.T, controls []model.Control, controlType
 		t.Fatalf("dependency control %q has unexpected value %#v", controlType, control.Value)
 	}
 	return values
+}
+
+func reusableCallControlValues(t *testing.T, controls []model.Control, controlType string) []githubReusableWorkflowCall {
+	t.Helper()
+	control := controlOfType(controls, controlType)
+	if control == nil {
+		t.Fatalf("reusable call control %q is missing in %#v", controlType, controls)
+	}
+	values, ok := control.Value.([]githubReusableWorkflowCall)
+	if !ok {
+		t.Fatalf("reusable call control %q has unexpected value %#v", controlType, control.Value)
+	}
+	return values
+}
+
+func hasCredentialReference(credentials []model.CredentialReference, credentialType, reference string) bool {
+	for _, credential := range credentials {
+		if credential.Type == credentialType && credential.Reference == reference && !credential.ValueCaptured {
+			return true
+		}
+	}
+	return false
+}
+
+func requireScopedCapability(t *testing.T, capabilities []model.Capability, action, job string) model.Capability {
+	t.Helper()
+	for _, capability := range capabilities {
+		if capability.Action == action && capability.Scope != nil && reflect.DeepEqual(capability.Scope.Values, []string{job}) {
+			return capability
+		}
+	}
+	t.Fatalf("capability %q for job %q not found in %#v", action, job, capabilities)
+	return model.Capability{}
 }

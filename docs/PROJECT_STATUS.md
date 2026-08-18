@@ -90,6 +90,7 @@ Missing exit items:
 - Direct GitHub Actions script-injection paths from attacker-influenced event expressions to runner shells, with safe environment-variable indirection excluded by construction.
 - Evidence-backed runner selection inventory with explicit self-hosted exposure, dynamic/group/custom unknown states, and persistent-compromise risk only when combined with untrusted data flow.
 - GitHub Actions dependency graph and integrity classification for external actions, reusable workflows, local actions, container tags/digests, full commit SHAs, and dynamic references.
+- Reusable workflow call-boundary inventory with caller permission provenance, explicit versus inherited secret propagation, invocation capabilities, and honest local/external resolution state.
 
 ## Remaining path to 1.0
 

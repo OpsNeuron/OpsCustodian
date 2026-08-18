@@ -60,6 +60,9 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 	if hasControl(asset, "githubMutableDependencyExposure") {
 		add(&assessment, "mutable-dependency", 20, "workflow executes an external action, workflow, or container reference that can move to different code")
 	}
+	if hasControl(asset, "githubReusableWorkflowSecretInheritance") {
+		add(&assessment, "reusable-secret-inheritance", 25, "reusable workflow call inherits every secret visible to its caller")
+	}
 	if strings.HasPrefix(capability.Action, "kubernetes.") {
 		switch {
 		case strings.HasSuffix(capability.Action, ".bind"):

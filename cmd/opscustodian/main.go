@@ -63,7 +63,7 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		if fs.NArg() != 2 {
-			return fmt.Errorf("usage: opscustodian diff [--format terminal|json] <before> <after>")
+			return fmt.Errorf("usage: opscustodian diff [--format terminal|json|sarif] <before> <after>")
 		}
 		return app.Diff(app.DiffOptions{Before: fs.Arg(0), After: fs.Arg(1), Format: *format, FailOn: *failOn, Output: *output})
 

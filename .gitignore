@@ -16,6 +16,7 @@ coverage.out
 /opscustodian*.html
 /opscustodian*.json
 /drift*.json
+/drift*.txt
 /*.sarif
 /reports/
 .opscustodian-cache/

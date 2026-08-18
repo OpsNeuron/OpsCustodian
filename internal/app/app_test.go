@@ -75,6 +75,57 @@ func TestDiffRejectsUnknownFailOnSeverityBeforeIO(t *testing.T) {
 	}
 }
 
+func TestDiffAccessPathFixtureAcrossJSONTerminalSARIFAndThreshold(t *testing.T) {
+	before := filepath.Join("..", "..", "examples", "access-path-drift", "agentbom.before.json")
+	after := filepath.Join("..", "..", "examples", "access-path-drift", "agentbom.after.json")
+	tempDir := t.TempDir()
+	jsonPath := filepath.Join(tempDir, "drift.json")
+
+	err := Diff(DiffOptions{Before: before, After: after, Format: "json", Output: jsonPath, FailOn: "critical"})
+	var exitErr *ExitError
+	if !errors.As(err, &exitErr) || exitErr.Code != 2 {
+		t.Fatalf("critical access path drift error = %#v, want ExitError code 2", err)
+	}
+	content, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatalf("critical threshold must preserve JSON report: %v", err)
+	}
+	var value drift.Report
+	if err := json.Unmarshal(content, &value); err != nil {
+		t.Fatalf("decode access path drift report: %v", err)
+	}
+	wantTypes := map[string]bool{"access-path-added": false, "access-path-escalated": false, "access-path-rerouted": false, "access-path-removed": false}
+	for _, change := range value.Changes {
+		if _, exists := wantTypes[change.Type]; exists {
+			wantTypes[change.Type] = true
+		}
+		if change.ID == "" || len(change.Locations) == 0 {
+			t.Fatalf("finding lacks stable ID or evidence location: %#v", change)
+		}
+	}
+	for changeType, found := range wantTypes {
+		if !found {
+			t.Fatalf("missing %s in %#v", changeType, value.Changes)
+		}
+	}
+
+	for _, format := range []string{"terminal", "sarif"} {
+		outputPath := filepath.Join(tempDir, "drift."+format)
+		if err := Diff(DiffOptions{Before: before, After: after, Format: format, Output: outputPath}); err != nil {
+			t.Fatalf("%s diff failed: %v", format, err)
+		}
+		output, err := os.ReadFile(outputPath)
+		if err != nil {
+			t.Fatalf("read %s output: %v", format, err)
+		}
+		for changeType := range wantTypes {
+			if !strings.Contains(string(output), changeType) {
+				t.Fatalf("%s output does not contain %s", format, changeType)
+			}
+		}
+	}
+}
+
 func TestExitErrorPreservesCause(t *testing.T) {
 	cause := errors.New("policy denied")
 	err := &ExitError{Code: 2, Err: cause}

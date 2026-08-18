@@ -1,0 +1,71 @@
+{
+  "apiVersion": "opscustodian.dev/v1alpha1",
+  "kind": "AgentBOM",
+  "metadata": {
+    "source": "github:acme/automation",
+    "revision": "baseline",
+    "generator": "access-path-drift-example",
+    "normalizationVersion": "v1alpha1"
+  },
+  "assets": [
+    {
+      "id": "github-actions:.github/workflows/caller.yml",
+      "type": "workflow",
+      "name": "caller",
+      "source": {"repository": "acme/automation", "path": ".github/workflows/caller.yml"},
+      "capabilities": [],
+      "evidence": [{"id": "caller-call", "path": ".github/workflows/caller.yml", "line": 12, "parser": "example", "confidence": "high"}]
+    },
+    {
+      "id": "github-actions:.github/workflows/middle.yml",
+      "type": "workflow",
+      "name": "middle",
+      "source": {"repository": "acme/automation", "path": ".github/workflows/middle.yml"},
+      "capabilities": [],
+      "evidence": [{"id": "middle-definition", "path": ".github/workflows/middle.yml", "line": 1, "parser": "example", "confidence": "high"}]
+    },
+    {
+      "id": "github-actions:.github/workflows/replacement.yml",
+      "type": "workflow",
+      "name": "replacement",
+      "source": {"repository": "acme/automation", "path": ".github/workflows/replacement.yml"},
+      "capabilities": [],
+      "evidence": [{"id": "replacement-definition", "path": ".github/workflows/replacement.yml", "line": 1, "parser": "example", "confidence": "high"}]
+    }
+  ],
+  "accessPaths": [
+    {
+      "id": "baseline-contents",
+      "origin": "github-actions:.github/workflows/caller.yml",
+      "steps": [
+        {"kind": "origin", "assetId": "github-actions:.github/workflows/caller.yml"},
+        {"kind": "delegation", "assetId": "github-actions:.github/workflows/middle.yml"}
+      ],
+      "capability": {"action": "github.contents.*", "resource": "github:repository", "effect": "read", "evidenceIds": ["caller-call", "middle-definition"]},
+      "confidence": "high",
+      "evidenceIds": ["caller-call", "middle-definition"]
+    },
+    {
+      "id": "baseline-issues",
+      "origin": "github-actions:.github/workflows/caller.yml",
+      "steps": [
+        {"kind": "origin", "assetId": "github-actions:.github/workflows/caller.yml"},
+        {"kind": "delegation", "assetId": "github-actions:.github/workflows/middle.yml"}
+      ],
+      "capability": {"action": "github.issues.*", "resource": "github:repository", "effect": "read", "evidenceIds": ["caller-call", "middle-definition"]},
+      "confidence": "high",
+      "evidenceIds": ["caller-call", "middle-definition"]
+    },
+    {
+      "id": "baseline-actions",
+      "origin": "github-actions:.github/workflows/caller.yml",
+      "steps": [
+        {"kind": "origin", "assetId": "github-actions:.github/workflows/caller.yml"},
+        {"kind": "delegation", "assetId": "github-actions:.github/workflows/middle.yml"}
+      ],
+      "capability": {"action": "github.actions.*", "resource": "github:repository", "effect": "read", "evidenceIds": ["caller-call", "middle-definition"]},
+      "confidence": "high",
+      "evidenceIds": ["caller-call", "middle-definition"]
+    }
+  ]
+}

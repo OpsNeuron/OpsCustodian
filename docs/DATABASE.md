@@ -81,3 +81,26 @@ not-found behavior, and rejection of invalid persisted BOMs. SQL execution,
 query plans, migration application, concurrent ingestion, and rollback against
 a real PostgreSQL server remain explicitly deferred to final integration
 validation.
+
+## Operational configuration contract
+
+Control-plane database settings are environment-only so credentials do not
+need to appear in command arguments or repository configuration. The contract
+currently recognizes:
+
+| Variable | Default | Constraint |
+| --- | --- | --- |
+| `OPSCUSTODIAN_ORGANIZATION_ID` | required | `organization-` plus 16 lowercase hexadecimal characters |
+| `OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME` | organization ID | 1 to 200 characters |
+| `OPSCUSTODIAN_DATABASE_DSN` | required | non-empty; never included in safe configuration output |
+| `OPSCUSTODIAN_DATABASE_MIGRATE` | `true` | boolean |
+| `OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT` | `5s` | positive, at most one minute |
+| `OPSCUSTODIAN_SHUTDOWN_TIMEOUT` | `10s` | positive, at most one minute |
+| `OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS` | `20` | 1 to 1000 |
+| `OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS` | `5` | 0 to max open connections |
+| `OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME` | `30m` | positive, at most 24 hours |
+
+Configuration parsing is side-effect free and does not open a database. A
+separate safe projection exposes only operational metadata and a boolean
+indicating whether a DSN was configured; it cannot serialize the DSN or its
+credentials.

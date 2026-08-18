@@ -13,6 +13,8 @@ import (
 
 var organizationIDPattern = regexp.MustCompile(`^organization-[0-9a-f]{16}$`)
 
+func ValidOrganizationID(value string) bool { return organizationIDPattern.MatchString(value) }
+
 const (
 	upsertOrganizationSQL = `INSERT INTO organizations (id, display_name) VALUES ($1, $2)
 ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name`
@@ -103,7 +105,7 @@ func NewPostgres(database *sql.DB, organizationID, displayName string) (*Postgre
 }
 
 func newPostgresWriter(database postgresDatabase, organizationID, displayName string) (*Postgres, error) {
-	if !organizationIDPattern.MatchString(organizationID) {
+	if !ValidOrganizationID(organizationID) {
 		return nil, fmt.Errorf("invalid organization ID %q", organizationID)
 	}
 	if displayName == "" {

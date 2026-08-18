@@ -103,6 +103,7 @@ runtime authorization system.
 - Keyset pagination, repository snapshot history, and OpenAPI contract. *(implemented in the read-only handler)*
 - Cross-snapshot Finding lifecycle projection and filtering. *(episode-aware in-memory implementation and API complete; durable transitions require PostgreSQL)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
+- PostgreSQL snapshot writer. *(transactional and driver-neutral implementation complete; Reader and real database validation pending)*
 - Multi-repository ingestion and historical Finding lifecycle.
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration.

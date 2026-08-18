@@ -121,6 +121,7 @@ Missing exit items:
 - Opaque keyset pagination, immutable snapshot-history endpoints, safe snapshot identifiers, and an OpenAPI 3.1 route-conformance test.
 - Episode-aware Finding lifecycle projection with introduced, persisting, resolved, and reintroduced semantics plus source-derived observation timestamps.
 - Embedded PostgreSQL migration catalog and transactional runner with tenant-scoped schema, immutable snapshot/Finding storage, checksums, advisory locking, rollback, and newer-database rejection.
+- Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, idempotent re-ingestion, immutable revision-conflict rejection, and Finding projection.
 
 The handler is intentionally not connected to a network listener until
 authentication, authorization, request limits, and safe bind defaults are

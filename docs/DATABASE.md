@@ -48,3 +48,16 @@ Catalog parsing, ordering, checksums, multi-tenant key structure, immutability
 triggers, indexes, rollback presence, and newer-database rejection are covered
 by deterministic tests. Applying and rolling back against a real PostgreSQL
 instance is intentionally deferred to the final integration test phase.
+
+## Snapshot writer
+
+The initial PostgreSQL `Writer` uses `database/sql` without selecting a driver.
+It validates the Agent BOM before beginning a transaction, derives stable
+repository and snapshot IDs, upserts the tenant and repository, stores the
+immutable BOM, and writes queryable Finding projections in one transaction.
+
+Re-ingesting identical content for the same repository revision is idempotent.
+Reusing that revision with different BOM content is rejected rather than
+silently overwriting history. Unit tests exercise transaction ordering,
+pre-database validation, commit, rollback, and immutable-revision conflicts
+through a driver-neutral fake transaction.

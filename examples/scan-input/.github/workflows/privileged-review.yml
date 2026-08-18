@@ -1,0 +1,30 @@
+name: privileged review automation
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+  workflow_run:
+    workflows: [Untrusted pull request tests]
+    types: [completed]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Unsafe checkout fixture
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Unsafe artifact fixture
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Record review result
+        shell: bash
+        run: |
+          echo "Unsafe fixture title: ${{ github.event.pull_request.title }}"
+          echo "Fixture only; do not copy this privileged trigger pattern without a threat review."

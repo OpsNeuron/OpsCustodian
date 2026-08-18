@@ -16,7 +16,46 @@ import (
 
 type Parser struct{}
 
+type githubEnvironmentControl struct {
+	Job              string `json:"job" yaml:"job"`
+	Name             string `json:"name" yaml:"name"`
+	URL              string `json:"url,omitempty" yaml:"url,omitempty"`
+	ProtectionStatus string `json:"protectionStatus" yaml:"protectionStatus"`
+}
+
+type githubTriggerExposure struct {
+	Event         string `json:"event" yaml:"event"`
+	TrustBoundary string `json:"trustBoundary" yaml:"trustBoundary"`
+	Reason        string `json:"reason" yaml:"reason"`
+}
+
+type githubUntrustedDataFlow struct {
+	Job         string   `json:"job" yaml:"job"`
+	Trigger     string   `json:"trigger" yaml:"trigger"`
+	Source      string   `json:"source" yaml:"source"`
+	Sink        string   `json:"sink" yaml:"sink"`
+	Action      string   `json:"action" yaml:"action"`
+	Reason      string   `json:"reason" yaml:"reason"`
+	EvidenceIDs []string `json:"evidenceIds" yaml:"evidenceIds"`
+}
+
 var secretPattern = regexp.MustCompile(`(?i)secrets\.([A-Z0-9_]+)`)
+var githubExpressionPattern = regexp.MustCompile(`(?s)\$\{\{.*?\}\}`)
+
+var untrustedRunContexts = []string{
+	"github.event.comment.body",
+	"github.event.discussion.body",
+	"github.event.discussion.title",
+	"github.event.discussion_comment.body",
+	"github.event.issue.body",
+	"github.event.issue.title",
+	"github.event.pull_request.body",
+	"github.event.pull_request.head.ref",
+	"github.event.pull_request.title",
+	"github.event.review.body",
+	"github.event.review_comment.body",
+	"github.head_ref",
+}
 
 func (Parser) Name() string { return "github-actions" }
 
@@ -50,23 +89,84 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 			Parser: "github-actions", Confidence: "high", Observation: "workflow definition",
 		}},
 	}
+	triggers := workflowTriggers(mappingValue(doc, "on"))
+	if len(triggers) > 0 {
+		agent.Controls = append(agent.Controls, model.Control{Type: "githubWorkflowTriggers", Value: triggers})
+	}
+	if exposures := privilegedTriggerExposures(triggers); len(exposures) > 0 {
+		agent.Controls = append(agent.Controls, model.Control{Type: "githubPrivilegedTriggerExposure", Value: exposures})
+	}
 
-	permissions := mappingValue(doc, "permissions")
-	agent.Capabilities = append(agent.Capabilities, permissionCapabilities(permissions, evidenceID)...)
+	workflowPermissions := mappingValue(doc, "permissions")
+	workflowPermissionEvidence := ""
+	if workflowPermissions != nil {
+		workflowPermissionEvidence = stableID("gha-permissions", a.RelPath+":workflow")
+		agent.Evidence = append(agent.Evidence, permissionEvidence(a.RelPath, workflowPermissions, workflowPermissionEvidence, "workflow token permissions"))
+	}
 	jobs := mappingValue(doc, "jobs")
 	if jobs != nil && jobs.Kind == yaml.MappingNode {
+		var unspecifiedJobs, disabledJobs []string
+		var untrustedDataFlows []githubUntrustedDataFlow
 		for i := 0; i+1 < len(jobs.Content); i += 2 {
 			jobName, job := jobs.Content[i].Value, jobs.Content[i+1]
+			environmentName, environmentURL, environmentNode := jobEnvironment(mappingValue(job, "environment"))
 			jobEvidence := stableID("gha-job", a.RelPath+":"+jobName)
 			agent.Evidence = append(agent.Evidence, model.Evidence{
 				ID: jobEvidence, Path: a.RelPath, Line: job.Line, Column: job.Column,
 				Parser: "github-actions", Confidence: "high", Observation: "job " + jobName,
 			})
-			agent.Capabilities = append(agent.Capabilities,
-				permissionCapabilities(mappingValue(job, "permissions"), jobEvidence)...)
-			if environment := scalarValue(mappingValue(job, "environment")); environment != "" {
-				agent.Controls = append(agent.Controls, model.Control{Type: "environment", Value: environment})
+			effectivePermissions := workflowPermissions
+			permissionEvidenceID := workflowPermissionEvidence
+			jobPermissions := mappingValue(job, "permissions")
+			if jobPermissions != nil {
+				effectivePermissions = jobPermissions
+				permissionEvidenceID = stableID("gha-permissions", a.RelPath+":"+jobName)
+				agent.Evidence = append(agent.Evidence, permissionEvidence(a.RelPath, jobPermissions, permissionEvidenceID, "job "+jobName+" token permissions"))
 			}
+			if effectivePermissions == nil {
+				unspecifiedJobs = append(unspecifiedJobs, jobName)
+			} else if permissionsDisabled(effectivePermissions) {
+				disabledJobs = append(disabledJobs, jobName)
+			}
+			evidenceIDs := []string{jobEvidence}
+			if permissionEvidenceID != "" {
+				evidenceIDs = append(evidenceIDs, permissionEvidenceID)
+			}
+			agent.Capabilities = append(agent.Capabilities,
+				permissionCapabilities(effectivePermissions, evidenceIDs, jobName, environmentName)...)
+			if environmentName != "" {
+				environmentEvidence := stableID("gha-environment", a.RelPath+":"+jobName+":"+environmentName)
+				agent.Evidence = append(agent.Evidence, permissionEvidence(a.RelPath, environmentNode, environmentEvidence, "job "+jobName+" deployment environment "+environmentName))
+				environmentEvidenceIDs := []string{jobEvidence, environmentEvidence}
+				agent.Capabilities = append(agent.Capabilities, model.Capability{
+					Action: "github.environment.deploy", Resource: "github:environment:" + environmentName,
+					Effect: "execute", Environment: environmentName, EvidenceIDs: environmentEvidenceIDs,
+					Scope: githubJobScope(jobName),
+				})
+				agent.Controls = append(agent.Controls, model.Control{Type: "githubDeploymentEnvironment", Value: githubEnvironmentControl{
+					Job: jobName, Name: environmentName, URL: environmentURL, ProtectionStatus: "unknown",
+				}})
+			}
+			flows, flowEvidence := analyzeJobDataFlows(a.RelPath, jobName, job, triggers, jobEvidence)
+			untrustedDataFlows = append(untrustedDataFlows, flows...)
+			agent.Evidence = append(agent.Evidence, flowEvidence...)
+		}
+		if len(unspecifiedJobs) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubTokenPermissionsUnspecified", Value: unspecifiedJobs})
+		}
+		if len(disabledJobs) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubTokenPermissionsDisabled", Value: disabledJobs})
+		}
+		if len(untrustedDataFlows) > 0 {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubUntrustedDataFlow", Value: untrustedDataFlows})
+		}
+	} else {
+		agent.Capabilities = append(agent.Capabilities,
+			permissionCapabilities(workflowPermissions, []string{workflowPermissionEvidence}, "workflow", "")...)
+		if workflowPermissions == nil {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubTokenPermissionsUnspecified", Value: []string{"workflow"}})
+		} else if permissionsDisabled(workflowPermissions) {
+			agent.Controls = append(agent.Controls, model.Control{Type: "githubTokenPermissionsDisabled", Value: []string{"workflow"}})
 		}
 	}
 
@@ -91,16 +191,19 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 	return []model.Agent{agent}, nil
 }
 
-func permissionCapabilities(node *yaml.Node, evidenceID string) []model.Capability {
+func permissionCapabilities(node *yaml.Node, evidenceIDs []string, jobScope, environment string) []model.Capability {
 	if node == nil {
 		return nil
 	}
 	if node.Kind == yaml.ScalarNode {
 		switch strings.ToLower(node.Value) {
 		case "read-all":
-			return []model.Capability{{Action: "github.repository.*", Resource: "github:repository", Effect: "read", EvidenceIDs: []string{evidenceID}}}
+			return []model.Capability{{Action: "github.repository.*", Resource: "github:repository", Effect: "read", Environment: environment, EvidenceIDs: evidenceIDs, Scope: githubJobScope(jobScope)}}
 		case "write-all":
-			return []model.Capability{{Action: "github.repository.*", Resource: "github:repository", Effect: "write", EvidenceIDs: []string{evidenceID}}}
+			return []model.Capability{
+				{Action: "github.repository.*", Resource: "github:repository", Effect: "write", Environment: environment, EvidenceIDs: evidenceIDs, Scope: githubJobScope(jobScope)},
+				{Action: "github.oidc_token.issue", Resource: "github:oidc-token", Effect: "execute", Environment: environment, EvidenceIDs: append([]string(nil), evidenceIDs...), Scope: githubJobScope(jobScope)},
+			}
 		case "{}", "none":
 			return nil
 		}
@@ -110,17 +213,247 @@ func permissionCapabilities(node *yaml.Node, evidenceID string) []model.Capabili
 	}
 	var result []model.Capability
 	for i := 0; i+1 < len(node.Content); i += 2 {
-		scope := strings.ToLower(node.Content[i].Value)
+		permissionScope := strings.ToLower(node.Content[i].Value)
 		level := strings.ToLower(node.Content[i+1].Value)
 		if level == "none" || level == "" {
 			continue
 		}
+		action := "github." + strings.ReplaceAll(permissionScope, "-", ".") + ".*"
+		resource, effect := "github:repository", level
+		if permissionScope == "id-token" && level == "write" {
+			action, resource, effect = "github.oidc_token.issue", "github:oidc-token", "execute"
+		}
 		result = append(result, model.Capability{
-			Action:   "github." + strings.ReplaceAll(scope, "-", ".") + ".*",
-			Resource: "github:repository", Effect: level, EvidenceIDs: []string{evidenceID},
+			Action: action, Resource: resource, Effect: effect, Environment: environment,
+			EvidenceIDs: append([]string(nil), evidenceIDs...), Scope: githubJobScope(jobScope),
 		})
 	}
 	return result
+}
+
+func jobEnvironment(node *yaml.Node) (string, string, *yaml.Node) {
+	if node == nil {
+		return "", "", nil
+	}
+	if node.Kind == yaml.ScalarNode {
+		return strings.TrimSpace(node.Value), "", node
+	}
+	if node.Kind != yaml.MappingNode {
+		return "", "", node
+	}
+	return strings.TrimSpace(scalarValue(mappingValue(node, "name"))), strings.TrimSpace(scalarValue(mappingValue(node, "url"))), node
+}
+
+func workflowTriggers(node *yaml.Node) []string {
+	if node == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	add := func(value string) {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value != "" {
+			seen[value] = struct{}{}
+		}
+	}
+	switch node.Kind {
+	case yaml.ScalarNode:
+		add(node.Value)
+	case yaml.SequenceNode:
+		for _, child := range node.Content {
+			if child.Kind == yaml.ScalarNode {
+				add(child.Value)
+			}
+		}
+	case yaml.MappingNode:
+		for index := 0; index+1 < len(node.Content); index += 2 {
+			add(node.Content[index].Value)
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for value := range seen {
+		result = append(result, value)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func privilegedTriggerExposures(triggers []string) []githubTriggerExposure {
+	var result []githubTriggerExposure
+	for _, event := range triggers {
+		switch event {
+		case "pull_request_target":
+			result = append(result, githubTriggerExposure{
+				Event: event, TrustBoundary: "base-repository-privileged",
+				Reason: "runs in the base branch context and must not execute untrusted pull request code",
+			})
+		case "workflow_run":
+			result = append(result, githubTriggerExposure{
+				Event: event, TrustBoundary: "privileged-follow-up",
+				Reason: "can access secrets and write tokens even when the triggering workflow could not",
+			})
+		}
+	}
+	return result
+}
+
+func analyzeJobDataFlows(path, jobName string, job *yaml.Node, triggers []string, jobEvidenceID string) ([]githubUntrustedDataFlow, []model.Evidence) {
+	steps := mappingValue(job, "steps")
+	if steps == nil || steps.Kind != yaml.SequenceNode {
+		return nil, nil
+	}
+	triggerSet := map[string]struct{}{}
+	for _, trigger := range triggers {
+		triggerSet[trigger] = struct{}{}
+	}
+	var flows []githubUntrustedDataFlow
+	var evidence []model.Evidence
+	for index, step := range steps.Content {
+		if step.Kind != yaml.MappingNode {
+			continue
+		}
+		uses := strings.ToLower(strings.TrimSpace(scalarValue(mappingValue(step, "uses"))))
+		with := mappingValue(step, "with")
+		if strings.HasPrefix(uses, "actions/checkout@") {
+			ref := strings.ToLower(scalarValue(mappingValue(with, "ref")))
+			trigger, source := untrustedCheckoutSource(ref, triggerSet)
+			if source != "" {
+				flowEvidenceID := stableID("gha-data-flow", fmt.Sprintf("%s:%s:%d:checkout", path, jobName, index))
+				evidence = append(evidence, model.Evidence{
+					ID: flowEvidenceID, Path: path, Line: step.Line, Column: step.Column,
+					Parser: "github-actions", Confidence: "high", Observation: "untrusted checkout ref in job " + jobName,
+				})
+				flows = append(flows, githubUntrustedDataFlow{
+					Job: jobName, Trigger: trigger, Source: source, Sink: "runner-workspace", Action: uses,
+					Reason:      "privileged workflow checks out a ref selected by lower-trust event data",
+					EvidenceIDs: []string{jobEvidenceID, flowEvidenceID},
+				})
+			}
+		}
+		if strings.HasPrefix(uses, "actions/download-artifact@") {
+			runID := strings.ToLower(scalarValue(mappingValue(with, "run-id")))
+			if _, enabled := triggerSet["workflow_run"]; enabled && strings.Contains(runID, "github.event.workflow_run.id") {
+				flowEvidenceID := stableID("gha-data-flow", fmt.Sprintf("%s:%s:%d:artifact", path, jobName, index))
+				evidence = append(evidence, model.Evidence{
+					ID: flowEvidenceID, Path: path, Line: step.Line, Column: step.Column,
+					Parser: "github-actions", Confidence: "high", Observation: "workflow_run artifact download in job " + jobName,
+				})
+				flows = append(flows, githubUntrustedDataFlow{
+					Job: jobName, Trigger: "workflow_run", Source: "triggering-workflow-artifact", Sink: "runner-workspace", Action: uses,
+					Reason:      "privileged follow-up downloads an artifact selected from the triggering workflow run",
+					EvidenceIDs: []string{jobEvidenceID, flowEvidenceID},
+				})
+			}
+		}
+		run := scalarValue(mappingValue(step, "run"))
+		for _, source := range directUntrustedRunSources(run) {
+			flowEvidenceID := stableID("gha-data-flow", fmt.Sprintf("%s:%s:%d:run:%s", path, jobName, index, source))
+			evidence = append(evidence, model.Evidence{
+				ID: flowEvidenceID, Path: path, Line: step.Line, Column: step.Column,
+				Parser: "github-actions", Confidence: "high", Observation: "direct untrusted expression interpolation in run step for job " + jobName,
+			})
+			shell := strings.TrimSpace(scalarValue(mappingValue(step, "shell")))
+			if shell == "" {
+				shell = "default"
+			}
+			flows = append(flows, githubUntrustedDataFlow{
+				Job: jobName, Trigger: triggerForContext(source, triggerSet), Source: source,
+				Sink: "runner-shell", Action: "run:" + shell,
+				Reason: "event-controlled expression is interpolated directly into a generated runner script",
+				EvidenceIDs: []string{jobEvidenceID, flowEvidenceID},
+			})
+		}
+	}
+	return flows, evidence
+}
+
+func directUntrustedRunSources(run string) []string {
+	if run == "" {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for _, expression := range githubExpressionPattern.FindAllString(strings.ToLower(run), -1) {
+		for _, source := range untrustedRunContexts {
+			if strings.Contains(expression, source) {
+				seen[source] = struct{}{}
+			}
+		}
+	}
+	result := make([]string, 0, len(seen))
+	for source := range seen {
+		result = append(result, source)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func triggerForContext(source string, triggers map[string]struct{}) string {
+	candidates := []string{}
+	switch {
+	case strings.Contains(source, "pull_request") || source == "github.head_ref":
+		candidates = []string{"pull_request_target", "pull_request"}
+	case strings.Contains(source, "comment"):
+		candidates = []string{"issue_comment", "pull_request_review_comment", "discussion_comment"}
+	case strings.Contains(source, "discussion"):
+		candidates = []string{"discussion", "discussion_comment"}
+	case strings.Contains(source, "issue"):
+		candidates = []string{"issues", "issue_comment"}
+	case strings.Contains(source, "review"):
+		candidates = []string{"pull_request_review", "pull_request_review_comment"}
+	}
+	for _, candidate := range candidates {
+		if _, exists := triggers[candidate]; exists {
+			return candidate
+		}
+	}
+	return "event-context"
+}
+
+func untrustedCheckoutSource(ref string, triggers map[string]struct{}) (string, string) {
+	if _, enabled := triggers["pull_request_target"]; enabled {
+		for _, value := range []string{"github.event.pull_request.head.sha", "github.event.pull_request.head.ref", "github.head_ref"} {
+			if strings.Contains(ref, value) {
+				return "pull_request_target", "pull-request-head-ref"
+			}
+		}
+	}
+	if _, enabled := triggers["workflow_run"]; enabled {
+		for _, value := range []string{"github.event.workflow_run.head_sha", "github.event.workflow_run.head_branch"} {
+			if strings.Contains(ref, value) {
+				return "workflow_run", "triggering-workflow-head-ref"
+			}
+		}
+	}
+	return "", ""
+}
+
+func githubJobScope(job string) *model.Scope {
+	return &model.Scope{Kind: "github-actions-job", Values: []string{job}}
+}
+
+func permissionsDisabled(node *yaml.Node) bool {
+	if node == nil {
+		return false
+	}
+	if node.Kind == yaml.MappingNode {
+		if len(node.Content) == 0 {
+			return true
+		}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if strings.ToLower(node.Content[i+1].Value) != "none" {
+				return false
+			}
+		}
+		return true
+	}
+	value := strings.ToLower(strings.TrimSpace(node.Value))
+	return value == "none" || value == "{}"
+}
+
+func permissionEvidence(path string, node *yaml.Node, id, observation string) model.Evidence {
+	return model.Evidence{
+		ID: id, Path: path, Line: node.Line, Column: node.Column,
+		Parser: "github-actions", Confidence: "high", Observation: observation,
+	}
 }
 
 func mappingValue(node *yaml.Node, key string) *yaml.Node {
@@ -150,7 +483,11 @@ func stableID(prefix, value string) string {
 func uniqueCapabilities(values []model.Capability) []model.Capability {
 	seen := map[string]model.Capability{}
 	for _, value := range values {
-		key := value.Action + "\x00" + value.Resource + "\x00" + value.Effect + "\x00" + value.Environment
+		scope := ""
+		if value.Scope != nil {
+			scope = value.Scope.Kind + "\x00" + strings.Join(value.Scope.Values, "\x00") + fmt.Sprintf("\x00%t", value.Scope.Wildcard)
+		}
+		key := value.Action + "\x00" + value.Resource + "\x00" + value.Effect + "\x00" + value.Environment + "\x00" + scope
 		seen[key] = value
 	}
 	result := make([]model.Capability, 0, len(seen))
@@ -158,7 +495,14 @@ func uniqueCapabilities(values []model.Capability) []model.Capability {
 		result = append(result, value)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].Action+result[i].Effect < result[j].Action+result[j].Effect
+		left, right := result[i].Action+result[i].Effect, result[j].Action+result[j].Effect
+		if result[i].Scope != nil {
+			left += strings.Join(result[i].Scope.Values, "/")
+		}
+		if result[j].Scope != nil {
+			right += strings.Join(result[j].Scope.Values, "/")
+		}
+		return left < right
 	})
 	return result
 }

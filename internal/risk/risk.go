@@ -42,6 +42,15 @@ func Capability(asset model.Asset, capability model.Capability) Assessment {
 			add(&assessment, "long-lived-projected-token", 20, "projected ServiceAccount token expiration exceeds one hour")
 		}
 	}
+	if capability.Action == "github.oidc_token.issue" {
+		add(&assessment, "oidc-token", 30, "workflow job can request a GitHub OIDC identity token for federation")
+	}
+	if hasControl(asset, "githubPrivilegedTriggerExposure") {
+		add(&assessment, "privileged-trigger", 25, "workflow uses a trigger that can cross an untrusted-to-privileged boundary")
+	}
+	if hasControl(asset, "githubUntrustedDataFlow") {
+		add(&assessment, "untrusted-data-flow", 30, "workflow moves lower-trust event data into an executable or privileged runner sink")
+	}
 	if strings.HasPrefix(capability.Action, "kubernetes.") {
 		switch {
 		case strings.HasSuffix(capability.Action, ".bind"):

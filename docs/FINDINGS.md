@@ -49,6 +49,18 @@ Remote endpoints are not mislabeled as package pinning failures. Their TLS and
 host identity are modeled separately, and all attributes use the sanitized MCP
 provenance contract.
 
+## GitHub Actions findings
+
+- `github-actions-privileged-trigger`
+- `github-actions-untrusted-data-flow`
+- `github-actions-self-hosted-runner-exposure`
+- `github-actions-mutable-dependency`
+
+These findings preserve job, trigger, source, sink, runner classification, and
+dependency pin type while excluding parser explanations, workflow expression
+values, secret values, and arbitrary step content. Unknown GitHub-hosted state
+is retained as inventory rather than promoted to a false-positive finding.
+
 Current-state findings also produce minimized
 `opscustodian.finding.detected` audit events. Finding reasons, remediation text,
 and arbitrary structured attributes are deliberately not copied into audit

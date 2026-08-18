@@ -183,6 +183,28 @@ The offline composer reports `GITHUB_REUSABLE_WORKFLOW_UNRESOLVED`,
 explicit unresolved trust boundaries; OpsCustodian does not fetch remote code
 or infer its permissions.
 
+## Current-state findings
+
+The offline effective-access stage converts evidence-backed controls into four
+structured findings:
+
+- `github-actions-privileged-trigger` for privileged trigger boundaries;
+- `github-actions-untrusted-data-flow` when attacker-influenced event data
+  reaches a runner shell, workspace, or privileged artifact flow;
+- `github-actions-self-hosted-runner-exposure` for explicit self-hosted jobs;
+- `github-actions-mutable-dependency` for external code not pinned to a full
+  commit SHA or container SHA-256 digest.
+
+Direct runner-shell injection is `critical`. Self-hosted execution becomes
+`critical` when the workflow also contains an untrusted data flow because state
+can survive beyond one job. A privileged trigger alone is `medium`: it is a
+trust boundary requiring review, not proof of exploitation.
+
+Unknown runner groups, dynamic runner expressions, environment protection, and
+repository-default token permissions remain explicit unknown state. They are
+not promoted to definitive findings until optional GitHub API enrichment can
+provide evidence.
+
 `secrets: inherit` emits `githubReusableWorkflowSecretInheritance` and a broad
 secret-set reference, never secret values. Secrets do not automatically flow to
 the next nested workflow; every direct call must explicitly pass or inherit

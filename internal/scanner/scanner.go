@@ -83,6 +83,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 	normalize.BOM(&bom)
 	effective.ComposeImports(&bom)
 	effective.ComposeGitHubReusableWorkflows(&bom)
+	effective.ComposeGitHubActionsFindings(&bom)
 	effective.ComposeKubernetesRBAC(&bom)
 	effective.ComposeMCPFindings(&bom)
 	normalize.BOM(&bom)

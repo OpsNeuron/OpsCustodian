@@ -83,6 +83,7 @@ a representative repository without manually assembling an inventory.
 - Effective-access unit tests. *(initial Kubernetes RBAC, token, aggregation, and cycle coverage implemented, pending validation)*
 - Kubernetes parser unit tests. *(workload, token, RBAC, aggregation, and error-contract coverage implemented, pending validation)*
 - Agent BOM contract tests. *(access-path validation, normalization, deduplication, and evidence retention implemented, pending validation)*
+- Current-state Finding identity and lifecycle semantics. *(stable IDs and deterministic deduplication implemented; persistent observation history belongs to the server phase)*
 - HTML reporter tests. *(self-contained output, escaping, filter, encoding, and escalation coverage implemented, pending validation)*
 - Scanner integration test. *(temporary-repository full-pipeline invariants and deterministic repeat scan implemented, pending validation)*
 - Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*

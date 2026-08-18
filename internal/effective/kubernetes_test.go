@@ -1,6 +1,7 @@
 package effective
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/opscustodian/opscustodian/internal/model"
@@ -230,4 +231,31 @@ func findingByType(t *testing.T, findings []model.Finding, findingType, assetID 
 	}
 	t.Fatalf("finding %s for %s not found in %#v", findingType, assetID, findings)
 	return model.Finding{}
+}
+
+func TestAppendFindingUsesStableSignalOrderAndMergesEvidence(t *testing.T) {
+	bom := model.AgentBOM{}
+	first := model.Finding{
+		Type: "kubernetes-rbac-privilege-escalation", Severity: "high", AssetID: "role:admin",
+		Attributes: map[string]any{"signals": []string{"impersonate", "bind"}},
+		Evidence:   []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "evidence-b"}},
+	}
+	second := first
+	second.Severity = "critical"
+	second.Attributes = map[string]any{"signals": []string{"bind", "impersonate"}}
+	second.Evidence = []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "evidence-a"}}
+
+	appendFinding(&bom, first)
+	appendFinding(&bom, second)
+
+	if len(bom.Findings) != 1 || bom.Findings[0].Severity != "critical" {
+		t.Fatalf("expected one merged critical finding, got %#v", bom.Findings)
+	}
+	expected := []model.FindingEvidence{
+		{AssetID: "role:admin", EvidenceID: "evidence-a"},
+		{AssetID: "role:admin", EvidenceID: "evidence-b"},
+	}
+	if !reflect.DeepEqual(bom.Findings[0].Evidence, expected) {
+		t.Fatalf("expected deterministic merged evidence, got %#v", bom.Findings[0].Evidence)
+	}
 }

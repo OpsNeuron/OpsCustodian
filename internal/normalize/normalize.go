@@ -28,13 +28,75 @@ func BOM(bom *model.AgentBOM) {
 		normalizeCapability(&bom.AccessPaths[pathIndex].Capability)
 		bom.AccessPaths[pathIndex].EvidenceIDs = uniqueStrings(bom.AccessPaths[pathIndex].EvidenceIDs)
 	}
-	for findingIndex := range bom.Findings {
-		finding := &bom.Findings[findingIndex]
-		sort.Slice(finding.Evidence, func(i, j int) bool {
-			return finding.Evidence[i].AssetID+"\x00"+finding.Evidence[i].EvidenceID < finding.Evidence[j].AssetID+"\x00"+finding.Evidence[j].EvidenceID
-		})
+	bom.Findings = uniqueFindings(bom.Findings)
+}
+
+func uniqueFindings(values []model.Finding) []model.Finding {
+	result := make([]model.Finding, 0, len(values))
+	indexes := map[string]int{}
+	for _, value := range values {
+		value.Evidence = uniqueFindingEvidence(value.Evidence)
+		key := findingMergeKey(value)
+		if index, exists := indexes[key]; exists {
+			existing := &result[index]
+			existing.Evidence = uniqueFindingEvidence(append(existing.Evidence, value.Evidence...))
+			if severityRank(value.Severity) > severityRank(existing.Severity) {
+				existing.Severity = value.Severity
+			}
+			continue
+		}
+		indexes[key] = len(result)
+		result = append(result, value)
 	}
-	sort.Slice(bom.Findings, func(i, j int) bool { return bom.Findings[i].ID < bom.Findings[j].ID })
+	sort.Slice(result, func(i, j int) bool {
+		left, right := result[i].ID+"\x00"+findingMergeKey(result[i]), result[j].ID+"\x00"+findingMergeKey(result[j])
+		return left < right
+	})
+	return result
+}
+
+func findingMergeKey(value model.Finding) string {
+	attributes, _ := json.Marshal(value.Attributes)
+	severityIdentity := ""
+	if severityRank(value.Severity) == 0 {
+		severityIdentity = value.Severity
+	}
+	return strings.Join([]string{
+		value.ID, value.Type, value.AssetID, value.Title, value.Reason,
+		value.RemediationID, value.Remediation, string(attributes), severityIdentity,
+	}, "\x00")
+}
+
+func uniqueFindingEvidence(values []model.FindingEvidence) []model.FindingEvidence {
+	seen := map[string]model.FindingEvidence{}
+	for _, value := range values {
+		seen[value.AssetID+"\x00"+value.EvidenceID] = value
+	}
+	result := make([]model.FindingEvidence, 0, len(seen))
+	for _, value := range seen {
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].AssetID+"\x00"+result[i].EvidenceID < result[j].AssetID+"\x00"+result[j].EvidenceID
+	})
+	return result
+}
+
+func severityRank(value string) int {
+	switch value {
+	case "critical":
+		return 5
+	case "high":
+		return 4
+	case "medium":
+		return 3
+	case "low":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func normalizeCapability(capability *model.Capability) {

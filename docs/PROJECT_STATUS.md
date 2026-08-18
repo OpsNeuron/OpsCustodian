@@ -107,6 +107,7 @@ Missing exit items:
 - Stable namespace-qualified remediation IDs shared by Agent BOM, terminal, SARIF, HTML, audit events, and future policy/API/UI consumers.
 - Built-in OPA severity gate for structured current-state findings with remediation and evidence propagation plus deterministic Rego contract tests.
 - Byte-stable golden tests for Agent BOM JSON, findings JSON, findings SARIF, and policy decision JSON public contracts.
+- Deterministic Finding deduplication with evidence union, highest-severity preservation, stable signal identity, and explicit snapshot lifecycle semantics.
 
 ## Remaining path to 1.0
 

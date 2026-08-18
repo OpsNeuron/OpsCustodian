@@ -17,6 +17,21 @@ Consumers must key automation on `remediationId`, not remediation prose. IDs
 use lowercase `namespace.action-name` form and are cataloged in
 [`REMEDIATIONS.md`](REMEDIATIONS.md).
 
+## Identity, deduplication, and lifecycle
+
+A Finding ID represents one semantic risk on one subject; it does not include
+severity, prose, or evidence ordering. Repeated observations of the same
+Finding are merged deterministically. The merged result retains the union of
+evidence references and the highest observed severity. Conflicting records
+that reuse an ID for a different semantic identity remain separate so contract
+validation reports the collision instead of silently discarding data.
+
+An Agent BOM is a current-state snapshot and therefore contains only active
+Findings. A Finding with the same ID in consecutive snapshots is persisting, a
+new ID is introduced, and a previously present ID that disappears is resolved.
+First-observed and resolved timestamps require a persistent server and are not
+fabricated by the offline scanner.
+
 ## Kubernetes effective-access expansion
 
 `kubernetes-effective-access-expansion` is emitted when a workload or identity

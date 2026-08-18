@@ -634,16 +634,55 @@ func applyProjectedTokenFindings(bom *model.AgentBOM) {
 func appendFinding(bom *model.AgentBOM, finding model.Finding) {
 	identity := finding.Type + "\x00" + finding.AssetID
 	if signals, ok := finding.Attributes["signals"].([]string); ok {
-		identity += "\x00" + strings.Join(signals, "\x00")
+		stableSignals := append([]string(nil), signals...)
+		sort.Strings(stableSignals)
+		identity += "\x00" + strings.Join(stableSignals, "\x00")
 	}
 	sum := sha256.Sum256([]byte(identity))
 	finding.ID = fmt.Sprintf("finding-%x", sum[:8])
-	for _, existing := range bom.Findings {
+	for index := range bom.Findings {
+		existing := &bom.Findings[index]
 		if existing.ID == finding.ID {
+			existing.Evidence = mergeFindingEvidence(existing.Evidence, finding.Evidence)
+			if findingSeverityRank(finding.Severity) > findingSeverityRank(existing.Severity) {
+				existing.Severity = finding.Severity
+			}
 			return
 		}
 	}
 	bom.Findings = append(bom.Findings, finding)
+}
+
+func mergeFindingEvidence(left, right []model.FindingEvidence) []model.FindingEvidence {
+	seen := map[string]model.FindingEvidence{}
+	for _, value := range append(append([]model.FindingEvidence(nil), left...), right...) {
+		seen[value.AssetID+"\x00"+value.EvidenceID] = value
+	}
+	result := make([]model.FindingEvidence, 0, len(seen))
+	for _, value := range seen {
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].AssetID+"\x00"+result[i].EvidenceID < result[j].AssetID+"\x00"+result[j].EvidenceID
+	})
+	return result
+}
+
+func findingSeverityRank(value string) int {
+	switch value {
+	case "critical":
+		return 5
+	case "high":
+		return 4
+	case "medium":
+		return 3
+	case "low":
+		return 2
+	case "info":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func assetFindingEvidence(asset *model.Asset, parser string) []model.FindingEvidence {

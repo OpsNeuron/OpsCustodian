@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
@@ -182,6 +183,34 @@ func TestExitErrorPreservesCause(t *testing.T) {
 	err := &ExitError{Code: 2, Err: cause}
 	if err.Error() != cause.Error() || !errors.Is(err, cause) {
 		t.Fatalf("ExitError does not preserve its cause: %#v", err)
+	}
+}
+
+func TestEventsWritesJSONLFromPersistedDrift(t *testing.T) {
+	tempDir := t.TempDir()
+	driftPath := filepath.Join(tempDir, "drift.json")
+	eventsPath := filepath.Join(tempDir, "events.jsonl")
+	before := filepath.Join("..", "..", "examples", "mcp-drift", "agentbom.before.json")
+	after := filepath.Join("..", "..", "examples", "mcp-drift", "agentbom.after.json")
+	if err := Diff(DiffOptions{Before: before, After: after, Format: "json", Output: driftPath}); err != nil {
+		t.Fatalf("create persisted drift fixture: %v", err)
+	}
+	when := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	if err := Events(EventsOptions{Drift: driftPath, Output: eventsPath, OccurredAt: when}); err != nil {
+		t.Fatalf("Events() error: %v", err)
+	}
+	content, err := os.ReadFile(eventsPath)
+	if err != nil {
+		t.Fatalf("read events output: %v", err)
+	}
+	if strings.Count(strings.TrimSpace(string(content)), "\n")+1 != 5 || !strings.Contains(string(content), `"eventName":"opscustodian.drift.detected"`) || !strings.Contains(string(content), `"eventName":"opscustodian.diff.completed"`) {
+		t.Fatalf("unexpected JSONL events: %s", content)
+	}
+	if err := Events(EventsOptions{Output: eventsPath}); err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("Events() accepted no input: %v", err)
+	}
+	if err := Events(EventsOptions{BOM: before, Drift: driftPath, Output: eventsPath}); err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("Events() accepted two inputs: %v", err)
 	}
 }
 

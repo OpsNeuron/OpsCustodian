@@ -128,6 +128,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Parser extension contract](docs/PARSER_EXTENSIONS.md)
 - [Kubernetes effective access](docs/KUBERNETES.md)
 - [MCP server provenance and pinning](docs/MCP.md)
+- [OpenTelemetry-compatible audit events](docs/AUDIT_EVENTS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)
 - [GitHub Action integration](docs/GITHUB_ACTION.md)

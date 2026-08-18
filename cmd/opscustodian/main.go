@@ -110,6 +110,16 @@ func run(ctx context.Context, args []string) error {
 		}
 		return app.InventoryReport(app.InventoryReportOptions{BOM: *bom, Output: *output})
 
+	case "events":
+		fs := flag.NewFlagSet("events", flag.ContinueOnError)
+		bom := fs.String("bom", "", "Agent BOM to convert into audit events")
+		driftReport := fs.String("drift", "", "JSON drift report to convert into audit events")
+		output := fs.String("output", "-", "JSONL output file, or - for stdout")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return app.Events(app.EventsOptions{BOM: *bom, Drift: *driftReport, Output: *output})
+
 	case "version", "--version", "-version":
 		fmt.Printf("opscustodian %s\n", version)
 		return nil
@@ -132,6 +142,7 @@ Usage:
   opscustodian explain --report <report.json> <finding-id>
   opscustodian check --bom <agentbom> [flags]
   opscustodian report --bom <agentbom> [--output report.html]
+  opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl]
   opscustodian version
 
 Commands:
@@ -140,6 +151,7 @@ Commands:
   explain  explain one finding from a JSON drift report
   check    evaluate Agent BOM and optional drift with OPA/Rego
   report   render a local read-only HTML inventory report
+  events   convert scan or drift results into OpenTelemetry-compatible JSONL events
   version  print build version
 `)
 }

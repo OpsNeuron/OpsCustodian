@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/normalize"
@@ -43,6 +44,11 @@ type ExplainOptions struct {
 type CheckOptions struct {
 	BOM, Baseline, Policy, OPA, Query, Format string
 	Timeout                                   time.Duration
+}
+
+type EventsOptions struct {
+	BOM, Drift, Output string
+	OccurredAt         time.Time
 }
 
 type InventoryReportOptions struct {
@@ -111,6 +117,40 @@ func Diff(opts DiffOptions) error {
 		}
 	}
 	return nil
+}
+
+func Events(opts EventsOptions) error {
+	if (opts.BOM == "") == (opts.Drift == "") {
+		return fmt.Errorf("exactly one of --bom or --drift is required")
+	}
+	when := opts.OccurredAt
+	if when.IsZero() {
+		when = time.Now().UTC()
+	}
+	var events []audit.Event
+	if opts.BOM != "" {
+		bom, err := readBOM(opts.BOM)
+		if err != nil {
+			return fmt.Errorf("read Agent BOM: %w", err)
+		}
+		events = audit.FromBOM(bom, when)
+	} else {
+		content, err := os.ReadFile(opts.Drift)
+		if err != nil {
+			return fmt.Errorf("read drift report: %w", err)
+		}
+		var value drift.Report
+		if err := json.Unmarshal(content, &value); err != nil {
+			return fmt.Errorf("parse drift report: %w", err)
+		}
+		events = audit.FromDrift(value, when)
+	}
+	w, closeWriter, err := outputWriter(opts.Output)
+	if err != nil {
+		return err
+	}
+	defer closeWriter()
+	return audit.WriteJSONLines(w, events)
 }
 
 func Explain(opts ExplainOptions) error {

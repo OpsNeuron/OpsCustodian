@@ -18,6 +18,7 @@ coverage.out
 /drift*.json
 /drift*.txt
 /*.sarif
+/*.jsonl
 /reports/
 .opscustodian-cache/
 .opscustodian/current.*

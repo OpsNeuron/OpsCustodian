@@ -6,8 +6,10 @@ until its build, automated tests, fixtures, and integration gates pass.
 
 ## Current position
 
-OpsCustodian is between the `v0.2` CI guardrail milestone and the `v0.3` useful
-inventory milestone.
+OpsCustodian has completed the offline/core implementation scope of the `v0.4`
+effective-access milestone. The milestone remains pending final integration,
+upstream compatibility, browser, OPA-runtime, and real-environment validation;
+those results must not be represented as production readiness.
 
 ### Foundation — implemented, pending repository validation
 
@@ -31,7 +33,7 @@ inventory milestone.
 - Docker-based GitHub Action and example workflow.
 - Stable process exit contract.
 
-### v0.3 Useful inventory — in progress
+### v0.3 Useful inventory — core implemented, compatibility validation pending
 
 - Codex, Claude, Cursor, and repository instruction discovery.
 - GitHub Agentic Workflows source parser.
@@ -58,7 +60,7 @@ Missing exit items:
 - CODEOWNERS ownership correlation. *(initial matcher implemented, pending compatibility tests)*
 - Risk model based on scope, environment, effect, controls, and confidence. *(initial explainable model and escalation factors implemented, pending calibration)*
 
-### v0.4 Effective access — started
+### v0.4 Effective access — offline/core implemented, integration validation pending
 
 - Offline Kubernetes ServiceAccount and workload discovery.
 - Evidence-backed workload `runs-as` identity correlation.
@@ -108,6 +110,7 @@ Missing exit items:
 - Built-in OPA severity gate for structured current-state findings with remediation and evidence propagation plus deterministic Rego contract tests.
 - Byte-stable golden tests for Agent BOM JSON, findings JSON, findings SARIF, and policy decision JSON public contracts.
 - Deterministic Finding deduplication with evidence union, highest-severity preservation, stable signal identity, and explicit snapshot lifecycle semantics.
+- Central public-contract version registry, machine-readable CLI version output, and normalization compatibility enforcement with legacy-read support.
 
 ## Remaining path to 1.0
 

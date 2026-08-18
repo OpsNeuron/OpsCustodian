@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
 
-const InputAPIVersion = "opscustodian.dev/policy-input/v1alpha1"
+const InputAPIVersion = contracts.PolicyInputAPIVersion
 
 var remediationIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$`)
 

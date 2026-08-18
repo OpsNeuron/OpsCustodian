@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/boundary"
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/correlation"
 	"github.com/opscustodian/opscustodian/internal/discovery"
 	"github.com/opscustodian/opscustodian/internal/effective"
@@ -69,7 +70,7 @@ func Scan(ctx context.Context, opts Options) (model.AgentBOM, error) {
 		Metadata: model.DocumentMetadata{
 			Source: opts.Source, Revision: opts.Revision,
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-			Generator:   opts.Generator, NormalizationVersion: "v1alpha1",
+			Generator:   opts.Generator, NormalizationVersion: contracts.NormalizationVersion,
 		},
 		Assets: assets, Diagnostics: diagnostics,
 	}

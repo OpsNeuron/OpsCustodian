@@ -1,8 +1,10 @@
 package model
 
+import "github.com/opscustodian/opscustodian/internal/contracts"
+
 const (
-	APIVersion = "opscustodian.dev/v1alpha1"
-	Kind       = "AgentBOM"
+	APIVersion = contracts.AgentBOMAPIVersion
+	Kind       = contracts.AgentBOMKind
 )
 
 type AgentBOM struct {

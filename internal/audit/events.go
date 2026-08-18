@@ -6,11 +6,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
 
-const SchemaVersion = "opscustodian.dev/audit-event/v1alpha1"
+const SchemaVersion = contracts.AuditEventAPIVersion
 
 type Event struct {
 	SchemaVersion        string               `json:"schemaVersion"`

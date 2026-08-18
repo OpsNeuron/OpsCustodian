@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/app"
 	"github.com/opscustodian/opscustodian/internal/audit"
+	"github.com/opscustodian/opscustodian/internal/contracts"
 )
 
 var version = "dev"
@@ -150,8 +153,12 @@ func run(ctx context.Context, args []string) error {
 		})
 
 	case "version", "--version", "-version":
-		fmt.Printf("opscustodian %s\n", version)
-		return nil
+		fs := flag.NewFlagSet("version", flag.ContinueOnError)
+		format := fs.String("format", "terminal", "output format: terminal or json")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return writeVersion(os.Stdout, version, *format)
 
 	case "help", "--help", "-h":
 		printUsage()
@@ -159,6 +166,23 @@ func run(ctx context.Context, args []string) error {
 
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func writeVersion(w io.Writer, buildVersion, format string) error {
+	info := contracts.BuildInfo(buildVersion)
+	switch format {
+	case "terminal":
+		fmt.Fprintf(w, "opscustodian %s\n", info.Version)
+		fmt.Fprintf(w, "Agent BOM: %s\n", info.Contracts.AgentBOM)
+		fmt.Fprintf(w, "Normalization: %s\n", info.Contracts.Normalization)
+		return nil
+	case "json":
+		encoder := json.NewEncoder(w)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(info)
+	default:
+		return fmt.Errorf("unsupported version format %q; expected terminal or json", format)
 	}
 }
 
@@ -173,7 +197,7 @@ Usage:
   opscustodian check --bom <agentbom> [flags]
   opscustodian report --bom <agentbom> [--output report.html]
   opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
-  opscustodian version
+  opscustodian version [--format terminal|json]
 
 Commands:
   scan     discover agentic assets and emit an Agent BOM
@@ -183,6 +207,6 @@ Commands:
   check    evaluate Agent BOM and optional drift with OPA/Rego
   report   render a local read-only HTML inventory report
   events   convert scan or drift results into OpenTelemetry-compatible JSONL events
-  version  print build version
+  version  print build and supported contract versions
 `)
 }

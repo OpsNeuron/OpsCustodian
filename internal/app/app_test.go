@@ -284,3 +284,19 @@ func writeTestBOM(t *testing.T, path string, bom model.AgentBOM) {
 		t.Fatalf("write fixture: %v", err)
 	}
 }
+
+func TestReadBOMEnforcesNormalizationCompatibility(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bom.json")
+	bom := testBOM("current", []model.Asset{})
+	bom.Metadata.NormalizationVersion = "v2"
+	writeTestBOM(t, path, bom)
+	if _, err := readBOM(path); err == nil || !strings.Contains(err.Error(), "expected v1alpha1 or an empty legacy value") {
+		t.Fatalf("unsupported normalization read error = %v", err)
+	}
+
+	bom.Metadata.NormalizationVersion = ""
+	writeTestBOM(t, path, bom)
+	if _, err := readBOM(path); err != nil {
+		t.Fatalf("legacy empty normalization version should remain readable: %v", err)
+	}
+}

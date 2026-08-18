@@ -78,6 +78,20 @@ func TestValidateFindingEvidenceContract(t *testing.T) {
 	}
 }
 
+func TestValidateNormalizationVersionCompatibility(t *testing.T) {
+	bom := validAccessPathBOM()
+	bom.Metadata.NormalizationVersion = "v2"
+	issues := Validate(bom)
+	if !hasIssueCode(issues, "unsupported-normalization-version") {
+		t.Fatalf("expected unsupported normalization issue, got %#v", issues)
+	}
+
+	bom.Metadata.NormalizationVersion = ""
+	if issues := Validate(bom); len(issues) != 0 {
+		t.Fatalf("empty legacy normalization version must remain compatible: %#v", issues)
+	}
+}
+
 func validAccessPathBOM() model.AgentBOM {
 	return model.AgentBOM{
 		APIVersion: model.APIVersion, Kind: model.Kind,

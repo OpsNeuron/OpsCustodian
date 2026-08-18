@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
 
@@ -22,6 +23,9 @@ func Validate(bom model.AgentBOM) []Issue {
 	}
 	if bom.Kind != model.Kind {
 		issues = append(issues, issue("kind", "unsupported-kind", "expected "+model.Kind))
+	}
+	if bom.Metadata.NormalizationVersion != "" && bom.Metadata.NormalizationVersion != contracts.NormalizationVersion {
+		issues = append(issues, issue("metadata.normalizationVersion", "unsupported-normalization-version", "expected "+contracts.NormalizationVersion+" or an empty legacy value"))
 	}
 	if bom.Metadata.Source == "" {
 		issues = append(issues, issue("metadata.source", "required", "source is required"))

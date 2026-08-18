@@ -41,7 +41,7 @@
         "revision": { "type": "string", "minLength": 1 },
         "generatedAt": { "type": "string", "format": "date-time" },
         "generator": { "type": "string", "minLength": 1 },
-        "normalizationVersion": { "type": "string", "minLength": 1 }
+        "normalizationVersion": { "const": "v1alpha1" }
       }
     },
     "agent": {

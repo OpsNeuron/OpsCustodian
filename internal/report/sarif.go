@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/drift"
 )
 
@@ -103,7 +104,7 @@ func writeSARIF(w io.Writer, value drift.Report) error {
 		})
 	}
 	log := sarifLog{
-		Version: "2.1.0", Schema: "https://json.schemastore.org/sarif-2.1.0.json",
+		Version: contracts.SARIFVersion, Schema: contracts.SARIFSchema,
 		Runs: []sarifRun{{
 			Tool: sarifTool{Driver: sarifDriver{
 				Name: "OpsCustodian", InformationURI: "https://github.com/OpsNeuron/OpsCustodian",

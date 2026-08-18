@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
 
@@ -21,7 +22,7 @@ func WriteFindings(w io.Writer, bom model.AgentBOM, format string) error {
 			Source     string          `json:"source"`
 			Revision   string          `json:"revision"`
 			Findings   []model.Finding `json:"findings"`
-		}{"opscustodian.dev/findings/v1alpha1", bom.Metadata.Source, bom.Metadata.Revision, nonNilFindings(bom.Findings)})
+		}{contracts.FindingsAPIVersion, bom.Metadata.Source, bom.Metadata.Revision, nonNilFindings(bom.Findings)})
 	case "terminal":
 		fmt.Fprintf(w, "OpsCustodian current-state findings: %s @ %s\n", bom.Metadata.Source, bom.Metadata.Revision)
 		if len(bom.Findings) == 0 {
@@ -76,7 +77,7 @@ func writeFindingsSARIF(w io.Writer, bom model.AgentBOM) error {
 			Properties:          map[string]any{"findingId": finding.ID, "assetId": finding.AssetID, "severity": finding.Severity, "remediationId": finding.RemediationID, "remediation": finding.Remediation, "attributes": finding.Attributes},
 		})
 	}
-	log := sarifLog{Version: "2.1.0", Schema: "https://json.schemastore.org/sarif-2.1.0.json", Runs: []sarifRun{{
+	log := sarifLog{Version: contracts.SARIFVersion, Schema: contracts.SARIFSchema, Runs: []sarifRun{{
 		Tool:              sarifTool{Driver: sarifDriver{Name: "OpsCustodian", InformationURI: "https://github.com/OpsNeuron/OpsCustodian", SemanticVersion: "0.1.0-pre", Rules: rules}},
 		AutomationDetails: sarifAutomation{ID: "opscustodian/current-state-findings"}, Results: results,
 	}}}

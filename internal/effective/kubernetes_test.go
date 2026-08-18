@@ -55,6 +55,10 @@ func TestComposeKubernetesRBACAppliesWorkloadTokenPrecedence(t *testing.T) {
 	if !ok || value["enabled"] != true || value["source"] != "workload" {
 		t.Fatalf("unexpected effective token control %#v", control.Value)
 	}
+	finding := findingByType(t, bom.Findings, "kubernetes-service-account-token-exposure", asset.ID)
+	if finding.Severity != "medium" || finding.Attributes["source"] != "workload" {
+		t.Fatalf("unexpected token exposure finding: %#v", finding)
+	}
 }
 
 func TestComposeKubernetesRBACEmitsStructuredEffectiveAccessFinding(t *testing.T) {
@@ -68,10 +72,10 @@ func TestComposeKubernetesRBACEmitsStructuredEffectiveAccessFinding(t *testing.T
 
 	ComposeKubernetesRBAC(&bom)
 
-	if len(bom.Findings) != 1 {
-		t.Fatalf("expected one effective-access finding, got %#v", bom.Findings)
+	if len(bom.Findings) != 2 {
+		t.Fatalf("expected role and effective-access findings, got %#v", bom.Findings)
 	}
-	finding := bom.Findings[0]
+	finding := findingByType(t, bom.Findings, "kubernetes-effective-access-expansion", "kubernetes:service-account:production/agent")
 	if finding.Type != "kubernetes-effective-access-expansion" || finding.Severity != "critical" || finding.AssetID != "kubernetes:service-account:production/agent" || finding.ID == "" {
 		t.Fatalf("unexpected finding: %#v", finding)
 	}
@@ -86,6 +90,29 @@ func TestComposeKubernetesRBACEmitsStructuredEffectiveAccessFinding(t *testing.T
 	}
 	if finding.Attributes["inheritedCapabilityCount"] != 1 || finding.Attributes["maxInheritedEffect"] != "admin" {
 		t.Fatalf("unexpected structured finding attributes: %#v", finding.Attributes)
+	}
+	roleFinding := findingByType(t, bom.Findings, "kubernetes-rbac-privilege-escalation", "kubernetes:role:cluster/admin")
+	if roleFinding.Severity != "critical" || len(roleFinding.Evidence) != 1 {
+		t.Fatalf("unexpected RBAC escalation finding: %#v", roleFinding)
+	}
+}
+
+func TestComposeKubernetesRBACEmitsProjectedTokenRiskFinding(t *testing.T) {
+	asset := workload("kubernetes:workload:production/deployment/agent", "production/deployment/agent", "production/agent", false)
+	asset.Controls = append(asset.Controls, model.Control{Type: "serviceAccountTokenProjection", Value: map[string]any{
+		"audience": "kubernetes-default", "expirationSeconds": 86400, "mountedBy": []string{"agent"},
+	}})
+	bom := model.AgentBOM{Assets: []model.Asset{asset, identity("kubernetes:service-account:production/agent", "production/agent", false)}}
+
+	ComposeKubernetesRBAC(&bom)
+
+	finding := findingByType(t, bom.Findings, "kubernetes-projected-token-risk", asset.ID)
+	if finding.Severity != "high" || finding.Attributes["expirationSeconds"] != 86400 {
+		t.Fatalf("unexpected projected token finding: %#v", finding)
+	}
+	signals := finding.Attributes["signals"].([]string)
+	if len(signals) != 2 || signals[0] != "default-audience" || signals[1] != "long-lived" {
+		t.Fatalf("unexpected projected token signals: %#v", signals)
 	}
 }
 
@@ -192,4 +219,15 @@ func countDiagnostics(diagnostics []model.Diagnostic, code string) int {
 		}
 	}
 	return count
+}
+
+func findingByType(t *testing.T, findings []model.Finding, findingType, assetID string) model.Finding {
+	t.Helper()
+	for _, finding := range findings {
+		if finding.Type == findingType && finding.AssetID == assetID {
+			return finding
+		}
+	}
+	t.Fatalf("finding %s for %s not found in %#v", findingType, assetID, findings)
+	return model.Finding{}
 }

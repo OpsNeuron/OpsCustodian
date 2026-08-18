@@ -24,6 +24,19 @@ The existing `KUBERNETES_EFFECTIVE_ACCESS_EXPANSION` diagnostic remains during
 the experimental compatibility period. Policy engines should prefer the
 structured finding for enforcement and use diagnostics to monitor scan health.
 
+## Kubernetes credential and escalation findings
+
+- `kubernetes-rbac-privilege-escalation` identifies roles containing wildcard,
+  bind, escalate, impersonate, or equivalent privilege-management capability.
+- `kubernetes-service-account-token-exposure` identifies workloads receiving an
+  effective automounted token. Implicit Kubernetes-default automount is rated
+  higher than an explicit workload or ServiceAccount choice.
+- `kubernetes-projected-token-risk` identifies mounted projected tokens using
+  the default audience or an expiration longer than one hour.
+
+These findings contain only references and normalized settings. Token values,
+environment values, and arbitrary manifest content never enter the contract.
+
 Current-state findings also produce minimized
 `opscustodian.finding.detected` audit events. Finding reasons, remediation text,
 and arbitrary structured attributes are deliberately not copied into audit

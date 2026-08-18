@@ -17,6 +17,7 @@ coverage.out
 /opscustodian*.json
 /drift*.json
 /drift*.txt
+/findings*.txt
 /*.sarif
 /*.jsonl
 /reports/

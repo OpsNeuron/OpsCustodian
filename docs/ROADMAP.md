@@ -68,9 +68,9 @@ a representative repository without manually assembling an inventory.
 - Kubernetes workload and ServiceAccount correlation. *(initial offline parser and runs-as graph implemented, pending validation)*
 - Kubernetes RBAC role/binding correlation. *(initial offline parser and graph implemented, pending validation)*
 - Effective RBAC grant propagation to identities and workloads. *(implemented offline, pending validation)*
-- Kubernetes ServiceAccount token exposure analysis. *(automount precedence implemented, pending validation)*
-- Kubernetes RBAC privilege-escalation analysis. *(wildcard and special-verb detection implemented, pending validation)*
-- Projected ServiceAccount token analysis. *(mounted audience and expiration analysis implemented, pending validation)*
+- Kubernetes ServiceAccount token exposure analysis. *(automount precedence and structured findings implemented, pending final environment validation)*
+- Kubernetes RBAC privilege-escalation analysis. *(wildcard/special-verb detection and structured findings implemented, pending final environment validation)*
+- Projected ServiceAccount token analysis. *(mounted audience, expiration, and structured risk findings implemented, pending final environment validation)*
 - Declared-versus-effective Kubernetes access. *(structured inherited-access summaries implemented, pending validation)*
 - Provider-neutral effective access paths. *(Kubernetes RBAC path producer and validation contract implemented, pending validation)*
 - Local effective-access path explorer. *(self-contained HTML rendering and filters implemented, pending browser validation)*

@@ -122,6 +122,9 @@ When enabled, the workload receives a
 qualified ServiceAccount. This capability participates in drift and adds an
 explicit risk factor. A workload-level value can intentionally override a
 ServiceAccount-level default, and the effective source remains auditable.
+The same analysis emits a structured
+`kubernetes-service-account-token-exposure` finding. An implicit Kubernetes
+default is `high`; an explicit enabled value is `medium`.
 
 Projected ServiceAccount token volumes are captured separately. Each projection
 records its audience, expiration, token path, volume, and consuming containers
@@ -129,6 +132,12 @@ in a `serviceAccountTokenProjection` control. Only projections mounted by an
 init or regular container produce a
 `kubernetes.service_account_token.project` capability. Expiration above one
 hour adds a dedicated risk factor; token contents are never accessed.
+Mounted projections also emit `kubernetes-projected-token-risk` when the
+audience is empty/default or expiration exceeds one hour.
+
+Roles with privilege-management signals emit the structured
+`kubernetes-rbac-privilege-escalation` finding in addition to the experimental
+compatibility diagnostic.
 
 The parser does not contact a cluster and never reads token values. Repository
 manifests remain declared state until optional live enrichment is introduced.

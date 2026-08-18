@@ -101,6 +101,7 @@ Missing exit items:
 - Opt-in OTLP/HTTP JSON log export with TLS-by-default endpoint validation, environment-only authentication headers, bounded timeout, redirect prevention, and partial-rejection handling.
 - Versioned current-state finding contract with cross-asset evidence references and initial Kubernetes declared-versus-effective access expansion findings.
 - Current-state finding terminal, JSON, SARIF, HTML, and CI severity-threshold consumers with stable fingerprints and evidence locations.
+- Structured Kubernetes findings for RBAC privilege escalation, effective ServiceAccount token exposure, and risky projected token audience/lifetime.
 
 ## Remaining path to 1.0
 

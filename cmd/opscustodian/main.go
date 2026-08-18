@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/app"
+	"github.com/opscustodian/opscustodian/internal/audit"
 )
 
 var version = "dev"
@@ -115,10 +116,24 @@ func run(ctx context.Context, args []string) error {
 		bom := fs.String("bom", "", "Agent BOM to convert into audit events")
 		driftReport := fs.String("drift", "", "JSON drift report to convert into audit events")
 		output := fs.String("output", "-", "JSONL output file, or - for stdout")
+		otlpEndpoint := fs.String("otlp-endpoint", "", "full OTLP/HTTP logs endpoint (opt-in)")
+		otlpTimeout := fs.Duration("otlp-timeout", 10*time.Second, "OTLP request timeout (maximum 1m)")
+		allowInsecureOTLP := fs.Bool("allow-insecure-otlp", false, "allow an explicit http OTLP endpoint")
 		if err := fs.Parse(args[1:]); err != nil {
 			return err
 		}
-		return app.Events(app.EventsOptions{BOM: *bom, Drift: *driftReport, Output: *output})
+		headerValue := os.Getenv("OTEL_EXPORTER_OTLP_LOGS_HEADERS")
+		if headerValue == "" {
+			headerValue = os.Getenv("OTEL_EXPORTER_OTLP_HEADERS")
+		}
+		headers, err := audit.ParseOTLPHeaders(headerValue)
+		if err != nil {
+			return err
+		}
+		return app.Events(app.EventsOptions{
+			BOM: *bom, Drift: *driftReport, Output: *output, OTLPEndpoint: *otlpEndpoint,
+			OTLPHeaders: headers, OTLPTimeout: *otlpTimeout, AllowInsecureOTLP: *allowInsecureOTLP,
+		})
 
 	case "version", "--version", "-version":
 		fmt.Printf("opscustodian %s\n", version)
@@ -142,7 +157,7 @@ Usage:
   opscustodian explain --report <report.json> <finding-id>
   opscustodian check --bom <agentbom> [flags]
   opscustodian report --bom <agentbom> [--output report.html]
-  opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl]
+  opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
   opscustodian version
 
 Commands:

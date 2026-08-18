@@ -214,6 +214,23 @@ func TestEventsWritesJSONLFromPersistedDrift(t *testing.T) {
 	}
 }
 
+func TestEventsPreservesLocalJSONLWhenOTLPExportFails(t *testing.T) {
+	tempDir := t.TempDir()
+	eventsPath := filepath.Join(tempDir, "events.jsonl")
+	bomPath := filepath.Join("..", "..", "examples", "mcp-drift", "agentbom.before.json")
+	err := Events(EventsOptions{
+		BOM: bomPath, Output: eventsPath, OTLPEndpoint: "http://127.0.0.1:4318/v1/logs",
+		OccurredAt: time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC),
+	})
+	if err == nil || !strings.Contains(err.Error(), "allow-insecure-otlp") {
+		t.Fatalf("Events() export error = %v", err)
+	}
+	content, readErr := os.ReadFile(eventsPath)
+	if readErr != nil || !strings.Contains(string(content), `"eventName":"opscustodian.scan.completed"`) {
+		t.Fatalf("local JSONL was not preserved: content=%s error=%v", content, readErr)
+	}
+}
+
 func testBOM(revision string, assets []model.Asset) model.AgentBOM {
 	return model.AgentBOM{
 		APIVersion: model.APIVersion,

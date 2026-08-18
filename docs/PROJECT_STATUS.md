@@ -98,6 +98,7 @@ Missing exit items:
 - Semantic MCP provenance drift for pin/integrity weakening, TLS downgrade, registry/endpoint changes, source transitions, and repository-boundary escapes without duplicate opaque-control findings.
 - End-to-end MCP provenance drift fixture covering pin, digest, transport, repository-boundary, JSON, terminal, SARIF, stable-location, and threshold-exit contracts.
 - Versioned OpenTelemetry-compatible JSONL audit-event contract for scan summaries, diagnostics, semantic findings, and diff summaries with secret-safe attribute minimization.
+- Opt-in OTLP/HTTP JSON log export with TLS-by-default endpoint validation, environment-only authentication headers, bounded timeout, redirect prevention, and partial-rejection handling.
 
 ## Remaining path to 1.0
 
@@ -116,7 +117,7 @@ with bounded false positives.
 - GitHub App, workflow token, environment, and repository permission enrichment.
 - Declared-versus-effective access comparison.
 - MCP provenance, version, registry, and pinning analysis.
-- OpenTelemetry audit event contract.
+- OpenTelemetry audit event contract and guarded OTLP/HTTP export.
 
 Exit gate: at least one repository declaration can be correlated with one real
 runtime authorization system without collecting credential values.

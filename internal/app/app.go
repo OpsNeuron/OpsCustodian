@@ -49,6 +49,10 @@ type CheckOptions struct {
 type EventsOptions struct {
 	BOM, Drift, Output string
 	OccurredAt         time.Time
+	OTLPEndpoint       string
+	OTLPHeaders        map[string]string
+	OTLPTimeout        time.Duration
+	AllowInsecureOTLP  bool
 }
 
 type InventoryReportOptions struct {
@@ -149,8 +153,18 @@ func Events(opts EventsOptions) error {
 	if err != nil {
 		return err
 	}
-	defer closeWriter()
-	return audit.WriteJSONLines(w, events)
+	if err := audit.WriteJSONLines(w, events); err != nil {
+		closeWriter()
+		return err
+	}
+	closeWriter()
+	if opts.OTLPEndpoint != "" {
+		return audit.ExportOTLPHTTP(context.Background(), events, audit.OTLPHTTPOptions{
+			Endpoint: opts.OTLPEndpoint, Headers: opts.OTLPHeaders, Timeout: opts.OTLPTimeout,
+			AllowInsecure: opts.AllowInsecureOTLP, ObservedAt: when,
+		})
+	}
+	return nil
 }
 
 func Explain(opts ExplainOptions) error {

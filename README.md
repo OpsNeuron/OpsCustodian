@@ -135,6 +135,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Compatibility and versioning](docs/COMPATIBILITY.md)
 - [Read-only server foundation](docs/SERVER.md)
 - [Control-plane OpenAPI 3.1](api/openapi.yaml)
+- [PostgreSQL persistence and migrations](docs/DATABASE.md)
 - [Stable remediation identifiers](docs/REMEDIATIONS.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Policy enforcement](docs/POLICY.md)

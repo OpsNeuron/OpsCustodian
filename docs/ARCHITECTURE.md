@@ -196,6 +196,7 @@ internal/policy/        OPA adapter and policy input
 internal/report/        output formats and redaction
 internal/store/         persistence reader/writer boundary and snapshot stores
 internal/server/        read-only versioned control-plane HTTP API
+internal/migrations/    embedded transactional PostgreSQL schema migrations
 internal/config/        configuration loading
 pkg/sdk/                intentionally public integration contracts
 schemas/                versioned interchange schemas

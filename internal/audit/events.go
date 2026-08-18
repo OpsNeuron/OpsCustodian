@@ -53,6 +53,19 @@ func FromBOM(bom model.AgentBOM, occurredAt time.Time) []Event {
 			"code.file.path":                   diagnostic.Path,
 		}))
 	}
+	findings := append([]model.Finding(nil), bom.Findings...)
+	sort.Slice(findings, func(i, j int) bool { return findings[i].ID < findings[j].ID })
+	for _, finding := range findings {
+		events = append(events, newEvent(timestamp, "opscustodian.finding.detected", severityNumber(finding.Severity), "OpsCustodian current-state finding detected", map[string]any{
+			"opscustodian.source":           bom.Metadata.Source,
+			"opscustodian.revision":         bom.Metadata.Revision,
+			"opscustodian.finding.id":       finding.ID,
+			"opscustodian.finding.type":     finding.Type,
+			"opscustodian.finding.severity": finding.Severity,
+			"opscustodian.asset.id":         finding.AssetID,
+			"opscustodian.location.count":   len(finding.Evidence),
+		}))
+	}
 	return events
 }
 

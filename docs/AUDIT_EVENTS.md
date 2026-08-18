@@ -18,6 +18,7 @@ exporter can map the envelope to OTLP.
 - `opscustodian.scan.completed`: one inventory summary per BOM.
 - `opscustodian.diagnostic.reported`: one structured parser/composition
   diagnostic occurrence.
+- `opscustodian.finding.detected`: one minimized current-state security finding.
 - `opscustodian.drift.detected`: one event per semantic finding.
 - `opscustodian.diff.completed`: one severity-count summary per drift report.
 

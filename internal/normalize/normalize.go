@@ -28,6 +28,13 @@ func BOM(bom *model.AgentBOM) {
 		normalizeCapability(&bom.AccessPaths[pathIndex].Capability)
 		bom.AccessPaths[pathIndex].EvidenceIDs = uniqueStrings(bom.AccessPaths[pathIndex].EvidenceIDs)
 	}
+	for findingIndex := range bom.Findings {
+		finding := &bom.Findings[findingIndex]
+		sort.Slice(finding.Evidence, func(i, j int) bool {
+			return finding.Evidence[i].AssetID+"\x00"+finding.Evidence[i].EvidenceID < finding.Evidence[j].AssetID+"\x00"+finding.Evidence[j].EvidenceID
+		})
+	}
+	sort.Slice(bom.Findings, func(i, j int) bool { return bom.Findings[i].ID < bom.Findings[j].ID })
 }
 
 func normalizeCapability(capability *model.Capability) {

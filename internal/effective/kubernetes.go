@@ -388,7 +388,78 @@ func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, decla
 			message += "; escalation signals: " + strings.Join(signals, ", ")
 		}
 		bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(asset, "KUBERNETES_EFFECTIVE_ACCESS_EXPANSION", message))
+		severity := "high"
+		if maxRank >= kubernetesEffectRank("admin") || len(signals) > 0 {
+			severity = "critical"
+		}
+		identity := asset.ID + "\x00kubernetes-effective-access-expansion\x00" + strings.Join(actions, "\x00") + "\x00" + strings.Join(sources, "\x00")
+		sum := sha256.Sum256([]byte(identity))
+		bom.Findings = append(bom.Findings, model.Finding{
+			ID: fmt.Sprintf("finding-%x", sum[:8]), Type: "kubernetes-effective-access-expansion",
+			Severity: severity, AssetID: asset.ID, Title: "Declared access is narrower than effective Kubernetes access",
+			Reason: message, Remediation: "Reduce the bound RBAC role, narrow the binding subject or scope, and disable unnecessary token exposure.",
+			Evidence: findingEvidence(bom, asset.ID, inherited), Attributes: map[string]any{
+				"declaredCapabilityCount": len(declaredSet), "effectiveCapabilityCount": len(effectiveSet),
+				"inheritedCapabilityCount": len(inherited), "inheritedActions": actions,
+				"maxInheritedEffect": maxEffect, "wildcard": wildcard,
+				"privilegeEscalationSignals": signals, "sources": sources,
+			},
+		})
 	}
+}
+
+func findingEvidence(bom *model.AgentBOM, origin string, capabilities []model.Capability) []model.FindingEvidence {
+	wanted := map[string]struct{}{}
+	wantedCapabilities := map[string]struct{}{}
+	for _, capability := range capabilities {
+		wantedCapabilities[capabilityIdentity(capability)] = struct{}{}
+		for _, evidenceID := range capability.EvidenceIDs {
+			wanted[evidenceID] = struct{}{}
+		}
+	}
+	relevantAssets := map[string]struct{}{origin: {}}
+	for _, path := range bom.AccessPaths {
+		if path.Origin != origin {
+			continue
+		}
+		if _, exists := wantedCapabilities[capabilityIdentity(path.Capability)]; !exists {
+			continue
+		}
+		for _, step := range path.Steps {
+			relevantAssets[step.AssetID] = struct{}{}
+		}
+	}
+	seen := map[string]struct{}{}
+	var result []model.FindingEvidence
+	for _, asset := range bom.Assets {
+		if _, relevant := relevantAssets[asset.ID]; !relevant {
+			continue
+		}
+		// Effective capabilities may copy evidence onto the origin during graph
+		// composition. Prefer the original Kubernetes grant assets so findings
+		// remain concise and do not duplicate ownership/correlation evidence.
+		if asset.ID == origin || (asset.Type != "authorization-role" && asset.Type != "authorization-binding") {
+			continue
+		}
+		for _, evidence := range asset.Evidence {
+			if evidence.Parser != "kubernetes" {
+				continue
+			}
+			if _, exists := wanted[evidence.ID]; !exists {
+				continue
+			}
+			key := asset.ID + "\x00" + evidence.ID
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, model.FindingEvidence{AssetID: asset.ID, EvidenceID: evidence.ID})
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].AssetID+"\x00"+result[i].EvidenceID < result[j].AssetID+"\x00"+result[j].EvidenceID
+	})
+	return result
 }
 
 func uniqueCapabilitySet(capabilities []model.Capability) map[string]model.Capability {

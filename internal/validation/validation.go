@@ -181,11 +181,51 @@ func Validate(bom model.AgentBOM) []Issue {
 			}
 		}
 	}
+	findingIDs := map[string]struct{}{}
+	for findingIndex, finding := range bom.Findings {
+		base := fmt.Sprintf("findings[%d]", findingIndex)
+		if finding.ID == "" {
+			issues = append(issues, issue(base+".id", "required", "finding id is required"))
+		} else if _, exists := findingIDs[finding.ID]; exists {
+			issues = append(issues, issue(base+".id", "duplicate", "finding id must be unique"))
+		} else {
+			findingIDs[finding.ID] = struct{}{}
+		}
+		if finding.Type == "" || finding.Title == "" || finding.Reason == "" {
+			issues = append(issues, issue(base, "incomplete-finding", "type, title, and reason are required"))
+		}
+		if !validFindingSeverity(finding.Severity) {
+			issues = append(issues, issue(base+".severity", "invalid-severity", "finding severity must be info, low, medium, high, or critical"))
+		}
+		if _, exists := agentIDs[finding.AssetID]; !exists {
+			issues = append(issues, issue(base+".assetId", "unknown-asset", "finding asset must exist in this BOM"))
+		}
+		if len(finding.Evidence) == 0 {
+			issues = append(issues, issue(base+".evidence", "required", "finding must contain at least one evidence reference"))
+		}
+		for evidenceIndex, reference := range finding.Evidence {
+			path := fmt.Sprintf("%s.evidence[%d]", base, evidenceIndex)
+			if _, exists := agentIDs[reference.AssetID]; !exists {
+				issues = append(issues, issue(path+".assetId", "unknown-asset", "finding evidence asset must exist in this BOM"))
+			} else if _, exists := evidenceByAsset[reference.AssetID][reference.EvidenceID]; !exists {
+				issues = append(issues, issue(path+".evidenceId", "unknown-evidence", "finding evidence must exist on the referenced asset"))
+			}
+		}
+	}
 	return issues
 }
 
 func issue(path, code, message string) Issue {
 	return Issue{Path: path, Code: code, Message: message}
+}
+
+func validFindingSeverity(value string) bool {
+	switch value {
+	case "info", "low", "medium", "high", "critical":
+		return true
+	default:
+		return false
+	}
 }
 
 func validAssetType(value string) bool {

@@ -41,6 +41,41 @@ func TestValidateRejectsBrokenAccessPathContracts(t *testing.T) {
 	}
 }
 
+func TestValidateFindingEvidenceContract(t *testing.T) {
+	bom := validAccessPathBOM()
+	bom.Findings = []model.Finding{{
+		ID: "finding-test", Type: "effective-access-expansion", Severity: "high", AssetID: "identity:agent",
+		Title: "Effective access expanded", Reason: "RBAC adds inherited access",
+		Evidence: []model.FindingEvidence{{AssetID: "role:reader", EvidenceID: "role-evidence"}},
+	}}
+	if issues := Validate(bom); len(issues) != 0 {
+		t.Fatalf("valid finding rejected: %#v", issues)
+	}
+
+	tests := []struct {
+		name string
+		code string
+		edit func(*model.Finding)
+	}{
+		{"invalid severity", "invalid-severity", func(f *model.Finding) { f.Severity = "urgent" }},
+		{"unknown subject", "unknown-asset", func(f *model.Finding) { f.AssetID = "missing" }},
+		{"unknown evidence asset", "unknown-asset", func(f *model.Finding) { f.Evidence[0].AssetID = "missing" }},
+		{"unknown evidence", "unknown-evidence", func(f *model.Finding) { f.Evidence[0].EvidenceID = "missing" }},
+		{"missing evidence", "required", func(f *model.Finding) { f.Evidence = nil }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := bom
+			candidate.Findings = append([]model.Finding(nil), bom.Findings...)
+			candidate.Findings[0].Evidence = append([]model.FindingEvidence(nil), bom.Findings[0].Evidence...)
+			test.edit(&candidate.Findings[0])
+			if issues := Validate(candidate); !hasIssueCode(issues, test.code) {
+				t.Fatalf("expected %s, got %#v", test.code, issues)
+			}
+		})
+	}
+}
+
 func validAccessPathBOM() model.AgentBOM {
 	return model.AgentBOM{
 		APIVersion: model.APIVersion, Kind: model.Kind,

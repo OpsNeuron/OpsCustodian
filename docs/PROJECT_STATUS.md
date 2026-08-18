@@ -99,6 +99,7 @@ Missing exit items:
 - End-to-end MCP provenance drift fixture covering pin, digest, transport, repository-boundary, JSON, terminal, SARIF, stable-location, and threshold-exit contracts.
 - Versioned OpenTelemetry-compatible JSONL audit-event contract for scan summaries, diagnostics, semantic findings, and diff summaries with secret-safe attribute minimization.
 - Opt-in OTLP/HTTP JSON log export with TLS-by-default endpoint validation, environment-only authentication headers, bounded timeout, redirect prevention, and partial-rejection handling.
+- Versioned current-state finding contract with cross-asset evidence references and initial Kubernetes declared-versus-effective access expansion findings.
 
 ## Remaining path to 1.0
 
@@ -115,7 +116,7 @@ with bounded false positives.
 
 - Kubernetes workload, ServiceAccount, and RBAC parser.
 - GitHub App, workflow token, environment, and repository permission enrichment.
-- Declared-versus-effective access comparison.
+- Declared-versus-effective access comparison with structured current-state findings.
 - MCP provenance, version, registry, and pinning analysis.
 - OpenTelemetry audit event contract and guarded OTLP/HTTP export.
 

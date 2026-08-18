@@ -12,8 +12,29 @@ type AgentBOM struct {
 	Assets        []Asset          `json:"assets" yaml:"assets"`
 	Relationships []Relationship   `json:"relationships,omitempty" yaml:"relationships,omitempty"`
 	AccessPaths   []AccessPath     `json:"accessPaths,omitempty" yaml:"accessPaths,omitempty"`
+	Findings      []Finding        `json:"findings,omitempty" yaml:"findings,omitempty"`
 	LegacyAgents  []Asset          `json:"agents,omitempty" yaml:"agents,omitempty"`
 	Diagnostics   []Diagnostic     `json:"diagnostics,omitempty" yaml:"diagnostics,omitempty"`
+}
+
+// Finding is a current-state, evidence-backed security or governance result.
+// Unlike Diagnostic, it describes analyzed repository state rather than parser
+// health; unlike drift.Change, it does not require a baseline document.
+type Finding struct {
+	ID          string            `json:"id" yaml:"id"`
+	Type        string            `json:"type" yaml:"type"`
+	Severity    string            `json:"severity" yaml:"severity"`
+	AssetID     string            `json:"assetId" yaml:"assetId"`
+	Title       string            `json:"title" yaml:"title"`
+	Reason      string            `json:"reason" yaml:"reason"`
+	Remediation string            `json:"remediation,omitempty" yaml:"remediation,omitempty"`
+	Evidence    []FindingEvidence `json:"evidence" yaml:"evidence"`
+	Attributes  map[string]any    `json:"attributes,omitempty" yaml:"attributes,omitempty"`
+}
+
+type FindingEvidence struct {
+	AssetID    string `json:"assetId" yaml:"assetId"`
+	EvidenceID string `json:"evidenceId" yaml:"evidenceId"`
 }
 
 type AccessPath struct {

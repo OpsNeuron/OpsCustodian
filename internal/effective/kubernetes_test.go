@@ -57,6 +57,38 @@ func TestComposeKubernetesRBACAppliesWorkloadTokenPrecedence(t *testing.T) {
 	}
 }
 
+func TestComposeKubernetesRBACEmitsStructuredEffectiveAccessFinding(t *testing.T) {
+	bom := model.AgentBOM{Assets: []model.Asset{
+		role("kubernetes:role:cluster/admin", "cluster/admin", []model.Capability{{
+			Action: "kubernetes.*.*", Resource: "kubernetes:cluster/*/*/*", Effect: "admin", Environment: "cluster", EvidenceIDs: []string{"role-evidence"},
+		}}),
+		binding("kubernetes:binding:cluster/admin", "cluster/admin", "cluster/admin", "production/agent"),
+		identity("kubernetes:service-account:production/agent", "production/agent", false),
+	}}
+
+	ComposeKubernetesRBAC(&bom)
+
+	if len(bom.Findings) != 1 {
+		t.Fatalf("expected one effective-access finding, got %#v", bom.Findings)
+	}
+	finding := bom.Findings[0]
+	if finding.Type != "kubernetes-effective-access-expansion" || finding.Severity != "critical" || finding.AssetID != "kubernetes:service-account:production/agent" || finding.ID == "" {
+		t.Fatalf("unexpected finding: %#v", finding)
+	}
+	foundRoleEvidence := false
+	for _, reference := range finding.Evidence {
+		if reference.AssetID == "kubernetes:role:cluster/admin" && reference.EvidenceID == "role-evidence" {
+			foundRoleEvidence = true
+		}
+	}
+	if !foundRoleEvidence {
+		t.Fatalf("finding does not point to the granting role evidence: %#v", finding.Evidence)
+	}
+	if finding.Attributes["inheritedCapabilityCount"] != 1 || finding.Attributes["maxInheritedEffect"] != "admin" {
+		t.Fatalf("unexpected structured finding attributes: %#v", finding.Attributes)
+	}
+}
+
 func TestComposeKubernetesRBACAggregatesRolesAndReportsCycle(t *testing.T) {
 	source := role("kubernetes:role:cluster/jobs-reader", "cluster/jobs-reader", []model.Capability{{
 		Action: "kubernetes.jobs.get", Resource: "kubernetes:cluster/jobs-reader/batch/jobs/*", Effect: "read", Environment: "cluster", EvidenceIDs: []string{"role-evidence"},

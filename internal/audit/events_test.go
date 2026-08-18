@@ -63,3 +63,28 @@ func TestFromDriftEmitsFindingAndSummaryWithoutSensitiveDiffValues(t *testing.T)
 		}
 	}
 }
+
+func TestFromBOMEmitsMinimizedCurrentStateFinding(t *testing.T) {
+	bom := model.AgentBOM{
+		Metadata: model.DocumentMetadata{Source: "github:acme/platform", Revision: "abc123", GeneratedAt: "2026-08-18T10:00:00Z"},
+		Findings: []model.Finding{{
+			ID: "finding-123", Type: "kubernetes-effective-access-expansion", Severity: "critical", AssetID: "workload:agent",
+			Title: "secret-title", Reason: "secret-reason", Remediation: "secret-remediation",
+			Evidence:   []model.FindingEvidence{{AssetID: "role:admin", EvidenceID: "evidence"}},
+			Attributes: map[string]any{"secret-key": "secret-value"},
+		}},
+	}
+	events := FromBOM(bom, time.Now())
+	if len(events) != 2 || events[1].EventName != "opscustodian.finding.detected" || events[1].SeverityNumber != 21 || events[1].Attributes["opscustodian.finding.id"] != "finding-123" {
+		t.Fatalf("unexpected current-state finding event: %#v", events)
+	}
+	var output bytes.Buffer
+	if err := WriteJSONLines(&output, events); err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"secret-title", "secret-reason", "secret-remediation", "secret-key", "secret-value"} {
+		if strings.Contains(output.String(), forbidden) {
+			t.Fatalf("finding detail %q leaked into audit event: %s", forbidden, output.String())
+		}
+	}
+}

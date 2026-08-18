@@ -171,6 +171,11 @@ Each resolved effective permission also produces a provider-neutral access path
 whose `origin` is the caller and whose `delegation` steps are the reusable
 workflows in call order. These paths use the same Agent BOM contract, HTML
 explorer, validation, and policy surfaces as Kubernetes effective-access paths.
+Semantic diff classifies newly reachable paths, permission escalation, changed
+delegation routes, and removed paths separately. Findings retain stable IDs and
+source locations from every evidence-bearing asset in the path for SARIF and CI.
+The derived composition control is excluded from generic `control-changed`
+comparison to avoid duplicating those semantic findings with opaque value diffs.
 
 The offline composer reports `GITHUB_REUSABLE_WORKFLOW_UNRESOLVED`,
 `GITHUB_REUSABLE_WORKFLOW_CYCLE`, and

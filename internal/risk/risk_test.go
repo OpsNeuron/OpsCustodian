@@ -63,6 +63,16 @@ func TestCredentialControlRelationshipAndAssetRisk(t *testing.T) {
 	assertAssessment(t, added, 100, "critical", "new-asset")
 }
 
+func TestDelegatedAccessPathRisk(t *testing.T) {
+	asset := riskAsset("high")
+	path := model.AccessPath{
+		Steps:      []model.AccessPathStep{{Kind: "origin", AssetID: "workflow:caller"}, {Kind: "delegation", AssetID: "workflow:callee"}},
+		Capability: riskCapability("github.contents.*", "github:repository", "write", "development"),
+	}
+	assessment := AccessPath(asset, path, true, false, true)
+	assertAssessment(t, assessment, 100, "critical", "effective-access-path", "delegated-access", "effect-escalation", "access-path-rerouted")
+}
+
 func riskAsset(confidence string) model.Asset {
 	return model.Asset{Evidence: []model.Evidence{{ID: "evidence", Path: "fixture", Parser: "test", Confidence: confidence}}}
 }

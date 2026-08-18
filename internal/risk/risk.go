@@ -97,6 +97,27 @@ func CapabilityEscalation(asset model.Asset, capability model.Capability, effect
 	return finalize(assessment)
 }
 
+func AccessPath(asset model.Asset, path model.AccessPath, effectExpanded, scopeExpanded, rerouted bool) Assessment {
+	assessment := Capability(asset, path.Capability)
+	add(&assessment, "effective-access-path", 5, "capability is reachable through a correlated effective access path")
+	for _, step := range path.Steps {
+		if step.Kind == "delegation" {
+			add(&assessment, "delegated-access", 10, "effective access crosses an automation delegation boundary")
+			break
+		}
+	}
+	if effectExpanded {
+		add(&assessment, "effect-escalation", 15, "effective path capability became more powerful")
+	}
+	if scopeExpanded {
+		add(&assessment, "scope-expansion", 20, "effective path scope became broader")
+	}
+	if rerouted {
+		add(&assessment, "access-path-rerouted", 15, "effective access now traverses a different authorization or delegation chain")
+	}
+	return finalize(assessment)
+}
+
 func Credential(asset model.Asset, credential model.CredentialReference) Assessment {
 	assessment := Assessment{}
 	add(&assessment, "credential", 45, "asset gained a credential reference")

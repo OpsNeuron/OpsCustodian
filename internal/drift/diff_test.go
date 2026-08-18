@@ -115,6 +115,62 @@ func TestCompareReportsAssetCapabilityAndRelationshipLifecycle(t *testing.T) {
 	}
 }
 
+func TestCompareReportsAccessPathEscalationRerouteAndLifecycle(t *testing.T) {
+	assets := []model.Asset{
+		{ID: "workflow:caller", Type: "workflow", Name: "caller", Source: model.Source{Path: ".github/workflows/caller.yml"}, Evidence: []model.Evidence{{ID: "caller-evidence", Path: ".github/workflows/caller.yml", Line: 10, Parser: "test", Confidence: "high"}}},
+		{ID: "workflow:middle", Type: "workflow", Name: "middle", Source: model.Source{Path: ".github/workflows/middle.yml"}, Evidence: []model.Evidence{{ID: "middle-evidence", Path: ".github/workflows/middle.yml", Line: 20, Parser: "test", Confidence: "high"}}},
+		{ID: "workflow:replacement", Type: "workflow", Name: "replacement", Source: model.Source{Path: ".github/workflows/replacement.yml"}, Evidence: []model.Evidence{{ID: "replacement-evidence", Path: ".github/workflows/replacement.yml", Line: 30, Parser: "test", Confidence: "high"}}},
+	}
+	read := model.Capability{Action: "github.contents.*", Resource: "github:repository", Effect: "read", EvidenceIDs: []string{"caller-evidence"}}
+	write := read
+	write.Effect = "write"
+	baseline := model.AgentBOM{Metadata: model.DocumentMetadata{Revision: "baseline"}, Assets: assets, AccessPaths: []model.AccessPath{
+		accessPathFixture("path-escalate", read, "workflow:middle"),
+		accessPathFixture("path-reroute", model.Capability{Action: "github.issues.*", Resource: "github:repository", Effect: "read", EvidenceIDs: []string{"caller-evidence"}}, "workflow:middle"),
+		accessPathFixture("path-remove", model.Capability{Action: "github.actions.*", Resource: "github:repository", Effect: "read", EvidenceIDs: []string{"caller-evidence"}}, "workflow:middle"),
+	}}
+	proposed := model.AgentBOM{Metadata: model.DocumentMetadata{Revision: "proposed"}, Assets: assets, AccessPaths: []model.AccessPath{
+		accessPathFixture("different-id", write, "workflow:middle"),
+		accessPathFixture("different-id", model.Capability{Action: "github.issues.*", Resource: "github:repository", Effect: "read", EvidenceIDs: []string{"caller-evidence"}}, "workflow:replacement"),
+		accessPathFixture("path-added", model.Capability{Action: "github.oidc_token.issue", Resource: "github:oidc-token", Effect: "execute", EvidenceIDs: []string{"caller-evidence"}}, "workflow:middle"),
+	}}
+
+	report := Compare(baseline, proposed)
+	escalated := requireChange(t, report, "access-path-escalated", "github.contents.*")
+	if escalated.Severity != "critical" || escalated.Risk.Score != 90 {
+		t.Fatalf("unexpected access path escalation: %#v", escalated)
+	}
+	rerouted := requireChange(t, report, "access-path-rerouted", "github.issues.*")
+	if rerouted.After == rerouted.Before || len(rerouted.Locations) == 0 {
+		t.Fatalf("reroute lacks path or evidence detail: %#v", rerouted)
+	}
+	requireChange(t, report, "access-path-added", "github.oidc_token.issue")
+	requireChange(t, report, "access-path-removed", "github.actions.*")
+
+	if repeated := Compare(baseline, proposed); !reflect.DeepEqual(report, repeated) {
+		t.Fatalf("access path drift is not deterministic:\nfirst: %#v\nsecond: %#v", report, repeated)
+	}
+}
+
+func TestCompareSuppressesOpaqueReusableCompositionControlDrift(t *testing.T) {
+	asset := model.Asset{ID: "workflow:caller", Type: "workflow", Name: "caller", Source: model.Source{Path: "caller.yml"}, Evidence: []model.Evidence{{ID: "e", Path: "caller.yml", Parser: "test", Confidence: "high"}}}
+	beforeAsset, afterAsset := asset, asset
+	beforeAsset.Controls = []model.Control{{Type: "githubReusableWorkflowComposition", Value: []string{"before"}}}
+	afterAsset.Controls = []model.Control{{Type: "githubReusableWorkflowComposition", Value: []string{"after"}}}
+	report := Compare(model.AgentBOM{Assets: []model.Asset{beforeAsset}}, model.AgentBOM{Assets: []model.Asset{afterAsset}})
+	if len(report.Changes) != 0 {
+		t.Fatalf("derived composition emitted opaque control drift: %#v", report.Changes)
+	}
+}
+
+func accessPathFixture(id string, capability model.Capability, delegation string) model.AccessPath {
+	return model.AccessPath{
+		ID: id, Origin: "workflow:caller", Confidence: "high",
+		Steps:      []model.AccessPathStep{{Kind: "origin", AssetID: "workflow:caller"}, {Kind: "delegation", AssetID: delegation}},
+		Capability: capability, EvidenceIDs: append([]string(nil), capability.EvidenceIDs...),
+	}
+}
+
 func driftBOM(revision string, assets []model.Asset) model.AgentBOM {
 	return model.AgentBOM{
 		APIVersion: "opscustodian.dev/v1alpha1",

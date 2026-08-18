@@ -66,14 +66,157 @@ func Compare(before, after model.AgentBOM) Report {
 		}
 	}
 	report.Changes = append(report.Changes, compareRelationships(before.Relationships, after.Relationships, oldAgents, newAgents)...)
+	report.Changes = append(report.Changes, compareAccessPaths(before.AccessPaths, after.AccessPaths, oldAgents, newAgents)...)
 	for index := range report.Changes {
 		report.Changes[index].ID = changeID(report.Changes[index])
 	}
 	sort.Slice(report.Changes, func(i, j int) bool {
-		return severityRank(report.Changes[i].Severity) > severityRank(report.Changes[j].Severity) ||
-			(report.Changes[i].Severity == report.Changes[j].Severity && report.Changes[i].AgentID+report.Changes[i].Subject < report.Changes[j].AgentID+report.Changes[j].Subject)
+		left, right := report.Changes[i], report.Changes[j]
+		if severityRank(left.Severity) != severityRank(right.Severity) {
+			return severityRank(left.Severity) > severityRank(right.Severity)
+		}
+		return left.AgentID+"\x00"+left.Subject+"\x00"+left.Type+"\x00"+left.Before+"\x00"+left.After <
+			right.AgentID+"\x00"+right.Subject+"\x00"+right.Type+"\x00"+right.Before+"\x00"+right.After
 	})
 	return report
+}
+
+func compareAccessPaths(before, after []model.AccessPath, oldAssets, newAssets map[string]model.Agent) []Change {
+	oldValues := map[string]model.AccessPath{}
+	for _, accessPath := range before {
+		oldValues[accessPathKey(accessPath)] = accessPath
+	}
+	var changes []Change
+	for _, accessPath := range after {
+		if _, originExisted := oldAssets[accessPath.Origin]; !originExisted {
+			continue
+		}
+		key := accessPathKey(accessPath)
+		if _, exists := oldValues[key]; exists {
+			delete(oldValues, key)
+			continue
+		}
+		candidateKey, previous, effectExpanded, scopeExpanded, scopeReason, rerouted, matched := findAccessPathCandidate(oldValues, accessPath)
+		if matched {
+			delete(oldValues, candidateKey)
+			assessment := risk.AccessPath(newAssets[accessPath.Origin], accessPath, effectExpanded, scopeExpanded, rerouted)
+			changeType, reasons := "access-path-rerouted", []string{"effective access now traverses a different path"}
+			if effectExpanded || scopeExpanded {
+				changeType, reasons = "access-path-escalated", nil
+				if effectExpanded {
+					reasons = append(reasons, "effective path effect increased from "+previous.Capability.Effect+" to "+accessPath.Capability.Effect)
+				}
+				if scopeExpanded {
+					reasons = append(reasons, scopeReason)
+				}
+			}
+			changes = append(changes, Change{
+				Type: changeType, Severity: assessment.Level, AgentID: accessPath.Origin, Subject: accessPath.Capability.Action,
+				Before: accessPathSummary(previous), After: accessPathSummary(accessPath), Reason: strings.Join(reasons, "; "),
+				Locations: accessPathLocations(accessPath, newAssets), Risk: assessment,
+			})
+			continue
+		}
+		assessment := risk.AccessPath(newAssets[accessPath.Origin], accessPath, false, false, false)
+		changes = append(changes, Change{
+			Type: "access-path-added", Severity: assessment.Level, AgentID: accessPath.Origin, Subject: accessPath.Capability.Action,
+			After: accessPathSummary(accessPath), Reason: "a new effective access path is reachable from the asset",
+			Locations: accessPathLocations(accessPath, newAssets), Risk: assessment,
+		})
+	}
+	for _, accessPath := range oldValues {
+		if _, originStillExists := newAssets[accessPath.Origin]; !originStillExists {
+			continue
+		}
+		changes = append(changes, Change{
+			Type: "access-path-removed", Severity: "info", AgentID: accessPath.Origin, Subject: accessPath.Capability.Action,
+			Before: accessPathSummary(accessPath), Reason: "a baseline effective access path is no longer reachable",
+			Locations: accessPathLocations(accessPath, oldAssets),
+			Risk:      risk.Assessment{Score: 5, Level: "info", Factors: []risk.Factor{{Name: "access-path-removed", Score: 5, Reason: "path removal may affect automation behavior"}}},
+		})
+	}
+	return changes
+}
+
+func findAccessPathCandidate(values map[string]model.AccessPath, after model.AccessPath) (string, model.AccessPath, bool, bool, string, bool, bool) {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		before := values[key]
+		if before.Origin != after.Origin || before.Capability.Action != after.Capability.Action {
+			continue
+		}
+		sameSteps := accessPathStepsKey(before.Steps) == accessPathStepsKey(after.Steps)
+		scopeExpanded, scopeReason := normalize.ScopeExpanded(before.Capability.Scope, after.Capability.Scope)
+		sameScope := before.Capability.Resource == after.Capability.Resource || scopesEqual(before.Capability.Scope, after.Capability.Scope)
+		effectExpanded := normalize.EffectRank(after.Capability.Effect) > normalize.EffectRank(before.Capability.Effect)
+		if sameSteps && ((effectExpanded && sameScope) || scopeExpanded) {
+			return key, before, effectExpanded, scopeExpanded, scopeReason, false, true
+		}
+		if !sameSteps && capabilityKey(before.Capability) == capabilityKey(after.Capability) {
+			return key, before, false, false, "", true, true
+		}
+	}
+	return "", model.AccessPath{}, false, false, "", false, false
+}
+
+func accessPathKey(value model.AccessPath) string {
+	return value.Origin + "\x00" + accessPathStepsKey(value.Steps) + "\x00" + capabilityKey(value.Capability)
+}
+
+func accessPathStepsKey(steps []model.AccessPathStep) string {
+	values := make([]string, 0, len(steps))
+	for _, step := range steps {
+		values = append(values, step.Kind+":"+step.AssetID)
+	}
+	return strings.Join(values, " -> ")
+}
+
+func accessPathSummary(value model.AccessPath) string {
+	return accessPathStepsKey(value.Steps) + " => " + value.Capability.Resource + " (" + value.Capability.Effect + ")"
+}
+
+func accessPathLocations(accessPath model.AccessPath, assets map[string]model.Agent) []Location {
+	wanted := map[string]struct{}{}
+	for _, evidenceID := range append(append([]string(nil), accessPath.EvidenceIDs...), accessPath.Capability.EvidenceIDs...) {
+		wanted[evidenceID] = struct{}{}
+	}
+	seen, locations := map[string]struct{}{}, []Location{}
+	for _, step := range accessPath.Steps {
+		asset, exists := assets[step.AssetID]
+		if !exists {
+			continue
+		}
+		for _, evidence := range asset.Evidence {
+			if len(wanted) > 0 {
+				if _, exists := wanted[evidence.ID]; !exists {
+					continue
+				}
+			}
+			key := fmt.Sprintf("%s:%d:%d", evidence.Path, evidence.Line, evidence.Column)
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			locations = append(locations, Location{Path: evidence.Path, Line: evidence.Line, Column: evidence.Column})
+		}
+	}
+	if len(locations) == 0 {
+		return agentLocations(assets[accessPath.Origin], nil)
+	}
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].Path != locations[j].Path {
+			return locations[i].Path < locations[j].Path
+		}
+		if locations[i].Line != locations[j].Line {
+			return locations[i].Line < locations[j].Line
+		}
+		return locations[i].Column < locations[j].Column
+	})
+	return locations
 }
 
 func compareRelationships(before, after []model.Relationship, oldAssets, newAssets map[string]model.Agent) []Change {
@@ -234,10 +377,16 @@ func compareCredentials(before, after model.Agent) []Change {
 func compareControls(before, after model.Agent) []Change {
 	newTypes := map[string]string{}
 	for _, value := range after.Controls {
+		if !controlDriftSupported(value) {
+			continue
+		}
 		newTypes[value.Type] = fmt.Sprint(value.Value)
 	}
 	var changes []Change
 	for _, value := range before.Controls {
+		if !controlDriftSupported(value) {
+			continue
+		}
 		newValue, exists := newTypes[value.Type]
 		if exists && newValue == fmt.Sprint(value.Value) {
 			continue
@@ -263,6 +412,13 @@ func compareControls(before, after model.Agent) []Change {
 		})
 	}
 	return changes
+}
+
+func controlDriftSupported(control model.Control) bool {
+	// Composition is derived from source calls and permissions. Its meaningful
+	// changes are reported through access-path drift rather than as an opaque
+	// formatted control value.
+	return control.Type != "githubReusableWorkflowComposition"
 }
 
 func Find(report Report, id string) (Change, bool) {

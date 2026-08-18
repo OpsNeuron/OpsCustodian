@@ -154,9 +154,13 @@ func humanRuleName(value string) string {
 		"capability-added": "Agent capability added", "capability-removed": "Agent capability removed",
 		"capability-escalated": "Agent capability escalated",
 		"credential-added":     "Agent credential reference added", "control-removed": "Agent safety control removed",
-		"control-changed":      "Agent safety control changed",
-		"relationship-added":   "Agentic asset relationship added",
-		"relationship-removed": "Agentic asset relationship removed",
+		"control-changed":       "Agent safety control changed",
+		"relationship-added":    "Agentic asset relationship added",
+		"relationship-removed":  "Agentic asset relationship removed",
+		"access-path-added":     "Effective access path added",
+		"access-path-escalated": "Effective access path escalated",
+		"access-path-rerouted":  "Effective access path rerouted",
+		"access-path-removed":   "Effective access path removed",
 	}
 	if name, exists := names[value]; exists {
 		return name

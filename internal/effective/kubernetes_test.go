@@ -27,6 +27,9 @@ func TestComposeKubernetesRBACSpecializesScopeAndBuildsPaths(t *testing.T) {
 	if countDiagnostics(bom.Diagnostics, "KUBERNETES_RBAC_NON_RESOURCE_URL_NAMESPACED") != 1 {
 		t.Fatalf("expected one namespaced non-resource URL diagnostic, got %#v", bom.Diagnostics)
 	}
+	if countDiagnostics(bom.Diagnostics, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION") != 0 || countDiagnostics(bom.Diagnostics, "KUBERNETES_EFFECTIVE_ACCESS_EXPANSION") != 0 {
+		t.Fatalf("ordinary all-object read access was classified as privilege escalation: %#v", bom.Diagnostics)
+	}
 	if len(bom.AccessPaths) != 2 {
 		t.Fatalf("expected identity and workload access paths, got %d", len(bom.AccessPaths))
 	}

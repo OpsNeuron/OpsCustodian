@@ -50,9 +50,10 @@ func TestAccessPathEscalationClassification(t *testing.T) {
 		expected   bool
 	}{
 		{name: "read", capability: model.Capability{Action: "kubernetes.pods.get", Resource: "kubernetes:production/pods/app", Effect: "read"}},
+		{name: "all objects", capability: model.Capability{Action: "kubernetes.pods.get", Resource: "kubernetes:production/core/pods/*", Effect: "read"}},
 		{name: "admin", capability: model.Capability{Action: "kubernetes.pods.update", Resource: "kubernetes:production/pods/app", Effect: "admin"}, expected: true},
 		{name: "wildcard action", capability: model.Capability{Action: "kubernetes.*.*", Resource: "kubernetes:cluster", Effect: "read"}, expected: true},
-		{name: "wildcard resource", capability: model.Capability{Action: "kubernetes.pods.get", Resource: "kubernetes:production/pods/*", Effect: "read"}, expected: true},
+		{name: "wildcard resource", capability: model.Capability{Action: "kubernetes.pods.get", Resource: "kubernetes:production/*/*", Effect: "read"}, expected: true},
 		{name: "bind", capability: model.Capability{Action: "kubernetes.roles.bind", Resource: "kubernetes:cluster/roles/app", Effect: "execute"}, expected: true},
 		{name: "escalate", capability: model.Capability{Action: "kubernetes.roles.escalate", Resource: "kubernetes:cluster/roles/app", Effect: "execute"}, expected: true},
 		{name: "impersonate", capability: model.Capability{Action: "kubernetes.users.impersonate", Resource: "kubernetes:cluster/users/app", Effect: "execute"}, expected: true},

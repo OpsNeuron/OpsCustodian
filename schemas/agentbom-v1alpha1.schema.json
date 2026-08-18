@@ -190,7 +190,7 @@
       "additionalProperties": false,
       "required": ["kind"],
       "properties": {
-        "kind": { "enum": ["repository", "organization", "kubernetes", "network", "workspace", "mcp-server", "unknown"] },
+        "kind": { "enum": ["repository", "organization", "github-actions-job", "kubernetes", "network", "workspace", "mcp-server", "unknown"] },
         "values": { "type": "array", "items": { "type": "string", "minLength": 1 } },
         "wildcard": { "type": "boolean" }
       }

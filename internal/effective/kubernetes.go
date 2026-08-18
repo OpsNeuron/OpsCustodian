@@ -364,7 +364,7 @@ func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, decla
 	}
 	sort.Slice(inherited, func(i, j int) bool { return capabilityIdentity(inherited[i]) < capabilityIdentity(inherited[j]) })
 	actions, sources := make([]string, 0, len(inherited)), effectiveAccessSources(asset.Controls)
-	maxEffect, maxRank, wildcard := "unknown", 0, false
+	maxEffect, maxRank, wildcard, privilegedWildcard := "unknown", 0, false, false
 	for _, capability := range inherited {
 		actions = append(actions, capability.Action)
 		if rank := kubernetesEffectRank(capability.Effect); rank > maxRank {
@@ -373,6 +373,7 @@ func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, decla
 		if strings.Contains(capability.Action, "*") || strings.Contains(capability.Resource, "*") {
 			wildcard = true
 		}
+		privilegedWildcard = privilegedRBACWildcard(capability) || privilegedWildcard
 	}
 	actions = uniqueSorted(actions)
 	signals := rbacEscalationSignals(inherited)
@@ -381,7 +382,7 @@ func applyDeclaredEffectiveAccess(bom *model.AgentBOM, asset *model.Asset, decla
 		"inheritedCapabilityCount": len(inherited), "inheritedActions": actions, "maxInheritedEffect": maxEffect,
 		"wildcard": wildcard, "privilegeEscalationSignals": signals, "sources": sources,
 	}})
-	if maxRank >= kubernetesEffectRank("admin") || wildcard || len(signals) > 0 {
+	if maxRank >= kubernetesEffectRank("admin") || privilegedWildcard || len(signals) > 0 {
 		message := fmt.Sprintf("effective access adds %d inherited capabilities; maximum effect is %s", len(inherited), maxEffect)
 		if len(signals) > 0 {
 			message += "; escalation signals: " + strings.Join(signals, ", ")
@@ -569,7 +570,6 @@ func rbacEscalationSignals(capabilities []model.Capability) []string {
 	found := map[string]struct{}{}
 	for _, capability := range capabilities {
 		action := strings.ToLower(capability.Action)
-		resource := strings.ToLower(capability.Resource)
 		switch {
 		case strings.HasSuffix(action, ".bind"):
 			found["bind"] = struct{}{}
@@ -578,7 +578,7 @@ func rbacEscalationSignals(capabilities []model.Capability) []string {
 		case strings.HasSuffix(action, ".impersonate"):
 			found["impersonate"] = struct{}{}
 		}
-		if strings.Contains(action, "*") || strings.Contains(resource, "*") {
+		if privilegedRBACWildcard(capability) {
 			found["wildcard"] = struct{}{}
 		}
 	}
@@ -588,6 +588,20 @@ func rbacEscalationSignals(capabilities []model.Capability) []string {
 	}
 	sort.Strings(result)
 	return result
+}
+
+func privilegedRBACWildcard(capability model.Capability) bool {
+	action, resource := strings.ToLower(capability.Action), strings.ToLower(capability.Resource)
+	if strings.Contains(action, "*") {
+		return true
+	}
+	if strings.HasPrefix(action, "kubernetes.non_resource_url.") {
+		return strings.Contains(resource, "*")
+	}
+	// The final RBAC resource segment is an object name. Its default `*`
+	// means all objects of an otherwise specific resource kind; keep it as
+	// broad scope, but do not classify it as privilege escalation.
+	return strings.Contains(strings.TrimSuffix(resource, "/*"), "*")
 }
 
 func copyUniqueEvidence(asset *model.Asset, evidence []model.Evidence) {

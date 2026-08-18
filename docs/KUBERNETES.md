@@ -32,6 +32,10 @@ cannot be granted through that path and are omitted with a
 Binding-specialized capabilities discard their declared-role scope and infer a
 new effective scope after composition. This keeps asset capabilities and access
 paths consistent and allows identical grants to merge while retaining evidence.
+An object-name wildcard (for example all objects of the specific `pods`
+resource) remains broad scope for risk scoring but is not labeled privilege
+escalation. Wildcard verbs, resource kinds, API groups, and non-resource URLs
+remain escalation signals.
 
 Aggregated ClusterRoles are composed offline from discovered labels and
 `aggregationRule.clusterRoleSelectors`. `matchLabels` and the `In`, `NotIn`,

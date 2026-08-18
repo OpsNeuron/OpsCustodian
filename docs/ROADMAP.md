@@ -82,6 +82,7 @@ a representative repository without manually assembling an inventory.
 - Agent BOM contract tests. *(access-path validation, normalization, deduplication, and evidence retention implemented, pending validation)*
 - HTML reporter tests. *(self-contained output, escaping, filter, encoding, and escalation coverage implemented, pending validation)*
 - Scanner integration test. *(temporary-repository full-pipeline invariants and deterministic repeat scan implemented, pending validation)*
+- Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*
 - Optional GitHub API enrichment.
 - Declared-versus-effective access findings.
 - OpenTelemetry audit events.

@@ -120,7 +120,11 @@ func WriteInventoryHTML(w io.Writer, bom model.AgentBOM) error {
 }
 
 func accessPathEscalation(capability model.Capability) bool {
-	if capability.Effect == "admin" || strings.Contains(capability.Action, "*") || strings.Contains(capability.Resource, "*") {
+	resourceWildcard := strings.Contains(strings.TrimSuffix(capability.Resource, "/*"), "*")
+	if strings.HasPrefix(capability.Action, "kubernetes.non_resource_url.") {
+		resourceWildcard = strings.Contains(capability.Resource, "*")
+	}
+	if capability.Effect == "admin" || strings.Contains(capability.Action, "*") || resourceWildcard {
 		return true
 	}
 	for _, suffix := range []string{".bind", ".escalate", ".impersonate"} {

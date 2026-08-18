@@ -29,6 +29,27 @@ and credential references. A provenance change on an existing MCP asset is
 also treated as a supply-chain control change even when its invocation
 capability remains otherwise identical.
 
+## Current-state findings
+
+The offline effective-access stage converts provenance into structured Agent
+BOM findings:
+
+- `mcp-runtime-unpinned` for mutable npm, Python, OCI, or unverified system
+  executable identities;
+- `mcp-insecure-transport` for plaintext or unknown remote endpoint transport;
+- `mcp-repository-boundary-escape` for local execution paths outside the
+  scanned repository revision.
+
+Exact package versions and repository-local same-revision paths are not
+reported as mutable. A package version proves version selection, not artifact
+integrity; OCI SHA-256 digests remain the strongest offline integrity class.
+Remote endpoints are evaluated for TLS separately rather than being called
+"unpinned", because endpoint versioning cannot be inferred from a URL.
+
+Finding attributes contain only the sanitized provenance contract. Command
+arguments, environment values, URL user-info, query strings, and fragments are
+never copied into findings.
+
 ## Semantic drift
 
 Persisted baseline and proposed BOMs are compared using the typed provenance

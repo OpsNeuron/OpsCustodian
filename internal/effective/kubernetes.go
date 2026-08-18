@@ -35,12 +35,12 @@ func ComposeKubernetesRBAC(bom *model.AgentBOM) {
 		if signals := rbacEscalationSignals(role.Capabilities); len(signals) > 0 {
 			role.Controls = append(role.Controls, model.Control{Type: "rbacPrivilegeEscalation", Value: map[string]any{"signals": signals}})
 			bom.Diagnostics = append(bom.Diagnostics, kubernetesDiagnostic(role, "KUBERNETES_RBAC_PRIVILEGE_ESCALATION", "role grants privilege-escalation capabilities: "+strings.Join(signals, ", ")))
-			appendKubernetesFinding(bom, model.Finding{
+			appendFinding(bom, model.Finding{
 				Type: "kubernetes-rbac-privilege-escalation", Severity: "critical", AssetID: role.ID,
 				Title:       "Kubernetes role can escalate privileges",
 				Reason:      "Role grants privilege-escalation capabilities: " + strings.Join(signals, ", "),
 				Remediation: "Remove wildcard, bind, escalate, impersonate, or equivalent privilege-management permissions from the role.",
-				Evidence:    assetFindingEvidence(role), Attributes: map[string]any{"signals": signals},
+				Evidence:    assetFindingEvidence(role, "kubernetes"), Attributes: map[string]any{"signals": signals},
 			})
 		}
 	}
@@ -572,11 +572,11 @@ func applyEffectiveServiceAccountToken(bom *model.AgentBOM, workload, identity *
 		severity = "high"
 		reason += " because neither workload nor ServiceAccount disables the Kubernetes default"
 	}
-	appendKubernetesFinding(bom, model.Finding{
+	appendFinding(bom, model.Finding{
 		Type: "kubernetes-service-account-token-exposure", Severity: severity, AssetID: workload.ID,
 		Title: "Workload receives a ServiceAccount token", Reason: reason,
 		Remediation: "Set automountServiceAccountToken to false unless the workload requires Kubernetes API access.",
-		Evidence:    assetFindingEvidence(workload), Attributes: map[string]any{
+		Evidence:    assetFindingEvidence(workload, "kubernetes"), Attributes: map[string]any{
 			"serviceAccount": identity.Name, "source": source, "enabled": true,
 		},
 	})
@@ -615,12 +615,12 @@ func applyProjectedTokenFindings(bom *model.AgentBOM) {
 				continue
 			}
 			sort.Strings(signals)
-			appendKubernetesFinding(bom, model.Finding{
+			appendFinding(bom, model.Finding{
 				Type: "kubernetes-projected-token-risk", Severity: severity, AssetID: asset.ID,
 				Title:       "Projected ServiceAccount token has risky settings",
 				Reason:      "Mounted projected token has risk signals: " + strings.Join(signals, ", "),
 				Remediation: "Use a workload-specific audience and an expiration of at most 3600 seconds.",
-				Evidence:    assetFindingEvidence(asset), Attributes: map[string]any{
+				Evidence:    assetFindingEvidence(asset, "kubernetes"), Attributes: map[string]any{
 					"audience": audience, "expirationSeconds": expiration, "mountedBy": mountedBy, "signals": signals,
 				},
 			})
@@ -628,7 +628,7 @@ func applyProjectedTokenFindings(bom *model.AgentBOM) {
 	}
 }
 
-func appendKubernetesFinding(bom *model.AgentBOM, finding model.Finding) {
+func appendFinding(bom *model.AgentBOM, finding model.Finding) {
 	identity := finding.Type + "\x00" + finding.AssetID
 	if signals, ok := finding.Attributes["signals"].([]string); ok {
 		identity += "\x00" + strings.Join(signals, "\x00")
@@ -643,10 +643,10 @@ func appendKubernetesFinding(bom *model.AgentBOM, finding model.Finding) {
 	bom.Findings = append(bom.Findings, finding)
 }
 
-func assetFindingEvidence(asset *model.Asset) []model.FindingEvidence {
+func assetFindingEvidence(asset *model.Asset, parser string) []model.FindingEvidence {
 	result := make([]model.FindingEvidence, 0, len(asset.Evidence))
 	for _, evidence := range asset.Evidence {
-		if evidence.Parser == "kubernetes" {
+		if evidence.Parser == parser {
 			result = append(result, model.FindingEvidence{AssetID: asset.ID, EvidenceID: evidence.ID})
 		}
 	}

@@ -171,6 +171,9 @@ func humanRuleName(value string) string {
 		"kubernetes-rbac-privilege-escalation":      "Kubernetes role can escalate privileges",
 		"kubernetes-service-account-token-exposure": "Kubernetes workload receives a ServiceAccount token",
 		"kubernetes-projected-token-risk":           "Projected ServiceAccount token has risky settings",
+		"mcp-runtime-unpinned":                      "MCP runtime identity is mutable or unverified",
+		"mcp-insecure-transport":                    "Remote MCP server does not use TLS",
+		"mcp-repository-boundary-escape":            "MCP runtime executes outside the repository boundary",
 	}
 	if name, exists := names[value]; exists {
 		return name

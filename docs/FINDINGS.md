@@ -37,6 +37,18 @@ structured finding for enforcement and use diagnostics to monitor scan health.
 These findings contain only references and normalized settings. Token values,
 environment values, and arbitrary manifest content never enter the contract.
 
+## MCP provenance findings
+
+- `mcp-runtime-unpinned` identifies mutable package/image references or system
+  executables whose installed identity cannot be verified offline.
+- `mcp-insecure-transport` identifies non-TLS remote MCP endpoints.
+- `mcp-repository-boundary-escape` identifies executable paths outside the
+  governed repository revision.
+
+Remote endpoints are not mislabeled as package pinning failures. Their TLS and
+host identity are modeled separately, and all attributes use the sanitized MCP
+provenance contract.
+
 Current-state findings also produce minimized
 `opscustodian.finding.detected` audit events. Finding reasons, remediation text,
 and arbitrary structured attributes are deliberately not copied into audit

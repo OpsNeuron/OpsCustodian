@@ -3,12 +3,15 @@ package policy
 import (
 	"crypto/sha256"
 	"fmt"
+	"regexp"
 
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
 
 const InputAPIVersion = "opscustodian.dev/policy-input/v1alpha1"
+
+var remediationIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Input struct {
 	APIVersion string         `json:"apiVersion"`
@@ -22,14 +25,15 @@ type Decision struct {
 }
 
 type Message struct {
-	ID          string   `json:"id,omitempty"`
-	Rule        string   `json:"rule"`
-	Title       string   `json:"title"`
-	Message     string   `json:"message"`
-	Severity    string   `json:"severity"`
-	AgentID     string   `json:"agentId,omitempty"`
-	Remediation string   `json:"remediation,omitempty"`
-	EvidenceIDs []string `json:"evidenceIds,omitempty"`
+	ID            string   `json:"id,omitempty"`
+	Rule          string   `json:"rule"`
+	Title         string   `json:"title"`
+	Message       string   `json:"message"`
+	Severity      string   `json:"severity"`
+	AgentID       string   `json:"agentId,omitempty"`
+	RemediationID string   `json:"remediationId,omitempty"`
+	Remediation   string   `json:"remediation,omitempty"`
+	EvidenceIDs   []string `json:"evidenceIds,omitempty"`
 }
 
 func (decision *Decision) Normalize() {
@@ -66,6 +70,9 @@ func (decision Decision) Validate() error {
 			}
 			if !validSeverity(message.Severity) {
 				return fmt.Errorf("%s[%d] has unsupported severity %q", group.name, index, message.Severity)
+			}
+			if message.RemediationID != "" && !remediationIDPattern.MatchString(message.RemediationID) {
+				return fmt.Errorf("%s[%d] has invalid remediation ID %q", group.name, index, message.RemediationID)
 			}
 		}
 	}

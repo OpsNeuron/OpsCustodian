@@ -21,6 +21,7 @@
         "message": { "type": "string", "minLength": 1 },
         "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
         "agentId": { "type": "string", "minLength": 1 },
+        "remediationId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*\\.[a-z0-9]+(?:-[a-z0-9]+)*$" },
         "remediation": { "type": "string", "minLength": 1 },
         "evidenceIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }

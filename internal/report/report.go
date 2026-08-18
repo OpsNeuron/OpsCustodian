@@ -111,6 +111,9 @@ func writePolicyMessage(w io.Writer, outcome string, item policy.Message) {
 	fmt.Fprintf(w, "  Rule:        %s\n", item.Rule)
 	fmt.Fprintf(w, "  Message:     %s\n", item.Message)
 	if item.Remediation != "" {
+		if item.RemediationID != "" {
+			fmt.Fprintf(w, "  Remediation ID: %s\n", item.RemediationID)
+		}
 		fmt.Fprintf(w, "  Remediation: %s\n", item.Remediation)
 	}
 }

@@ -9,6 +9,16 @@ decision := {
     "warn": [item | item := warn[_]],
 }
 
+deny contains finding_message(finding, "current-state-critical-finding") if {
+    some finding in object.get(input.bom, "findings", [])
+    finding.severity == "critical"
+}
+
+warn contains finding_message(finding, "current-state-high-finding") if {
+    some finding in object.get(input.bom, "findings", [])
+    finding.severity == "high"
+}
+
 deny contains {
     "rule": "production-destructive-access-requires-approval",
     "title": "Destructive production access has no human approval",
@@ -54,4 +64,15 @@ warn contains {
 has_human_approval(agent) if {
     some control in object.get(agent, "controls", [])
     control.type == "humanApproval"
+}
+
+finding_message(finding, rule) := {
+    "rule": rule,
+    "title": finding.title,
+    "message": sprintf("Current-state finding %q affects %q.", [finding.type, finding.assetId]),
+    "severity": finding.severity,
+    "agentId": finding.assetId,
+    "remediationId": finding.remediationId,
+    "remediation": finding.remediation,
+    "evidenceIds": [reference.evidenceId | some reference in object.get(finding, "evidence", [])],
 }

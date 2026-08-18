@@ -45,6 +45,7 @@ with `--query` when it returns the same decision contract.
     "message": "Agent can delete a production resource without approval.",
     "severity": "critical",
     "agentId": "github-actions:.github/workflows/remediator.yml",
+    "remediationId": "github-actions.restrict-privileged-trigger",
     "remediation": "Add a humanApproval control.",
     "evidenceIds": ["gha-1234"]
   }],
@@ -53,8 +54,9 @@ with `--query` when it returns the same decision contract.
 ```
 
 `rule`, `title`, and `message` are required. Severity must be `info`, `low`,
-`medium`, `high`, or `critical`. OpsCustodian generates a stable policy finding
-ID when the policy does not provide one.
+`medium`, `high`, or `critical`. `remediationId`, when present, must use the same
+namespace-qualified contract as Agent BOM findings. OpsCustodian generates a
+stable policy finding ID when the policy does not provide one.
 
 ## Exit behavior
 
@@ -73,6 +75,20 @@ ID when the policy does not provide one.
 
 ## Starter policies
 
-The starter pack detects destructive production access without approval,
-newly-added credential references containing `PROD`, and agents without an
-owner. These demonstrate the contract and must be reviewed before production use.
+The starter pack:
+
+- denies every structured current-state finding with `critical` severity;
+- warns for structured current-state findings with `high` severity;
+- carries the finding's `remediationId`, remediation, and evidence references
+  into the policy decision;
+- detects destructive production access without approval;
+- denies newly-added credential references containing `PROD`; and
+- warns for agents without an owner.
+
+Medium and lower current-state findings remain inventory by default. The pack
+is intentionally conservative and must be reviewed before production use.
+Its deterministic Rego contract tests live beside the policy and run with:
+
+```bash
+opa test policies/builtin -v
+```

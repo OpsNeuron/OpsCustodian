@@ -105,6 +105,7 @@ Missing exit items:
 - Vendor-neutral current-state MCP findings for mutable runtime identities, insecure remote transport, and repository-boundary escape.
 - Structured GitHub Actions findings for privileged triggers, untrusted executable data flow, self-hosted runner exposure, and mutable dependencies.
 - Stable namespace-qualified remediation IDs shared by Agent BOM, terminal, SARIF, HTML, audit events, and future policy/API/UI consumers.
+- Built-in OPA severity gate for structured current-state findings with remediation and evidence propagation plus deterministic Rego contract tests.
 
 ## Remaining path to 1.0
 

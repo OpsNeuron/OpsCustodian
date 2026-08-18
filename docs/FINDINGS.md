@@ -85,3 +85,7 @@ then exits with code `2` when a finding meets the threshold. This makes the
 result suitable for CI and GitHub code scanning while preserving the report on
 policy failure. SARIF locations are resolved through the finding's cross-asset
 evidence references rather than inferred from message text.
+
+The built-in OPA starter pack denies `critical` current-state findings and
+warns for `high` findings while preserving their `remediationId` and evidence
+references in the policy decision.

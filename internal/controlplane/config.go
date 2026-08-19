@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	defaultConnectTimeout  = 5 * time.Second
-	defaultShutdownTimeout = 10 * time.Second
-	defaultMaxOpenConns    = 20
-	defaultMaxIdleConns    = 5
-	defaultConnMaxLifetime = 30 * time.Minute
+	defaultConnectTimeout   = 5 * time.Second
+	defaultMigrationTimeout = 2 * time.Minute
+	defaultShutdownTimeout  = 10 * time.Second
+	defaultMaxOpenConns     = 20
+	defaultMaxIdleConns     = 5
+	defaultConnMaxLifetime  = 30 * time.Minute
 )
 
 type LookupEnv func(string) (string, bool)
@@ -25,6 +26,7 @@ type Config struct {
 	DatabaseDSN             string
 	ApplyMigrations         bool
 	ConnectTimeout          time.Duration
+	MigrationTimeout        time.Duration
 	ShutdownTimeout         time.Duration
 	MaxOpenConns            int
 	MaxIdleConns            int
@@ -37,6 +39,7 @@ type SafeConfig struct {
 	DatabaseConfigured      bool          `json:"databaseConfigured"`
 	ApplyMigrations         bool          `json:"applyMigrations"`
 	ConnectTimeout          time.Duration `json:"connectTimeout"`
+	MigrationTimeout        time.Duration `json:"migrationTimeout"`
 	ShutdownTimeout         time.Duration `json:"shutdownTimeout"`
 	MaxOpenConns            int           `json:"maxOpenConnections"`
 	MaxIdleConns            int           `json:"maxIdleConnections"`
@@ -53,6 +56,7 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		DatabaseDSN:             environmentValue(lookup, "OPSCUSTODIAN_DATABASE_DSN"),
 		ApplyMigrations:         true,
 		ConnectTimeout:          defaultConnectTimeout,
+		MigrationTimeout:        defaultMigrationTimeout,
 		ShutdownTimeout:         defaultShutdownTimeout,
 		MaxOpenConns:            defaultMaxOpenConns,
 		MaxIdleConns:            defaultMaxIdleConns,
@@ -69,6 +73,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		return Config{}, err
 	}
 	if config.ShutdownTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_SHUTDOWN_TIMEOUT", config.ShutdownTimeout); err != nil {
+		return Config{}, err
+	}
+	if config.MigrationTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT", config.MigrationTimeout); err != nil {
 		return Config{}, err
 	}
 	if config.ConnMaxLifetime, err = environmentDuration(lookup, "OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME", config.ConnMaxLifetime); err != nil {
@@ -102,6 +109,9 @@ func (config Config) Validate() error {
 	if config.ShutdownTimeout <= 0 || config.ShutdownTimeout > time.Minute {
 		return fmt.Errorf("OPSCUSTODIAN_SHUTDOWN_TIMEOUT must be between 1ns and 1m")
 	}
+	if config.MigrationTimeout <= 0 || config.MigrationTimeout > 15*time.Minute {
+		return fmt.Errorf("OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT must be between 1ns and 15m")
+	}
 	if config.ConnMaxLifetime <= 0 || config.ConnMaxLifetime > 24*time.Hour {
 		return fmt.Errorf("OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME must be between 1ns and 24h")
 	}
@@ -119,7 +129,8 @@ func (config Config) Safe() SafeConfig {
 		OrganizationID: config.OrganizationID, OrganizationDisplayName: config.OrganizationDisplayName,
 		DatabaseConfigured: config.DatabaseDSN != "", ApplyMigrations: config.ApplyMigrations,
 		ConnectTimeout: config.ConnectTimeout, ShutdownTimeout: config.ShutdownTimeout,
-		MaxOpenConns: config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
+		MigrationTimeout: config.MigrationTimeout,
+		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
 	}
 }
 

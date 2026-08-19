@@ -95,6 +95,7 @@ currently recognizes:
 | `OPSCUSTODIAN_DATABASE_DSN` | required | non-empty; never included in safe configuration output |
 | `OPSCUSTODIAN_DATABASE_MIGRATE` | `true` | boolean |
 | `OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT` | `5s` | positive, at most one minute |
+| `OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT` | `2m` | positive, at most 15 minutes |
 | `OPSCUSTODIAN_SHUTDOWN_TIMEOUT` | `10s` | positive, at most one minute |
 | `OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS` | `20` | 1 to 1000 |
 | `OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS` | `5` | 0 to max open connections |
@@ -104,3 +105,17 @@ Configuration parsing is side-effect free and does not open a database. A
 separate safe projection exposes only operational metadata and a boolean
 indicating whether a DSN was configured; it cannot serialize the DSN or its
 credentials.
+
+## Bootstrap lifecycle
+
+The driver-neutral control-plane bootstrap validates configuration before any
+I/O, opens the database, applies pool bounds, performs a timeout-bounded ping,
+optionally runs migrations under a separate bounded context, and constructs a
+combined snapshot Reader/Writer. Every failure after open closes the database;
+successful runtimes provide an idempotent close operation.
+
+Lifecycle ordering, skipped migrations, deadline propagation, early
+cancellation, dependency validation, and cleanup on ping, migration, and store
+construction failures are covered without a database process. Registering a
+PostgreSQL driver and exercising this lifecycle against a real server remain
+part of final integration validation.

@@ -18,7 +18,7 @@ func TestConfigFromEnvironmentUsesBoundedOperationalDefaults(t *testing.T) {
 	if config.OrganizationDisplayName != config.OrganizationID || !config.ApplyMigrations {
 		t.Fatalf("unexpected identity defaults: %#v", config.Safe())
 	}
-	if config.ConnectTimeout != 5*time.Second || config.ShutdownTimeout != 10*time.Second {
+	if config.ConnectTimeout != 5*time.Second || config.MigrationTimeout != 2*time.Minute || config.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("unexpected timeout defaults: %#v", config.Safe())
 	}
 	if config.MaxOpenConns != 20 || config.MaxIdleConns != 5 || config.ConnMaxLifetime != 30*time.Minute {
@@ -33,6 +33,7 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_DATABASE_DSN":               "postgres://database/controlplane",
 		"OPSCUSTODIAN_DATABASE_MIGRATE":           "false",
 		"OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT":   "15s",
+		"OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT": "3m",
 		"OPSCUSTODIAN_SHUTDOWN_TIMEOUT":           "25s",
 		"OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS":    "40",
 		"OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS":    "10",
@@ -41,7 +42,7 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if config.ApplyMigrations || config.MaxOpenConns != 40 || config.MaxIdleConns != 10 || config.ConnMaxLifetime != 2*time.Hour {
+	if config.ApplyMigrations || config.MigrationTimeout != 3*time.Minute || config.MaxOpenConns != 40 || config.MaxIdleConns != 10 || config.ConnMaxLifetime != 2*time.Hour {
 		t.Fatalf("explicit settings were not preserved: %#v", config.Safe())
 	}
 }
@@ -53,6 +54,7 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 		{"missing tenant", "OPSCUSTODIAN_ORGANIZATION_ID", "", "ORGANIZATION_ID"},
 		{"invalid migration", "OPSCUSTODIAN_DATABASE_MIGRATE", "sometimes", "true or false"},
 		{"unbounded connect", "OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT", "2m", "between"},
+		{"unbounded migration", "OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT", "16m", "between"},
 		{"unbounded pool", "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", "1001", "between"},
 		{"idle exceeds open", "OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS", "21", "max open"},
 	}

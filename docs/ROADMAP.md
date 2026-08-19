@@ -106,6 +106,7 @@ runtime authorization system.
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*
 - Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; real PostgreSQL driver and integration validation pending)*
+- Official pgx PostgreSQL driver wiring. *(pinned and registered; live connection and compatibility matrix deferred to final integration)*
 - Multi-repository ingestion and historical Finding lifecycle.
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration.

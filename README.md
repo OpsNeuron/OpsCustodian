@@ -55,7 +55,7 @@ Hosted CI integration remains planned for the next milestones.
 
 ## Build prerequisites
 
-- Go 1.23 or newer
+- Go 1.25 or newer
 
 ```bash
 go mod download

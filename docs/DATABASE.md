@@ -106,6 +106,11 @@ separate safe projection exposes only operational metadata and a boolean
 indicating whether a DSN was configured; it cannot serialize the DSN or its
 credentials.
 
+OpsCustodian uses the official pgx v5 `database/sql` adapter, pinned in the Go
+module dependency graph. Registering the driver and constructing a lazy SQL
+handle are covered by offline tests; no connection is attempted until the
+bootstrap's bounded ping stage.
+
 ## Bootstrap lifecycle
 
 The driver-neutral control-plane bootstrap validates configuration before any

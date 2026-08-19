@@ -4,6 +4,7 @@
 *.exe
 *.test
 /.gocache/
+/.gomodcache/
 
 # Coverage and profiling
 coverage.out

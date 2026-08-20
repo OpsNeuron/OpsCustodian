@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/app"
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
+	"github.com/opscustodian/opscustodian/internal/controlplane"
 )
 
 var version = "dev"
@@ -23,7 +26,9 @@ func (values *stringListFlag) String() string         { return fmt.Sprint([]stri
 func (values *stringListFlag) Set(value string) error { *values = append(*values, value); return nil }
 
 func main() {
-	if err := run(context.Background(), os.Args[1:]); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		var exitErr *app.ExitError
 		if errors.As(err, &exitErr) {
@@ -152,6 +157,9 @@ func run(ctx context.Context, args []string) error {
 			OTLPHeaders: headers, OTLPTimeout: *otlpTimeout, AllowInsecureOTLP: *allowInsecureOTLP,
 		})
 
+	case "serve":
+		return serveCommand(ctx, args[1:], os.LookupEnv, os.Stdout, controlplane.DefaultProcessDependencies, controlplane.RunProcess, version)
+
 	case "version", "--version", "-version":
 		fs := flag.NewFlagSet("version", flag.ContinueOnError)
 		format := fs.String("format", "terminal", "output format: terminal or json")
@@ -167,6 +175,37 @@ func run(ctx context.Context, args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+type processDependencyFactory func() (controlplane.ProcessDependencies, error)
+type processRunner func(context.Context, controlplane.Config, string, controlplane.ProcessDependencies) error
+
+func serveCommand(ctx context.Context, args []string, lookup controlplane.LookupEnv, output io.Writer, dependencyFactory processDependencyFactory, runner processRunner, buildVersion string) error {
+	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
+	printConfig := fs.Bool("print-config", false, "validate and print secret-free effective configuration without starting")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("usage: opscustodian serve [--print-config]")
+	}
+	config, err := controlplane.ConfigFromEnvironment(lookup)
+	if err != nil {
+		return err
+	}
+	if *printConfig {
+		encoder := json.NewEncoder(output)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(config.Safe())
+	}
+	if dependencyFactory == nil || runner == nil {
+		return fmt.Errorf("control-plane process dependencies are required")
+	}
+	dependencies, err := dependencyFactory()
+	if err != nil {
+		return fmt.Errorf("initialize control-plane dependencies: %w", err)
+	}
+	return runner(ctx, config, buildVersion, dependencies)
 }
 
 func writeVersion(w io.Writer, buildVersion, format string) error {
@@ -197,6 +236,7 @@ Usage:
   opscustodian check --bom <agentbom> [flags]
   opscustodian report --bom <agentbom> [--output report.html]
   opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
+  opscustodian serve [--print-config]
   opscustodian version [--format terminal|json]
 
 Commands:
@@ -207,6 +247,7 @@ Commands:
   check    evaluate Agent BOM and optional drift with OPA/Rego
   report   render a local read-only HTML inventory report
   events   convert scan or drift results into OpenTelemetry-compatible JSONL events
+  serve    run the authenticated loopback organization control plane
   version  print build and supported contract versions
 `)
 }

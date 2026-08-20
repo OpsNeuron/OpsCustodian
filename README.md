@@ -39,6 +39,7 @@ opscustodian diff baseline.json proposed.json
 opscustodian check --baseline baseline.json --bom proposed.json --policy ./policies
 opscustodian explain --report drift.json <finding-id>
 opscustodian report --bom agentbom.json --output opscustodian-report.html
+opscustodian serve --print-config
 ```
 
 For monorepositories, assign assets to explicit component boundaries:
@@ -52,6 +53,12 @@ GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
 parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
 severity thresholds, finding explanations, and OPA/Rego policy evaluation.
 Hosted CI integration remains planned for the next milestones.
+
+The experimental organization control-plane server is configured exclusively
+through environment variables and binds only to loopback. Validate its
+secret-free effective configuration before startup with `serve --print-config`;
+see [server documentation](docs/SERVER.md) for required database and API-token
+settings. Live PostgreSQL operation is not yet release-validated.
 
 ## Build prerequisites
 

@@ -79,9 +79,10 @@ constructor outside the operational wiring path.
 
 ## HTTP runtime guardrails
 
-The server runtime contract is implemented but is not connected to a CLI
-command. It accepts only literal IPv4 or IPv6 loopback addresses until
-authentication exists; wildcard, external, and hostname binds fail validation.
+The server runtime accepts only literal IPv4 or IPv6 loopback addresses;
+wildcard, external, and hostname binds fail validation even though initial
+authentication now exists. Non-loopback operation remains gated on
+authorization, transport, proxy-trust, and audit design.
 The constructor configures bounded header-read, request-read, response-write,
 idle, and header-size limits. Serving uses an injected listener and performs a
 timeout-bounded graceful shutdown when its context is cancelled.
@@ -114,5 +115,21 @@ Listener and serving functions are injected for deterministic tests. Failures
 before listener creation cannot leak a database handle, failures while serving
 still close both resources, and simultaneous serve/close failures are retained
 as a joined error. Default dependencies register pgx and real TCP behavior but
-do not perform I/O until the process runner is explicitly invoked. OS signal
-conversion into the process context belongs to the forthcoming CLI command.
+do not perform I/O until the process runner is explicitly invoked. The CLI
+converts OS interrupt and termination signals into process-context cancellation.
+
+## CLI command
+
+`opscustodian serve` loads the complete environment configuration, constructs
+the default pgx/TCP dependencies, and runs the authenticated process lifecycle.
+The CLI root context is cancelled on interrupt or termination signals, which
+initiates graceful HTTP shutdown followed by database close.
+
+`opscustodian serve --print-config` performs full validation and prints only
+the safe configuration projection. It does not construct dependencies, connect
+to PostgreSQL, or open a listener. Database DSNs, passwords, API tokens, and
+token digests are never included in its output.
+
+The regular `serve` path now opens a real loopback listener and requires a real
+PostgreSQL connection. It remains experimental until the deferred database,
+signal, platform, and security integration suite is complete.

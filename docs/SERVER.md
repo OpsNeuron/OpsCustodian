@@ -110,6 +110,14 @@ the same object before parsing. A read, parse, permission, or validation failure
 does not replace the active registry snapshot. Automatic polling or signal
 wiring is intentionally not enabled yet.
 
+The cancellable polling trigger `WatchCredentialFile` performs an immediate
+load and retries at a bounded interval from 1 second to 1 hour. Every attempt
+produces a structured result callback suitable for audit and metrics. A failed
+attempt is observable but does not terminate the watcher or replace the active
+snapshot; later corrected files can recover automatically. Context cancellation
+stops polling cleanly. Process-lifecycle and audit-sink wiring remain the next
+operational step.
+
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then
 constructs the bounded HTTP server. This keeps the unauthenticated test

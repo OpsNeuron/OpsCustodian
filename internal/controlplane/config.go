@@ -1,9 +1,7 @@
 package controlplane
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -100,15 +98,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" {
 			return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIALS cannot be combined with single-token API variables")
 		}
-		var credentials []server.BearerCredential
-		decoder := json.NewDecoder(strings.NewReader(credentialsJSON))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&credentials); err != nil {
-			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); err != io.EOF {
-			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: exactly one JSON value is required")
+		credentials, parseErr := server.ParseBearerCredentialsJSON([]byte(credentialsJSON))
+		if parseErr != nil {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", parseErr)
 		}
 		config.CredentialRegistry, err = server.NewCredentialRegistry(credentials)
 		if err != nil {

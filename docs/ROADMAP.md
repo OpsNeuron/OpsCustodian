@@ -117,7 +117,8 @@ runtime authorization system.
 - Stable credential identity. *(validated non-secret token identity and audit propagation implemented)*
 - Multi-credential rotation registry. *(bounded environment registry, independent identity grants, ambiguity rejection, and safe projection implemented; external secret-provider reload pending)*
 - Credential lifecycle policy. *(disablement, activation, expiration, overlap semantics, and deterministic clock-backed tests implemented; external reload triggers pending)*
-- Atomic credential reload core. *(validated snapshot publication, in-flight request pinning, and last-known-good rollback semantics implemented; file watcher and external secret-provider adapters pending)*
+- Atomic credential reload core. *(validated snapshot publication, in-flight request pinning, and last-known-good rollback semantics implemented; automatic watcher and external secret-provider integrations pending)*
+- Credential file source. *(bounded strict parsing, file-type and Unix permission checks, identity verification, and safe reload implemented; automatic trigger wiring pending)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
 - Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, and fail-closed process shutdown implemented; durable buffering and retention pending)*

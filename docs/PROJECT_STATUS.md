@@ -138,6 +138,7 @@ Missing exit items:
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.
 - Atomic in-process credential reload registry with immutable per-request security snapshots, last-known-good preservation after invalid reloads, and synchronized authentication/authorization publication.
+- Hardened credential-file reload boundary with bounded reads, strict JSON, symlink/non-regular rejection, Unix owner-only permission enforcement, file identity verification, and last-known-good preservation.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

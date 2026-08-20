@@ -102,6 +102,14 @@ identity with new grants. Environment configuration creates this registry at
 startup. Filesystem watching and external secret-provider adapters remain
 future operational integrations.
 
+The filesystem adapter `ReloadCredentialFile` provides the hardened boundary
+for those integrations. It accepts only regular non-symlink files, limits input
+to 1 MiB, rejects unknown JSON fields and trailing values, and on Unix requires
+owner-only permissions. It verifies that the inspected and opened file refer to
+the same object before parsing. A read, parse, permission, or validation failure
+does not replace the active registry snapshot. Automatic polling or signal
+wiring is intentionally not enabled yet.
+
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then
 constructs the bounded HTTP server. This keeps the unauthenticated test

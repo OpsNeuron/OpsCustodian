@@ -133,3 +133,17 @@ token digests are never included in its output.
 The regular `serve` path now opens a real loopback listener and requires a real
 PostgreSQL connection. It remains experimental until the deferred database,
 signal, platform, and security integration suite is complete.
+
+## Request audit middleware
+
+The authenticated API has a request-audit middleware contract that emits the
+shared OpenTelemetry-compatible OpsCustodian audit envelope. It records a
+server-generated request ID, canonical route pattern, status, duration,
+organization, method, and authentication result. Raw URL/query values, headers,
+tokens, bodies, and remote addresses are excluded by construction.
+
+Public health, rejected authentication, successful API requests, and API errors
+are distinguished without exposing credential material. The middleware requires
+an explicit sink; the current `serve` composition does not install an operational
+sink yet, so request audit retention must not be claimed until the next wiring
+step is complete.

@@ -21,6 +21,8 @@ exporter can map the envelope to OTLP.
 - `opscustodian.finding.detected`: one minimized current-state security finding.
 - `opscustodian.drift.detected`: one event per semantic finding.
 - `opscustodian.diff.completed`: one severity-count summary per drift report.
+- `opscustodian.http.request.completed`: one minimized control-plane request
+  observation emitted by the server audit middleware.
 
 Event names contain no asset IDs, revisions, finding IDs, or other dynamic
 values. Those values are flat `opscustodian.*` attributes so backends can
@@ -46,6 +48,19 @@ finding before/after values, finding reasons, and risk-factor explanations.
 This prevents audit export from becoming a second channel for configuration or
 credential-bearing text. Secret values remain prohibited throughout the Agent
 BOM and audit contracts.
+
+Control-plane request events contain only a server-generated request ID,
+organization ID, HTTP method, canonical ServeMux route pattern, response status,
+bounded duration, and authentication result (`public`, `authenticated`, or
+`rejected`). They never record raw URLs, query strings, cursors, client-supplied
+request IDs, Authorization headers, tokens, remote addresses, or request/response
+bodies. A random 128-bit request ID is returned as `X-Request-ID` for local
+correlation.
+
+The request middleware requires an explicit sink and uses the same
+`opscustodian.dev/audit-event/v1alpha1` envelope as scan and drift events. The
+operational sink is not yet connected to `serve`; that wiring, buffering, sink
+failure policy, and retention belong to the next control-plane step.
 
 ## OTLP/HTTP export
 

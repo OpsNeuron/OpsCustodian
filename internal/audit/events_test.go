@@ -2,6 +2,7 @@ package audit
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,27 @@ func TestFromBOMUsesGeneratedTimestampAndDeterministicDiagnostics(t *testing.T) 
 	}
 	if lines := strings.Count(strings.TrimSpace(output.String()), "\n") + 1; lines != len(events) {
 		t.Fatalf("JSONL line count = %d, want %d", lines, len(events))
+	}
+}
+
+func TestFromHTTPRequestUsesSharedSecretSafeAuditEnvelope(t *testing.T) {
+	event := FromHTTPRequest(HTTPRequestObservation{
+		OccurredAt: time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC),
+		RequestID:  "request-123", OrganizationID: "organization-0123456789abcdef",
+		Method: "GET", Route: "GET /api/v1/repositories", Status: 401,
+		DurationMillis: 12, Authentication: "rejected",
+	})
+	if event.SchemaVersion != SchemaVersion || event.EventName != "opscustodian.http.request.completed" || event.SeverityNumber != 13 || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "rejected" {
+		t.Fatalf("HTTP audit event = %#v", event)
+	}
+	content, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"Authorization", "cursor=", "Bearer ", "password"} {
+		if strings.Contains(string(content), forbidden) {
+			t.Fatalf("HTTP audit event contains forbidden data %q: %s", forbidden, content)
+		}
 	}
 }
 

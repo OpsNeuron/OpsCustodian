@@ -132,6 +132,7 @@ Missing exit items:
 - Environment-to-digest API-token configuration and fail-closed server composition that cannot construct the operational HTTP server without authentication and a Store reader.
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.
+- Versioned secret-minimized HTTP request audit events and middleware with server-generated correlation IDs, canonical routes, authentication outcomes, status, latency, and an explicit sink boundary. *(operational sink wiring pending)*
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Authorization, rotation, audit middleware, real

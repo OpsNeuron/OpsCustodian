@@ -115,6 +115,7 @@ runtime authorization system.
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation, authorization, OIDC, and audit integration pending)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
+- Request audit middleware. *(shared OTel-compatible event envelope and secret-minimized sink contract implemented; operational sink, buffering, and retention pending)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.

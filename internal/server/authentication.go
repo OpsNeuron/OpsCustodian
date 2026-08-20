@@ -34,14 +34,17 @@ func (authenticator BearerAuthenticator) Configured() bool { return authenticato
 func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/healthz" {
+			setRequestAuthentication(request, "public")
 			next.ServeHTTP(w, request)
 			return
 		}
 		if !authenticator.authorized(request.Header.Values("Authorization")) {
+			setRequestAuthentication(request, "rejected")
 			w.Header().Set("WWW-Authenticate", `Bearer realm="opscustodian"`)
 			writeError(w, http.StatusUnauthorized, "authentication-required", "valid bearer authentication is required")
 			return
 		}
+		setRequestAuthentication(request, "authenticated")
 		next.ServeHTTP(w, request)
 	})
 }

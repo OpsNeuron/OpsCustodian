@@ -29,6 +29,33 @@ type InstrumentationScope struct {
 	Version string `json:"version,omitempty"`
 }
 
+type HTTPRequestObservation struct {
+	OccurredAt     time.Time
+	RequestID      string
+	OrganizationID string
+	Method         string
+	Route          string
+	Status         int
+	DurationMillis int64
+	Authentication string
+}
+
+func FromHTTPRequest(observation HTTPRequestObservation) Event {
+	severity := 9
+	if observation.Status == 401 || observation.Status >= 500 {
+		severity = 13
+	}
+	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.http.request.completed", severity, "OpsCustodian control-plane HTTP request completed", map[string]any{
+		"opscustodian.request.id":            observation.RequestID,
+		"opscustodian.organization.id":       observation.OrganizationID,
+		"opscustodian.authentication.result": observation.Authentication,
+		"http.request.method":                observation.Method,
+		"http.route":                         observation.Route,
+		"http.response.status_code":          observation.Status,
+		"http.server.request.duration_ms":    observation.DurationMillis,
+	})
+}
+
 func FromBOM(bom model.AgentBOM, occurredAt time.Time) []Event {
 	timestamp := eventTimestamp(bom.Metadata.GeneratedAt, occurredAt)
 	events := []Event{newEvent(timestamp, "opscustodian.scan.completed", 9, "OpsCustodian repository scan completed", map[string]any{

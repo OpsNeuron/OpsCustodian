@@ -1,17 +1,19 @@
 package controlplane
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	serverauth "github.com/opscustodian/opscustodian/internal/server"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
 func TestControlPlaneCompositionAlwaysUsesAuthentication(t *testing.T) {
 	config := validRuntimeConfig()
-	server, err := NewControlPlaneHTTPServer(config, store.NewMemory(), "test")
+	server, err := NewControlPlaneHTTPServer(config, store.NewMemory(), "test", discardRequestAuditSink{}, func(err error) { t.Fatalf("audit failure: %v", err) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,10 +36,17 @@ func TestControlPlaneCompositionAlwaysUsesAuthentication(t *testing.T) {
 func TestControlPlaneCompositionRejectsMissingSecurityDependencies(t *testing.T) {
 	config := validRuntimeConfig()
 	config.Authenticator = serverauth.BearerAuthenticator{}
-	if _, err := NewControlPlaneHTTPServer(config, store.NewMemory(), "test"); err == nil {
+	if _, err := NewControlPlaneHTTPServer(config, store.NewMemory(), "test", discardRequestAuditSink{}, func(error) {}); err == nil {
 		t.Fatal("missing authenticator was accepted")
 	}
-	if _, err := NewControlPlaneHTTPServer(validRuntimeConfig(), nil, "test"); err == nil {
+	if _, err := NewControlPlaneHTTPServer(validRuntimeConfig(), nil, "test", discardRequestAuditSink{}, func(error) {}); err == nil {
 		t.Fatal("missing reader was accepted")
 	}
+	if _, err := NewControlPlaneHTTPServer(validRuntimeConfig(), store.NewMemory(), "test", nil, func(error) {}); err == nil {
+		t.Fatal("missing audit sink was accepted")
+	}
 }
+
+type discardRequestAuditSink struct{}
+
+func (discardRequestAuditSink) Record(context.Context, audit.Event) error { return nil }

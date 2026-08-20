@@ -58,9 +58,17 @@ bodies. A random 128-bit request ID is returned as `X-Request-ID` for local
 correlation.
 
 The request middleware requires an explicit sink and uses the same
-`opscustodian.dev/audit-event/v1alpha1` envelope as scan and drift events. The
-operational sink is not yet connected to `serve`; that wiring, buffering, sink
-failure policy, and retention belong to the next control-plane step.
+`opscustodian.dev/audit-event/v1alpha1` envelope as scan and drift events.
+`serve` installs a synchronized JSONL sink on standard error so container and
+service supervisors can collect it independently from API responses. Writes are
+serialized across concurrent requests and each event occupies exactly one line.
+
+Audit storage is fail-closed: if serialization or output fails, the failure is
+reported to the process orchestrator, which cancels serving, performs graceful
+HTTP shutdown, and closes PostgreSQL. OpsCustodian will not silently continue
+serving unaudited requests. Durable buffering, rotation, retention, and backend
+delivery remain responsibilities of the service supervisor or a future bounded
+audit exporter.
 
 ## OTLP/HTTP export
 

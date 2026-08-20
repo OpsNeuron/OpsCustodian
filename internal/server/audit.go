@@ -13,8 +13,10 @@ import (
 )
 
 type RequestAuditSink interface {
-	Record(context.Context, audit.Event)
+	Record(context.Context, audit.Event) error
 }
+
+type RequestAuditFailureHandler func(error)
 
 type requestAuditOptions struct {
 	Now       func() time.Time
@@ -24,13 +26,13 @@ type requestAuditOptions struct {
 type requestAuditState struct{ authentication string }
 type requestAuditContextKey struct{}
 
-func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink) (http.Handler, error) {
-	return newAuditedAuthenticatedHandler(reader, buildVersion, authenticator, organizationID, sink, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
+func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler) (http.Handler, error) {
+	return newAuditedAuthenticatedHandler(reader, buildVersion, authenticator, organizationID, sink, onFailure, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
 }
 
-func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink, options requestAuditOptions) (http.Handler, error) {
-	if sink == nil {
-		return nil, fmt.Errorf("request audit sink is required")
+func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) (http.Handler, error) {
+	if sink == nil || onFailure == nil {
+		return nil, fmt.Errorf("request audit sink and failure handler are required")
 	}
 	if !store.ValidOrganizationID(organizationID) {
 		return nil, fmt.Errorf("valid audit organization ID is required")
@@ -38,10 +40,10 @@ func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, au
 	if options.Now == nil || options.RequestID == nil {
 		return nil, fmt.Errorf("complete request audit dependencies are required")
 	}
-	return requestAuditMiddleware(newHandler(reader, buildVersion, &authenticator), organizationID, sink, options), nil
+	return requestAuditMiddleware(newHandler(reader, buildVersion, &authenticator), organizationID, sink, onFailure, options), nil
 }
 
-func requestAuditMiddleware(next http.Handler, organizationID string, sink RequestAuditSink, options requestAuditOptions) http.Handler {
+func requestAuditMiddleware(next http.Handler, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		started := options.Now().UTC()
 		requestID, err := options.RequestID()
@@ -59,12 +61,14 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 		if route == "" {
 			route = "unmatched"
 		}
-		sink.Record(auditedRequest.Context(), audit.FromHTTPRequest(audit.HTTPRequestObservation{
+		if err := sink.Record(auditedRequest.Context(), audit.FromHTTPRequest(audit.HTTPRequestObservation{
 			OccurredAt: started, RequestID: requestID,
 			OrganizationID: organizationID, Method: request.Method, Route: route,
 			Status: response.status, DurationMillis: max(finished.Sub(started).Milliseconds(), 0),
 			Authentication: state.authentication,
-		}))
+		})); err != nil {
+			onFailure(fmt.Errorf("record control-plane request audit: %w", err))
+		}
 	})
 }
 

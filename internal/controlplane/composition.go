@@ -8,13 +8,16 @@ import (
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
-func NewControlPlaneHTTPServer(config Config, reader store.Reader, buildVersion string) (*http.Server, error) {
+func NewControlPlaneHTTPServer(config Config, reader store.Reader, buildVersion string, auditSink server.RequestAuditSink, onAuditFailure server.RequestAuditFailureHandler) (*http.Server, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 	if reader == nil {
 		return nil, fmt.Errorf("control-plane store reader is required")
 	}
-	handler := server.NewAuthenticatedHandler(reader, buildVersion, config.Authenticator)
+	handler, err := server.NewAuditedAuthenticatedHandler(reader, buildVersion, config.Authenticator, config.OrganizationID, auditSink, onAuditFailure)
+	if err != nil {
+		return nil, err
+	}
 	return NewHTTPServer(config.HTTP, handler)
 }

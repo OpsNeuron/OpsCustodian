@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,7 +21,7 @@ func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 		time.Date(2026, 8, 20, 10, 0, 0, 0, time.UTC),
 		time.Date(2026, 8, 20, 10, 0, 0, int(12*time.Millisecond), time.UTC),
 	}
-	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, requestAuditOptions{
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
 		Now:       func() time.Time { value := times[0]; times = times[1:]; return value },
 		RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
 	})
@@ -48,7 +49,7 @@ func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 func TestRequestAuditDistinguishesRejectedAndPublicRequests(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
 	sink := &recordingRequestAuditSink{}
-	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, requestAuditOptions{
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
 		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
 	})
 	if err != nil {
@@ -63,16 +64,41 @@ func TestRequestAuditDistinguishesRejectedAndPublicRequests(t *testing.T) {
 
 func TestRequestAuditRequiresSafeDependencies(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
-	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "bad", &recordingRequestAuditSink{}); err == nil {
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "bad", &recordingRequestAuditSink{}, func(error) {}); err == nil {
 		t.Fatal("invalid organization was accepted")
 	}
-	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", nil); err == nil {
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", nil, func(error) {}); err == nil {
 		t.Fatal("missing audit sink was accepted")
+	}
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", &recordingRequestAuditSink{}, nil); err == nil {
+		t.Fatal("missing audit failure handler was accepted")
+	}
+}
+
+func TestRequestAuditReportsSinkFailureAfterResponse(t *testing.T) {
+	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	var reported error
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", failingRequestAuditSink{}, func(err error) { reported = err }, requestAuditOptions{
+		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if reported == nil || !strings.Contains(reported.Error(), "sink failure") {
+		t.Fatalf("reported audit failure = %v", reported)
 	}
 }
 
 type recordingRequestAuditSink struct{ events []audit.Event }
 
-func (sink *recordingRequestAuditSink) Record(_ context.Context, event audit.Event) {
+func (sink *recordingRequestAuditSink) Record(_ context.Context, event audit.Event) error {
 	sink.events = append(sink.events, event)
+	return nil
+}
+
+type failingRequestAuditSink struct{}
+
+func (failingRequestAuditSink) Record(context.Context, audit.Event) error {
+	return errors.New("sink failure")
 }

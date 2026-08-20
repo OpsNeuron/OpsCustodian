@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
@@ -65,6 +68,22 @@ func TestRunProcessPreservesServeAndDatabaseCloseErrors(t *testing.T) {
 	}
 }
 
+func TestRunProcessStopsWhenRequestAuditSinkFails(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	dependencies.AuditSink = processFailingAuditSink{}
+	dependencies.Serve = func(ctx context.Context, _ net.Listener, managed managedHTTPServer, _ Config) error {
+		server := managed.(*http.Server)
+		server.Handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/healthz", nil))
+		<-ctx.Done()
+		return nil
+	}
+	err := RunProcess(context.Background(), validRuntimeConfig(), "test", dependencies)
+	if err == nil || !strings.Contains(err.Error(), "audit storage unavailable") || events[len(events)-1] != "database-close" {
+		t.Fatalf("audit failure result = %v, events = %#v", err, events)
+	}
+}
+
 func TestRunProcessRejectsIncompleteProcessDependenciesBeforeDatabaseIO(t *testing.T) {
 	opened := false
 	database := successfulDependencies()
@@ -79,7 +98,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -87,6 +106,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 func processTestDependencies(events *[]string) ProcessDependencies {
 	database := &sql.DB{}
 	return ProcessDependencies{
+		AuditSink: discardRequestAuditSink{},
 		Database: Dependencies{
 			Open:    func(string) (*sql.DB, error) { *events = append(*events, "open"); return database, nil },
 			Ping:    func(context.Context, *sql.DB) error { *events = append(*events, "ping"); return nil },
@@ -118,3 +138,9 @@ func (listener *processTestListener) Close() error {
 	return nil
 }
 func (*processTestListener) Addr() net.Addr { return fakeAddress("127.0.0.1:8080") }
+
+type processFailingAuditSink struct{}
+
+func (processFailingAuditSink) Record(context.Context, audit.Event) error {
+	return errors.New("audit storage unavailable")
+}

@@ -76,10 +76,17 @@ and immediately converted into the authenticator's digest-only representation.
 `OPSCUSTODIAN_API_TOKEN_ID` is a required non-secret stable identifier containing
 3 to 63 lowercase letters, digits, or hyphens. Successful requests carry this
 identity into audit records without exposing the token or its digest.
-`OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
+In single-token mode, `OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
 the documented scopes. Unknown scopes fail configuration rather than granting
 future permissions accidentally. The safe configuration projection reports
 authentication state, credential ID, and the non-secret authorization scope list.
+
+For rotation and distinct service identities, `OPSCUSTODIAN_API_CREDENTIALS`
+accepts a JSON array of `{id, token, scopes}` objects. It supports 1 to 100
+credentials, rejects duplicate IDs and duplicate token digests, and assigns
+scopes independently per identity. Registry mode is mutually exclusive with
+the three single-token variables. Authentication examines every configured
+digest before deciding the match, and safe configuration exposes only IDs.
 
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then

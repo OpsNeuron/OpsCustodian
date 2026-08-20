@@ -1,7 +1,9 @@
 package controlplane
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +44,7 @@ type Config struct {
 	HTTP                    HTTPConfig
 	Authenticator           server.BearerAuthenticator
 	CredentialID            string
+	CredentialIDs           []string
 	Authorizer              server.ScopeAuthorizer
 }
 
@@ -69,6 +72,7 @@ type SafeConfig struct {
 	HTTP                     HTTPConfig    `json:"http"`
 	AuthenticationConfigured bool          `json:"authenticationConfigured"`
 	CredentialID             string        `json:"credentialId"`
+	CredentialIDs            []string      `json:"credentialIds"`
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
 }
 
@@ -89,17 +93,39 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		ConnMaxLifetime:         defaultConnMaxLifetime,
 		HTTP:                    defaultHTTPConfig(),
 	}
-	config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
-	authenticator, err := server.NewIdentifiedBearerAuthenticator(config.CredentialID, environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
-	if err != nil {
-		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID or OPSCUSTODIAN_API_TOKEN: %w", err)
+	var err error
+	credentialsJSON := environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIALS")
+	if credentialsJSON != "" {
+		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" {
+			return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIALS cannot be combined with single-token API variables")
+		}
+		var credentials []server.BearerCredential
+		decoder := json.NewDecoder(strings.NewReader(credentialsJSON))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&credentials); err != nil {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); err != io.EOF {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: exactly one JSON value is required")
+		}
+		config.Authenticator, config.Authorizer, err = server.NewBearerCredentialSecurity(credentials)
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
+		}
+		config.CredentialIDs = config.Authenticator.CredentialIDs()
+	} else {
+		config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
+		config.Authenticator, err = server.NewIdentifiedBearerAuthenticator(config.CredentialID, environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID or OPSCUSTODIAN_API_TOKEN: %w", err)
+		}
+		config.Authorizer, err = server.NewScopeAuthorizer(environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"))
+		if err != nil {
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_SCOPES: %w", err)
+		}
+		config.CredentialIDs = config.Authenticator.CredentialIDs()
 	}
-	config.Authenticator = authenticator
-	authorizer, err := server.NewScopeAuthorizer(environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"))
-	if err != nil {
-		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_SCOPES: %w", err)
-	}
-	config.Authorizer = authorizer
 	if config.OrganizationDisplayName == "" {
 		config.OrganizationDisplayName = config.OrganizationID
 	}
@@ -194,7 +220,10 @@ func (config Config) Validate() error {
 	if !config.Authenticator.Configured() {
 		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN is required")
 	}
-	if config.CredentialID == "" || config.Authenticator.CredentialID() != config.CredentialID {
+	if len(config.CredentialIDs) == 0 {
+		config.CredentialIDs = config.Authenticator.CredentialIDs()
+	}
+	if len(config.CredentialIDs) == 0 || (config.CredentialID != "" && config.Authenticator.CredentialID() != config.CredentialID) {
 		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN_ID must match the configured credential")
 	}
 	if !config.Authorizer.Configured() {
@@ -214,6 +243,7 @@ func (config Config) Safe() SafeConfig {
 		HTTP:                     config.HTTP,
 		AuthenticationConfigured: config.Authenticator.Configured(),
 		CredentialID:             config.CredentialID,
+		CredentialIDs:            append([]string(nil), config.CredentialIDs...),
 		AuthorizationScopes:      config.Authorizer.Scopes(),
 	}
 }

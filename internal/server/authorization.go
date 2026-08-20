@@ -23,24 +23,38 @@ var supportedScopes = map[string]struct{}{
 
 type ScopeAuthorizer struct {
 	scopes map[string]struct{}
+	grants map[string]map[string]struct{}
 }
 
 func NewScopeAuthorizer(scopes []string) (ScopeAuthorizer, error) {
 	if len(scopes) == 0 {
 		return ScopeAuthorizer{}, fmt.Errorf("at least one API authorization scope is required")
 	}
-	granted := make(map[string]struct{}, len(scopes))
-	for _, scope := range scopes {
-		scope = strings.TrimSpace(scope)
-		if _, ok := supportedScopes[scope]; !ok {
-			return ScopeAuthorizer{}, fmt.Errorf("unsupported API authorization scope %q", scope)
-		}
-		granted[scope] = struct{}{}
+	granted, err := validatedScopes(scopes)
+	if err != nil {
+		return ScopeAuthorizer{}, err
 	}
 	return ScopeAuthorizer{scopes: granted}, nil
 }
 
-func (authorizer ScopeAuthorizer) Configured() bool { return len(authorizer.scopes) > 0 }
+func validatedScopes(scopes []string) (map[string]struct{}, error) {
+	if len(scopes) == 0 {
+		return nil, fmt.Errorf("at least one API authorization scope is required")
+	}
+	granted := make(map[string]struct{}, len(scopes))
+	for _, scope := range scopes {
+		scope = strings.TrimSpace(scope)
+		if _, ok := supportedScopes[scope]; !ok {
+			return nil, fmt.Errorf("unsupported API authorization scope %q", scope)
+		}
+		granted[scope] = struct{}{}
+	}
+	return granted, nil
+}
+
+func (authorizer ScopeAuthorizer) Configured() bool {
+	return len(authorizer.scopes) > 0 || len(authorizer.grants) > 0
+}
 
 func (authorizer ScopeAuthorizer) Scopes() []string {
 	values := make([]string, 0, len(authorizer.scopes))
@@ -59,8 +73,12 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 			return
 		}
 		required := requiredScope(request.URL.Path)
-		_, broad := authorizer.scopes[ScopeControlPlaneRead]
-		_, specific := authorizer.scopes[required]
+		scopes := authorizer.scopes
+		if identity, ok := request.Context().Value(authenticatedIdentityContextKey{}).(string); ok && authorizer.grants != nil {
+			scopes = authorizer.grants[identity]
+		}
+		_, broad := scopes[ScopeControlPlaneRead]
+		_, specific := scopes[required]
 		if !broad && !specific {
 			setRequestAuthorization(request, "denied")
 			writeError(w, http.StatusForbidden, "authorization-denied", "the authenticated identity is not authorized for this operation")

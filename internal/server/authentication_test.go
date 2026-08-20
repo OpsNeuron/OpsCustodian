@@ -108,3 +108,45 @@ func TestIdentifiedBearerAuthenticatorValidatesStableCredentialID(t *testing.T) 
 		t.Fatalf("serialized authenticator = %s, err = %v", content, err)
 	}
 }
+
+func TestBearerCredentialRegistryUsesIndependentIdentitiesAndScopes(t *testing.T) {
+	inventoryToken := "inventory-reader-token-0123456789abcdef"
+	findingsToken := "findings-reader-token-0123456789abcdef0"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{
+		{ID: "inventory-reader", Token: inventoryToken, Scopes: []string{ScopeInventoryRead}},
+		{ID: "findings-reader", Token: findingsToken, Scopes: []string{ScopeFindingsRead}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(store.NewMemory(), "test", &authenticator, &authorizer)
+	for _, test := range []struct {
+		token, path string
+		status      int
+	}{
+		{inventoryToken, "/api/v1/repositories", http.StatusOK},
+		{inventoryToken, "/api/v1/findings", http.StatusForbidden},
+		{findingsToken, "/api/v1/findings", http.StatusOK},
+		{findingsToken, "/api/v1/repositories", http.StatusForbidden},
+	} {
+		request := httptest.NewRequest(http.MethodGet, test.path, nil)
+		request.Header.Set("Authorization", "Bearer "+test.token)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != test.status {
+			t.Fatalf("token path %s status = %d, want %d", test.path, response.Code, test.status)
+		}
+	}
+}
+
+func TestBearerCredentialRegistryRejectsAmbiguousConfiguration(t *testing.T) {
+	token := "duplicate-credential-token-0123456789abcdef"
+	for _, credentials := range [][]BearerCredential{
+		{{ID: "same-reader", Token: token, Scopes: []string{ScopeInventoryRead}}, {ID: "same-reader", Token: token + "x", Scopes: []string{ScopeFindingsRead}}},
+		{{ID: "first-reader", Token: token, Scopes: []string{ScopeInventoryRead}}, {ID: "second-reader", Token: token, Scopes: []string{ScopeFindingsRead}}},
+	} {
+		if _, _, err := NewBearerCredentialSecurity(credentials); err == nil {
+			t.Fatalf("ambiguous credentials accepted: %#v", credentials)
+		}
+	}
+}

@@ -170,6 +170,40 @@ func TestConfigRequiresValidCredentialID(t *testing.T) {
 	}
 }
 
+func TestConfigAcceptsMultiCredentialRegistryWithoutLeakingTokens(t *testing.T) {
+	first := "inventory-registry-token-0123456789abcdef"
+	second := "findings-registry-token-0123456789abcdef0"
+	config, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_CREDENTIALS":         `[{"id":"inventory-reader","token":"` + first + `","scopes":["inventory:read"]},{"id":"findings-reader","token":"` + second + `","scopes":["findings:read"]}]`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := json.Marshal(config.Safe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(content), first) || strings.Contains(string(content), second) || !strings.Contains(string(content), "inventory-reader") || !strings.Contains(string(content), "findings-reader") {
+		t.Fatalf("unsafe multi-credential projection: %s", content)
+	}
+}
+
+func TestConfigRejectsMixedCredentialModes(t *testing.T) {
+	_, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_CREDENTIALS":         `[{"id":"reader","token":"registry-token-0123456789abcdefghijkl","scopes":["inventory:read"]}]`,
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
+	}))
+	if err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("mixed credential error = %v", err)
+	}
+}
+
 func environment(values map[string]string) LookupEnv {
 	return func(name string) (string, bool) {
 		value, exists := values[name]

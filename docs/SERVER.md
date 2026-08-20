@@ -94,6 +94,14 @@ where old and new rotation credentials are both accepted. Disabled, future,
 expired, unknown, and malformed credentials all receive the same public-safe
 `401` response.
 
+Credential configuration is held by an in-process atomic registry. A validated
+reload publishes authentication digests and authorization grants together;
+invalid reloads leave the last good snapshot active. Each request pins one
+snapshot during authentication, so a concurrent rotation cannot combine an old
+identity with new grants. Environment configuration creates this registry at
+startup. Filesystem watching and external secret-provider adapters remain
+future operational integrations.
+
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then
 constructs the bounded HTTP server. This keeps the unauthenticated test

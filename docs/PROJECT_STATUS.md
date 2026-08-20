@@ -137,6 +137,7 @@ Missing exit items:
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.
+- Atomic in-process credential reload registry with immutable per-request security snapshots, last-known-good preservation after invalid reloads, and synchronized authentication/authorization publication.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

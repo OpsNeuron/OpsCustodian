@@ -22,8 +22,9 @@ var supportedScopes = map[string]struct{}{
 }
 
 type ScopeAuthorizer struct {
-	scopes map[string]struct{}
-	grants map[string]map[string]struct{}
+	scopes   map[string]struct{}
+	grants   map[string]map[string]struct{}
+	registry *CredentialRegistry
 }
 
 func NewScopeAuthorizer(scopes []string) (ScopeAuthorizer, error) {
@@ -53,7 +54,7 @@ func validatedScopes(scopes []string) (map[string]struct{}, error) {
 }
 
 func (authorizer ScopeAuthorizer) Configured() bool {
-	return len(authorizer.scopes) > 0 || len(authorizer.grants) > 0
+	return len(authorizer.scopes) > 0 || len(authorizer.grants) > 0 || (authorizer.registry != nil && authorizer.registry.snapshot.Load() != nil)
 }
 
 func (authorizer ScopeAuthorizer) Scopes() []string {
@@ -73,9 +74,20 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 			return
 		}
 		required := requiredScope(request.URL.Path)
+		if principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal); ok && principal.scopes != nil {
+			authorizer = ScopeAuthorizer{scopes: principal.scopes}
+		} else if authorizer.registry != nil {
+			snapshot := authorizer.registry.snapshot.Load()
+			if snapshot == nil {
+				setRequestAuthorization(request, "denied")
+				writeError(w, http.StatusForbidden, "authorization-denied", "the authenticated identity is not authorized for this operation")
+				return
+			}
+			authorizer = snapshot.authorizer
+		}
 		scopes := authorizer.scopes
-		if identity, ok := request.Context().Value(authenticatedIdentityContextKey{}).(string); ok && authorizer.grants != nil {
-			scopes = authorizer.grants[identity]
+		if principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal); ok && authorizer.grants != nil {
+			scopes = authorizer.grants[principal.identity]
 		}
 		_, broad := scopes[ScopeControlPlaneRead]
 		_, specific := scopes[required]

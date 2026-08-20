@@ -37,8 +37,13 @@ type bearerCredentialDigest struct {
 type BearerAuthenticator struct {
 	credentials []bearerCredentialDigest
 	now         func() time.Time
+	registry    *CredentialRegistry
 }
 type authenticatedIdentityContextKey struct{}
+type authenticatedPrincipal struct {
+	identity string
+	scopes   map[string]struct{}
+}
 
 func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
 	return NewIdentifiedBearerAuthenticator("legacy-api-token", token)
@@ -120,14 +125,22 @@ func validateBearerToken(token string) error {
 	return nil
 }
 
-func (authenticator BearerAuthenticator) Configured() bool { return len(authenticator.credentials) > 0 }
+func (authenticator BearerAuthenticator) Configured() bool {
+	return len(authenticator.credentials) > 0 || (authenticator.registry != nil && authenticator.registry.snapshot.Load() != nil)
+}
 func (authenticator BearerAuthenticator) CredentialID() string {
+	if authenticator.registry != nil {
+		return authenticator.registry.snapshot.Load().authenticator.CredentialID()
+	}
 	if len(authenticator.credentials) == 1 {
 		return authenticator.credentials[0].identity
 	}
 	return ""
 }
 func (authenticator BearerAuthenticator) CredentialIDs() []string {
+	if authenticator.registry != nil {
+		return authenticator.registry.snapshot.Load().authenticator.CredentialIDs()
+	}
 	identities := make([]string, 0, len(authenticator.credentials))
 	for _, credential := range authenticator.credentials {
 		identities = append(identities, credential.identity)
@@ -142,7 +155,7 @@ func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Hand
 			next.ServeHTTP(w, request)
 			return
 		}
-		identity, ok := authenticator.authenticate(request.Header.Values("Authorization"))
+		principal, ok := authenticator.authenticatePrincipal(request.Header.Values("Authorization"))
 		if !ok {
 			setRequestAuthentication(request, "rejected")
 			w.Header().Set("WWW-Authenticate", `Bearer realm="opscustodian"`)
@@ -150,13 +163,36 @@ func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Hand
 			return
 		}
 		setRequestAuthentication(request, "authenticated")
-		setRequestIdentity(request, identity)
-		*request = *request.WithContext(context.WithValue(request.Context(), authenticatedIdentityContextKey{}, identity))
+		setRequestIdentity(request, principal.identity)
+		*request = *request.WithContext(context.WithValue(request.Context(), authenticatedIdentityContextKey{}, principal))
 		next.ServeHTTP(w, request)
 	})
 }
 
+func (authenticator BearerAuthenticator) authenticatePrincipal(values []string) (authenticatedPrincipal, bool) {
+	if authenticator.registry != nil {
+		snapshot := authenticator.registry.snapshot.Load()
+		if snapshot == nil {
+			return authenticatedPrincipal{}, false
+		}
+		identity, ok := snapshot.authenticator.authenticate(values)
+		if !ok {
+			return authenticatedPrincipal{}, false
+		}
+		return authenticatedPrincipal{identity: identity, scopes: snapshot.authorizer.grants[identity]}, true
+	}
+	identity, ok := authenticator.authenticate(values)
+	return authenticatedPrincipal{identity: identity}, ok
+}
+
 func (authenticator BearerAuthenticator) authenticate(values []string) (string, bool) {
+	if authenticator.registry != nil {
+		snapshot := authenticator.registry.snapshot.Load()
+		if snapshot == nil {
+			return "", false
+		}
+		return snapshot.authenticator.authenticate(values)
+	}
 	if len(values) != 1 {
 		return "", false
 	}

@@ -46,6 +46,7 @@ type Config struct {
 	CredentialID            string
 	CredentialIDs           []string
 	Authorizer              server.ScopeAuthorizer
+	CredentialRegistry      *server.CredentialRegistry
 }
 
 type HTTPConfig struct {
@@ -109,20 +110,25 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		if err := decoder.Decode(&trailing); err != io.EOF {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: exactly one JSON value is required")
 		}
-		config.Authenticator, config.Authorizer, err = server.NewBearerCredentialSecurity(credentials)
+		config.CredentialRegistry, err = server.NewCredentialRegistry(credentials)
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
+		}
+		config.Authenticator, config.Authorizer, err = config.CredentialRegistry.Security()
+		if err != nil {
+			return Config{}, err
 		}
 		config.CredentialIDs = config.Authenticator.CredentialIDs()
 	} else {
 		config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
-		config.Authenticator, err = server.NewIdentifiedBearerAuthenticator(config.CredentialID, environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
+		credential := server.BearerCredential{ID: config.CredentialID, Token: environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"), Scopes: environmentList(lookup, "OPSCUSTODIAN_API_SCOPES")}
+		config.CredentialRegistry, err = server.NewCredentialRegistry([]server.BearerCredential{credential})
 		if err != nil {
-			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID or OPSCUSTODIAN_API_TOKEN: %w", err)
+			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID, OPSCUSTODIAN_API_TOKEN, or OPSCUSTODIAN_API_SCOPES: %w", err)
 		}
-		config.Authorizer, err = server.NewScopeAuthorizer(environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"))
+		config.Authenticator, config.Authorizer, err = config.CredentialRegistry.Security()
 		if err != nil {
-			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_SCOPES: %w", err)
+			return Config{}, err
 		}
 		config.CredentialIDs = config.Authenticator.CredentialIDs()
 	}

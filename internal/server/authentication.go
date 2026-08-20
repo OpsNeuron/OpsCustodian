@@ -15,7 +15,8 @@ const (
 )
 
 type BearerAuthenticator struct {
-	digest [sha256.Size]byte
+	digest     [sha256.Size]byte
+	configured bool
 }
 
 func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
@@ -25,8 +26,10 @@ func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
 	if strings.IndexFunc(token, unicode.IsSpace) >= 0 {
 		return BearerAuthenticator{}, fmt.Errorf("API bearer token must not contain whitespace")
 	}
-	return BearerAuthenticator{digest: sha256.Sum256([]byte(token))}, nil
+	return BearerAuthenticator{digest: sha256.Sum256([]byte(token)), configured: true}, nil
 }
+
+func (authenticator BearerAuthenticator) Configured() bool { return authenticator.configured }
 
 func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {

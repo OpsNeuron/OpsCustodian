@@ -129,6 +129,7 @@ Missing exit items:
 - Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 - Loopback-only HTTP runtime contract with bounded request lifecycle/header limits and deterministic graceful-shutdown orchestration over an injected listener.
 - Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.
+- Environment-to-digest API-token configuration and fail-closed server composition that cannot construct the operational HTTP server without authentication and a Store reader.
 
 The handler is intentionally not connected to a network listener until
 authentication, authorization, request limits, and safe bind defaults are

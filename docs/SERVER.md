@@ -66,6 +66,17 @@ The unauthenticated constructor remains available only for isolated tests and
 must not be connected to a listener. The runtime still cannot bind outside
 loopback.
 
+`OPSCUSTODIAN_API_TOKEN` is required by control-plane configuration and must
+contain 32 to 4096 non-whitespace bytes. It is read from the process environment
+and immediately converted into the authenticator's digest-only representation.
+The safe configuration projection reports only
+`authenticationConfigured: true`.
+
+The production composition constructor validates the complete configuration,
+requires a Store `Reader`, installs the authenticated API handler, and only then
+constructs the bounded HTTP server. This keeps the unauthenticated test
+constructor outside the operational wiring path.
+
 ## HTTP runtime guardrails
 
 The server runtime contract is implemented but is not connected to a CLI

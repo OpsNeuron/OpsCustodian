@@ -7,10 +7,13 @@ import (
 	"time"
 )
 
+const controlPlaneTestAPIToken = "opscustodian-control-plane-test-token-0123456789abcdef"
+
 func TestConfigFromEnvironmentUsesBoundedOperationalDefaults(t *testing.T) {
 	config, err := ConfigFromEnvironment(environment(map[string]string{
 		"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef",
 		"OPSCUSTODIAN_DATABASE_DSN":    "postgres://custodian:secret@database/controlplane?sslmode=verify-full",
+		"OPSCUSTODIAN_API_TOKEN":       controlPlaneTestAPIToken,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -32,6 +35,7 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME":  "Agent Platform",
 		"OPSCUSTODIAN_DATABASE_DSN":               "postgres://database/controlplane",
 		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE":    "true",
+		"OPSCUSTODIAN_API_TOKEN":                  controlPlaneTestAPIToken,
 		"OPSCUSTODIAN_DATABASE_MIGRATE":           "false",
 		"OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT":   "15s",
 		"OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT": "3m",
@@ -74,6 +78,7 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 				"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
 				"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
 				"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+				"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
 			}
 			values[test.variable] = test.value
 			_, err := ConfigFromEnvironment(environment(values))
@@ -90,6 +95,7 @@ func TestSafeConfigNeverContainsDatabaseCredentials(t *testing.T) {
 		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
 		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://custodian:" + secret + "@database/controlplane",
 		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -98,8 +104,26 @@ func TestSafeConfigNeverContainsDatabaseCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(content), secret) || strings.Contains(string(content), "postgres://") {
-		t.Fatalf("safe configuration leaked database DSN: %s", content)
+	if strings.Contains(string(content), secret) || strings.Contains(string(content), controlPlaneTestAPIToken) || strings.Contains(string(content), "postgres://") {
+		t.Fatalf("safe configuration leaked a secret: %s", content)
+	}
+	if !strings.Contains(string(content), `"authenticationConfigured":true`) {
+		t.Fatalf("safe configuration omitted authentication state: %s", content)
+	}
+}
+
+func TestConfigRequiresStrongAPIToken(t *testing.T) {
+	values := map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+	}
+	if _, err := ConfigFromEnvironment(environment(values)); err == nil || !strings.Contains(err.Error(), "OPSCUSTODIAN_API_TOKEN") {
+		t.Fatalf("missing token error = %v", err)
+	}
+	values["OPSCUSTODIAN_API_TOKEN"] = "short"
+	if _, err := ConfigFromEnvironment(environment(values)); err == nil || !strings.Contains(err.Error(), "OPSCUSTODIAN_API_TOKEN") {
+		t.Fatalf("weak token error = %v", err)
 	}
 }
 

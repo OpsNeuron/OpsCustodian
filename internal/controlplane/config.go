@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/server"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
@@ -39,6 +40,7 @@ type Config struct {
 	MaxIdleConns            int
 	ConnMaxLifetime         time.Duration
 	HTTP                    HTTPConfig
+	Authenticator           server.BearerAuthenticator
 }
 
 type HTTPConfig struct {
@@ -51,18 +53,19 @@ type HTTPConfig struct {
 }
 
 type SafeConfig struct {
-	OrganizationID          string        `json:"organizationId"`
-	OrganizationDisplayName string        `json:"organizationDisplayName"`
-	DatabaseConfigured      bool          `json:"databaseConfigured"`
-	AllowInsecureDatabase   bool          `json:"allowInsecureDatabase"`
-	ApplyMigrations         bool          `json:"applyMigrations"`
-	ConnectTimeout          time.Duration `json:"connectTimeout"`
-	MigrationTimeout        time.Duration `json:"migrationTimeout"`
-	ShutdownTimeout         time.Duration `json:"shutdownTimeout"`
-	MaxOpenConns            int           `json:"maxOpenConnections"`
-	MaxIdleConns            int           `json:"maxIdleConnections"`
-	ConnMaxLifetime         time.Duration `json:"connectionMaxLifetime"`
-	HTTP                    HTTPConfig    `json:"http"`
+	OrganizationID           string        `json:"organizationId"`
+	OrganizationDisplayName  string        `json:"organizationDisplayName"`
+	DatabaseConfigured       bool          `json:"databaseConfigured"`
+	AllowInsecureDatabase    bool          `json:"allowInsecureDatabase"`
+	ApplyMigrations          bool          `json:"applyMigrations"`
+	ConnectTimeout           time.Duration `json:"connectTimeout"`
+	MigrationTimeout         time.Duration `json:"migrationTimeout"`
+	ShutdownTimeout          time.Duration `json:"shutdownTimeout"`
+	MaxOpenConns             int           `json:"maxOpenConnections"`
+	MaxIdleConns             int           `json:"maxIdleConnections"`
+	ConnMaxLifetime          time.Duration `json:"connectionMaxLifetime"`
+	HTTP                     HTTPConfig    `json:"http"`
+	AuthenticationConfigured bool          `json:"authenticationConfigured"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -82,10 +85,14 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		ConnMaxLifetime:         defaultConnMaxLifetime,
 		HTTP:                    defaultHTTPConfig(),
 	}
+	authenticator, err := server.NewBearerAuthenticator(environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN: %w", err)
+	}
+	config.Authenticator = authenticator
 	if config.OrganizationDisplayName == "" {
 		config.OrganizationDisplayName = config.OrganizationID
 	}
-	var err error
 	if config.ApplyMigrations, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_MIGRATE", config.ApplyMigrations); err != nil {
 		return Config{}, err
 	}
@@ -174,6 +181,9 @@ func (config Config) Validate() error {
 	if err := config.HTTP.Validate(); err != nil {
 		return err
 	}
+	if !config.Authenticator.Configured() {
+		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN is required")
+	}
 	return nil
 }
 
@@ -185,7 +195,8 @@ func (config Config) Safe() SafeConfig {
 		ConnectTimeout:  config.ConnectTimeout, ShutdownTimeout: config.ShutdownTimeout,
 		MigrationTimeout: config.MigrationTimeout,
 		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
-		HTTP: config.HTTP,
+		HTTP:                     config.HTTP,
+		AuthenticationConfigured: config.Authenticator.Configured(),
 	}
 }
 

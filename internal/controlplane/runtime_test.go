@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/server"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
@@ -151,12 +152,17 @@ func successfulDependencies() Dependencies {
 }
 
 func validRuntimeConfig() Config {
+	authenticator, err := server.NewBearerAuthenticator(controlPlaneTestAPIToken)
+	if err != nil {
+		panic(err)
+	}
 	return Config{
 		OrganizationID: "organization-0123456789abcdef", OrganizationDisplayName: "Agent Platform",
 		DatabaseDSN: "postgres://database/controlplane", AllowInsecureDatabase: true, ApplyMigrations: true,
 		ConnectTimeout: 5 * time.Second, ShutdownTimeout: 10 * time.Second,
 		MigrationTimeout: 2 * time.Minute,
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
-		HTTP: defaultHTTPConfig(),
+		HTTP:          defaultHTTPConfig(),
+		Authenticator: authenticator,
 	}
 }

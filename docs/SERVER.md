@@ -98,3 +98,21 @@ timeout-bounded graceful shutdown when its context is cancelled.
 Unit tests verify both loopback families, rejection of exposure-prone binds,
 timeout/header bounds, cancellation, shutdown, and error propagation without
 opening a real socket.
+
+## Process lifecycle
+
+The control-plane process orchestrator now owns startup and cleanup order:
+
+1. validate configuration and bootstrap PostgreSQL;
+2. construct the authenticated HTTP server;
+3. acquire the loopback listener;
+4. serve until the caller's context is cancelled or serving fails;
+5. close the listener; and
+6. close the database exactly once.
+
+Listener and serving functions are injected for deterministic tests. Failures
+before listener creation cannot leak a database handle, failures while serving
+still close both resources, and simultaneous serve/close failures are retained
+as a joined error. Default dependencies register pgx and real TCP behavior but
+do not perform I/O until the process runner is explicitly invoked. OS signal
+conversion into the process context belongs to the forthcoming CLI command.

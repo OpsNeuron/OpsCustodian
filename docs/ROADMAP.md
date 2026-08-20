@@ -114,6 +114,7 @@ runtime authorization system.
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation, authorization, OIDC, and audit integration pending)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented; CLI process lifecycle pending)*
+- Control-plane process lifecycle. *(startup/resource ownership and failure cleanup implemented with injected dependencies; OS signal and CLI wiring pending)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.

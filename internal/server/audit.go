@@ -26,6 +26,7 @@ type requestAuditOptions struct {
 type requestAuditState struct {
 	authentication string
 	authorization  string
+	identity       string
 }
 type requestAuditContextKey struct{}
 
@@ -58,7 +59,7 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 			return
 		}
 		w.Header().Set("X-Request-ID", requestID)
-		state := &requestAuditState{authentication: "unknown", authorization: "unknown"}
+		state := &requestAuditState{authentication: "unknown", authorization: "unknown", identity: "unknown"}
 		auditedRequest := request.WithContext(context.WithValue(request.Context(), requestAuditContextKey{}, state))
 		response := &auditResponseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(response, auditedRequest)
@@ -71,7 +72,7 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 			OccurredAt: started, RequestID: requestID,
 			OrganizationID: organizationID, Method: request.Method, Route: route,
 			Status: response.status, DurationMillis: max(finished.Sub(started).Milliseconds(), 0),
-			Authentication: state.authentication, Authorization: state.authorization,
+			Authentication: state.authentication, Authorization: state.authorization, Identity: state.identity,
 		})); err != nil {
 			onFailure(fmt.Errorf("record control-plane request audit: %w", err))
 		}
@@ -102,6 +103,12 @@ func setRequestAuthentication(request *http.Request, value string) {
 func setRequestAuthorization(request *http.Request, value string) {
 	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
 		state.authorization = value
+	}
+}
+
+func setRequestIdentity(request *http.Request, value string) {
+	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
+		state.identity = value
 	}
 }
 

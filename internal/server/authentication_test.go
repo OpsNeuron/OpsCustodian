@@ -92,3 +92,19 @@ func TestBearerAuthenticatorValidatesSecretAndDoesNotSerializeIt(t *testing.T) {
 		t.Fatalf("serialized authenticator = %s", content)
 	}
 }
+
+func TestIdentifiedBearerAuthenticatorValidatesStableCredentialID(t *testing.T) {
+	for _, identity := range []string{"", "UPPER", "1reader", "ab", strings.Repeat("a", 64), "reader_one"} {
+		if _, err := NewIdentifiedBearerAuthenticator(identity, serverTestBearerToken); err == nil {
+			t.Fatalf("invalid credential ID accepted: %q", identity)
+		}
+	}
+	authenticator, err := NewIdentifiedBearerAuthenticator("platform-reader", serverTestBearerToken)
+	if err != nil || authenticator.CredentialID() != "platform-reader" {
+		t.Fatalf("credential ID = %q, err = %v", authenticator.CredentialID(), err)
+	}
+	content, err := json.Marshal(authenticator)
+	if err != nil || strings.Contains(string(content), "platform-reader") || string(content) != "{}" {
+		t.Fatalf("serialized authenticator = %s, err = %v", content, err)
+	}
+}

@@ -168,6 +168,7 @@ func validRuntimeConfig() Config {
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
 		HTTP:          defaultHTTPConfig(),
 		Authenticator: authenticator,
+		CredentialID:  authenticator.CredentialID(),
 		Authorizer:    authorizer,
 	}
 }

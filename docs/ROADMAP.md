@@ -114,6 +114,7 @@ runtime authorization system.
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation and OIDC pending)*
 - Initial API authorization boundary. *(granular contracts, inventory, and findings scopes plus a `control-plane:read` umbrella, fail-closed environment configuration, `403` response, OpenAPI declarations, and audit outcome implemented; repository-level roles pending)*
+- Stable credential identity. *(validated non-secret token identity and audit propagation implemented; multi-token registry and independent grants pending)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
 - Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, and fail-closed process shutdown implemented; durable buffering and retention pending)*

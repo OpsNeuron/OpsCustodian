@@ -39,6 +39,7 @@ type HTTPRequestObservation struct {
 	DurationMillis int64
 	Authentication string
 	Authorization  string
+	Identity       string
 }
 
 func FromHTTPRequest(observation HTTPRequestObservation) Event {
@@ -51,6 +52,7 @@ func FromHTTPRequest(observation HTTPRequestObservation) Event {
 		"opscustodian.organization.id":       observation.OrganizationID,
 		"opscustodian.authentication.result": observation.Authentication,
 		"opscustodian.authorization.result":  observation.Authorization,
+		"opscustodian.identity.id":           observation.Identity,
 		"http.request.method":                observation.Method,
 		"http.route":                         observation.Route,
 		"http.response.status_code":          observation.Status,

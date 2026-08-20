@@ -41,6 +41,7 @@ type Config struct {
 	ConnMaxLifetime         time.Duration
 	HTTP                    HTTPConfig
 	Authenticator           server.BearerAuthenticator
+	CredentialID            string
 	Authorizer              server.ScopeAuthorizer
 }
 
@@ -67,6 +68,7 @@ type SafeConfig struct {
 	ConnMaxLifetime          time.Duration `json:"connectionMaxLifetime"`
 	HTTP                     HTTPConfig    `json:"http"`
 	AuthenticationConfigured bool          `json:"authenticationConfigured"`
+	CredentialID             string        `json:"credentialId"`
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
 }
 
@@ -87,9 +89,10 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		ConnMaxLifetime:         defaultConnMaxLifetime,
 		HTTP:                    defaultHTTPConfig(),
 	}
-	authenticator, err := server.NewBearerAuthenticator(environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
+	config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
+	authenticator, err := server.NewIdentifiedBearerAuthenticator(config.CredentialID, environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"))
 	if err != nil {
-		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN: %w", err)
+		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID or OPSCUSTODIAN_API_TOKEN: %w", err)
 	}
 	config.Authenticator = authenticator
 	authorizer, err := server.NewScopeAuthorizer(environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"))
@@ -191,6 +194,9 @@ func (config Config) Validate() error {
 	if !config.Authenticator.Configured() {
 		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN is required")
 	}
+	if config.CredentialID == "" || config.Authenticator.CredentialID() != config.CredentialID {
+		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN_ID must match the configured credential")
+	}
 	if !config.Authorizer.Configured() {
 		return fmt.Errorf("OPSCUSTODIAN_API_SCOPES is required")
 	}
@@ -207,6 +213,7 @@ func (config Config) Safe() SafeConfig {
 		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
 		HTTP:                     config.HTTP,
 		AuthenticationConfigured: config.Authenticator.Configured(),
+		CredentialID:             config.CredentialID,
 		AuthorizationScopes:      config.Authorizer.Scopes(),
 	}
 }

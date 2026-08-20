@@ -73,10 +73,13 @@ loopback.
 `OPSCUSTODIAN_API_TOKEN` is required by control-plane configuration and must
 contain 32 to 4096 non-whitespace bytes. It is read from the process environment
 and immediately converted into the authenticator's digest-only representation.
+`OPSCUSTODIAN_API_TOKEN_ID` is a required non-secret stable identifier containing
+3 to 63 lowercase letters, digits, or hyphens. Successful requests carry this
+identity into audit records without exposing the token or its digest.
 `OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
 the documented scopes. Unknown scopes fail configuration rather than granting
 future permissions accidentally. The safe configuration projection reports
-authentication state and the non-secret authorization scope list.
+authentication state, credential ID, and the non-secret authorization scope list.
 
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then

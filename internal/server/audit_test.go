@@ -38,7 +38,7 @@ func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 		t.Fatalf("response = %d, events = %#v", response.Code, sink.events)
 	}
 	event := sink.events[0]
-	if event.EventName != "opscustodian.http.request.completed" || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "authenticated" || event.Attributes["opscustodian.authorization.result"] != "authorized" || event.Attributes["http.response.status_code"] != http.StatusBadRequest || event.Attributes["http.server.request.duration_ms"] != int64(12) {
+	if event.EventName != "opscustodian.http.request.completed" || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "authenticated" || event.Attributes["opscustodian.authorization.result"] != "authorized" || event.Attributes["opscustodian.identity.id"] != "legacy-api-token" || event.Attributes["http.response.status_code"] != http.StatusBadRequest || event.Attributes["http.server.request.duration_ms"] != int64(12) {
 		t.Fatalf("audit event = %#v", event)
 	}
 	content, _ := json.Marshal(event)

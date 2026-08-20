@@ -45,9 +45,9 @@ func TestFromHTTPRequestUsesSharedSecretSafeAuditEnvelope(t *testing.T) {
 		OccurredAt: time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC),
 		RequestID:  "request-123", OrganizationID: "organization-0123456789abcdef",
 		Method: "GET", Route: "GET /api/v1/repositories", Status: 401,
-		DurationMillis: 12, Authentication: "rejected",
+		DurationMillis: 12, Authentication: "rejected", Authorization: "unknown", Identity: "unknown",
 	})
-	if event.SchemaVersion != SchemaVersion || event.EventName != "opscustodian.http.request.completed" || event.SeverityNumber != 13 || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "rejected" {
+	if event.SchemaVersion != SchemaVersion || event.EventName != "opscustodian.http.request.completed" || event.SeverityNumber != 13 || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "rejected" || event.Attributes["opscustodian.identity.id"] != "unknown" {
 		t.Fatalf("HTTP audit event = %#v", event)
 	}
 	content, err := json.Marshal(event)

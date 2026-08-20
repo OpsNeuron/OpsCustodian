@@ -5,9 +5,12 @@ import (
 	"crypto/subtle"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"unicode"
 )
+
+var credentialIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{2,62}$`)
 
 const (
 	minimumBearerTokenBytes = 32
@@ -16,20 +19,29 @@ const (
 
 type BearerAuthenticator struct {
 	digest     [sha256.Size]byte
+	identity   string
 	configured bool
 }
 
 func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
+	return NewIdentifiedBearerAuthenticator("legacy-api-token", token)
+}
+
+func NewIdentifiedBearerAuthenticator(identity, token string) (BearerAuthenticator, error) {
+	if !credentialIDPattern.MatchString(identity) {
+		return BearerAuthenticator{}, fmt.Errorf("API credential ID must contain 3 to 63 lowercase letters, digits, or hyphens and start with a letter")
+	}
 	if len(token) < minimumBearerTokenBytes || len(token) > maximumBearerTokenBytes {
 		return BearerAuthenticator{}, fmt.Errorf("API bearer token must contain between %d and %d bytes", minimumBearerTokenBytes, maximumBearerTokenBytes)
 	}
 	if strings.IndexFunc(token, unicode.IsSpace) >= 0 {
 		return BearerAuthenticator{}, fmt.Errorf("API bearer token must not contain whitespace")
 	}
-	return BearerAuthenticator{digest: sha256.Sum256([]byte(token)), configured: true}, nil
+	return BearerAuthenticator{digest: sha256.Sum256([]byte(token)), identity: identity, configured: true}, nil
 }
 
-func (authenticator BearerAuthenticator) Configured() bool { return authenticator.configured }
+func (authenticator BearerAuthenticator) Configured() bool     { return authenticator.configured }
+func (authenticator BearerAuthenticator) CredentialID() string { return authenticator.identity }
 
 func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -45,6 +57,7 @@ func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Hand
 			return
 		}
 		setRequestAuthentication(request, "authenticated")
+		setRequestIdentity(request, authenticator.identity)
 		next.ServeHTTP(w, request)
 	})
 }

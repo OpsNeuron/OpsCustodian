@@ -53,7 +53,9 @@ Control-plane request events contain only a server-generated request ID,
 organization ID, HTTP method, canonical ServeMux route pattern, response status,
 bounded duration, authentication result (`public`, `authenticated`, or
 `rejected`), and authorization result (`public`, `authorized`, `denied`, or
-`unknown`). They never record raw URLs, query strings, cursors, client-supplied
+`unknown`). Successful authentication also records the configured non-secret
+credential ID; rejected and public requests use no client-provided identity.
+They never record raw URLs, query strings, cursors, client-supplied
 request IDs, Authorization headers, tokens, remote addresses, or request/response
 bodies. A random 128-bit request ID is returned as `X-Request-ID` for local
 correlation.

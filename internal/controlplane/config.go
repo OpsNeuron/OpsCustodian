@@ -41,6 +41,7 @@ type Config struct {
 	ConnMaxLifetime         time.Duration
 	HTTP                    HTTPConfig
 	Authenticator           server.BearerAuthenticator
+	Authorizer              server.ScopeAuthorizer
 }
 
 type HTTPConfig struct {
@@ -66,6 +67,7 @@ type SafeConfig struct {
 	ConnMaxLifetime          time.Duration `json:"connectionMaxLifetime"`
 	HTTP                     HTTPConfig    `json:"http"`
 	AuthenticationConfigured bool          `json:"authenticationConfigured"`
+	AuthorizationScopes      []string      `json:"authorizationScopes"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -90,6 +92,11 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN: %w", err)
 	}
 	config.Authenticator = authenticator
+	authorizer, err := server.NewScopeAuthorizer(environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"))
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_SCOPES: %w", err)
+	}
+	config.Authorizer = authorizer
 	if config.OrganizationDisplayName == "" {
 		config.OrganizationDisplayName = config.OrganizationID
 	}
@@ -184,6 +191,9 @@ func (config Config) Validate() error {
 	if !config.Authenticator.Configured() {
 		return fmt.Errorf("OPSCUSTODIAN_API_TOKEN is required")
 	}
+	if !config.Authorizer.Configured() {
+		return fmt.Errorf("OPSCUSTODIAN_API_SCOPES is required")
+	}
 	return nil
 }
 
@@ -197,7 +207,16 @@ func (config Config) Safe() SafeConfig {
 		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
 		HTTP:                     config.HTTP,
 		AuthenticationConfigured: config.Authenticator.Configured(),
+		AuthorizationScopes:      config.Authorizer.Scopes(),
 	}
+}
+
+func environmentList(lookup LookupEnv, name string) []string {
+	value := environmentValue(lookup, name)
+	if value == "" {
+		return nil
+	}
+	return strings.Split(value, ",")
 }
 
 func environmentValueOr(lookup LookupEnv, name, fallback string) string {

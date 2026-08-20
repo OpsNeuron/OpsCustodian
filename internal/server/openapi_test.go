@@ -52,5 +52,11 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		if _, exists := document.Paths[path]["get"]; !exists {
 			t.Errorf("OpenAPI does not document GET %s", path)
 		}
+		if path != "/healthz" {
+			operation := document.Paths[path]["get"].(map[string]any)
+			if operation["x-opscustodian-required-scope"] != requiredScope(path) {
+				t.Errorf("OpenAPI GET %s scope = %v, want %s", path, operation["x-opscustodian-required-scope"], requiredScope(path))
+			}
+		}
 	}
 }

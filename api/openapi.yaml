@@ -27,11 +27,13 @@ paths:
   /api/v1/contracts:
     get:
       operationId: getContracts
+      x-opscustodian-required-scope: contracts:read
       responses:
         "200": { $ref: "#/components/responses/JSONSuccess" }
   /api/v1/repositories:
     get:
       operationId: listRepositories
+      x-opscustodian-required-scope: inventory:read
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
@@ -41,6 +43,7 @@ paths:
   /api/v1/repositories/{repositoryId}/bom:
     get:
       operationId: getLatestRepositoryBOM
+      x-opscustodian-required-scope: inventory:read
       parameters:
         - { $ref: "#/components/parameters/RepositoryID" }
       responses:
@@ -50,6 +53,7 @@ paths:
   /api/v1/repositories/{repositoryId}/snapshots:
     get:
       operationId: listRepositorySnapshots
+      x-opscustodian-required-scope: inventory:read
       parameters:
         - { $ref: "#/components/parameters/RepositoryID" }
         - { $ref: "#/components/parameters/Limit" }
@@ -61,6 +65,7 @@ paths:
   /api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom:
     get:
       operationId: getRepositorySnapshotBOM
+      x-opscustodian-required-scope: inventory:read
       parameters:
         - { $ref: "#/components/parameters/RepositoryID" }
         - { $ref: "#/components/parameters/SnapshotID" }
@@ -71,6 +76,7 @@ paths:
   /api/v1/findings:
     get:
       operationId: listFindings
+      x-opscustodian-required-scope: findings:read
       parameters:
         - name: repositoryId
           in: query
@@ -86,6 +92,7 @@ paths:
   /api/v1/finding-lifecycles:
     get:
       operationId: listFindingLifecycles
+      x-opscustodian-required-scope: findings:read
       parameters:
         - name: repositoryId
           in: query
@@ -107,7 +114,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque
-      description: High-entropy token supplied through server environment configuration.
+      description: High-entropy token supplied through server environment configuration. Every API operation also requires its declared OpsCustodian scope.
   parameters:
     RepositoryID:
       name: repositoryId

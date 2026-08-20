@@ -23,14 +23,17 @@ type requestAuditOptions struct {
 	RequestID func() (string, error)
 }
 
-type requestAuditState struct{ authentication string }
+type requestAuditState struct {
+	authentication string
+	authorization  string
+}
 type requestAuditContextKey struct{}
 
-func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler) (http.Handler, error) {
-	return newAuditedAuthenticatedHandler(reader, buildVersion, authenticator, organizationID, sink, onFailure, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
+func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler) (http.Handler, error) {
+	return newAuditedAuthenticatedHandler(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
 }
 
-func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) (http.Handler, error) {
+func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) (http.Handler, error) {
 	if sink == nil || onFailure == nil {
 		return nil, fmt.Errorf("request audit sink and failure handler are required")
 	}
@@ -40,7 +43,10 @@ func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, au
 	if options.Now == nil || options.RequestID == nil {
 		return nil, fmt.Errorf("complete request audit dependencies are required")
 	}
-	return requestAuditMiddleware(newHandler(reader, buildVersion, &authenticator), organizationID, sink, onFailure, options), nil
+	if !authorizer.Configured() {
+		return nil, fmt.Errorf("configured request authorizer is required")
+	}
+	return requestAuditMiddleware(newHandler(reader, buildVersion, &authenticator, &authorizer), organizationID, sink, onFailure, options), nil
 }
 
 func requestAuditMiddleware(next http.Handler, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) http.Handler {
@@ -52,7 +58,7 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 			return
 		}
 		w.Header().Set("X-Request-ID", requestID)
-		state := &requestAuditState{authentication: "unknown"}
+		state := &requestAuditState{authentication: "unknown", authorization: "unknown"}
 		auditedRequest := request.WithContext(context.WithValue(request.Context(), requestAuditContextKey{}, state))
 		response := &auditResponseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(response, auditedRequest)
@@ -65,7 +71,7 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 			OccurredAt: started, RequestID: requestID,
 			OrganizationID: organizationID, Method: request.Method, Route: route,
 			Status: response.status, DurationMillis: max(finished.Sub(started).Milliseconds(), 0),
-			Authentication: state.authentication,
+			Authentication: state.authentication, Authorization: state.authorization,
 		})); err != nil {
 			onFailure(fmt.Errorf("record control-plane request audit: %w", err))
 		}
@@ -90,6 +96,12 @@ func (writer *auditResponseWriter) WriteHeader(status int) {
 func setRequestAuthentication(request *http.Request, value string) {
 	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
 		state.authentication = value
+	}
+}
+
+func setRequestAuthorization(request *http.Request, value string) {
+	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
+		state.authorization = value
 	}
 }
 

@@ -38,17 +38,19 @@ type HTTPRequestObservation struct {
 	Status         int
 	DurationMillis int64
 	Authentication string
+	Authorization  string
 }
 
 func FromHTTPRequest(observation HTTPRequestObservation) Event {
 	severity := 9
-	if observation.Status == 401 || observation.Status >= 500 {
+	if observation.Status == 401 || observation.Status == 403 || observation.Status >= 500 {
 		severity = 13
 	}
 	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.http.request.completed", severity, "OpsCustodian control-plane HTTP request completed", map[string]any{
 		"opscustodian.request.id":            observation.RequestID,
 		"opscustodian.organization.id":       observation.OrganizationID,
 		"opscustodian.authentication.result": observation.Authentication,
+		"opscustodian.authorization.result":  observation.Authorization,
 		"http.request.method":                observation.Method,
 		"http.route":                         observation.Route,
 		"http.response.status_code":          observation.Status,

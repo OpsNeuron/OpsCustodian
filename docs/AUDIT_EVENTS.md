@@ -51,8 +51,9 @@ BOM and audit contracts.
 
 Control-plane request events contain only a server-generated request ID,
 organization ID, HTTP method, canonical ServeMux route pattern, response status,
-bounded duration, and authentication result (`public`, `authenticated`, or
-`rejected`). They never record raw URLs, query strings, cursors, client-supplied
+bounded duration, authentication result (`public`, `authenticated`, or
+`rejected`), and authorization result (`public`, `authorized`, `denied`, or
+`unknown`). They never record raw URLs, query strings, cursors, client-supplied
 request IDs, Authorization headers, tokens, remote addresses, or request/response
 bodies. A random 128-bit request ID is returned as `X-Request-ID` for local
 correlation.

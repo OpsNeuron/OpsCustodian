@@ -16,12 +16,13 @@ import (
 
 func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})
 	sink := &recordingRequestAuditSink{}
 	times := []time.Time{
 		time.Date(2026, 8, 20, 10, 0, 0, 0, time.UTC),
 		time.Date(2026, 8, 20, 10, 0, 0, int(12*time.Millisecond), time.UTC),
 	}
-	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
 		Now:       func() time.Time { value := times[0]; times = times[1:]; return value },
 		RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
 	})
@@ -37,7 +38,7 @@ func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 		t.Fatalf("response = %d, events = %#v", response.Code, sink.events)
 	}
 	event := sink.events[0]
-	if event.EventName != "opscustodian.http.request.completed" || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "authenticated" || event.Attributes["http.response.status_code"] != http.StatusBadRequest || event.Attributes["http.server.request.duration_ms"] != int64(12) {
+	if event.EventName != "opscustodian.http.request.completed" || event.Attributes["http.route"] != "GET /api/v1/repositories" || event.Attributes["opscustodian.authentication.result"] != "authenticated" || event.Attributes["opscustodian.authorization.result"] != "authorized" || event.Attributes["http.response.status_code"] != http.StatusBadRequest || event.Attributes["http.server.request.duration_ms"] != int64(12) {
 		t.Fatalf("audit event = %#v", event)
 	}
 	content, _ := json.Marshal(event)
@@ -48,8 +49,9 @@ func TestRequestAuditCapturesCanonicalSecretSafeAPIEvent(t *testing.T) {
 
 func TestRequestAuditDistinguishesRejectedAndPublicRequests(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})
 	sink := &recordingRequestAuditSink{}
-	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
 		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
 	})
 	if err != nil {
@@ -64,21 +66,23 @@ func TestRequestAuditDistinguishesRejectedAndPublicRequests(t *testing.T) {
 
 func TestRequestAuditRequiresSafeDependencies(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
-	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "bad", &recordingRequestAuditSink{}, func(error) {}); err == nil {
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "bad", &recordingRequestAuditSink{}, func(error) {}); err == nil {
 		t.Fatal("invalid organization was accepted")
 	}
-	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", nil, func(error) {}); err == nil {
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", nil, func(error) {}); err == nil {
 		t.Fatal("missing audit sink was accepted")
 	}
-	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", &recordingRequestAuditSink{}, nil); err == nil {
+	if _, err := NewAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", &recordingRequestAuditSink{}, nil); err == nil {
 		t.Fatal("missing audit failure handler was accepted")
 	}
 }
 
 func TestRequestAuditReportsSinkFailureAfterResponse(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})
 	var reported error
-	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, "organization-0123456789abcdef", failingRequestAuditSink{}, func(err error) { reported = err }, requestAuditOptions{
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", failingRequestAuditSink{}, func(err error) { reported = err }, requestAuditOptions{
 		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
 	})
 	if err != nil {

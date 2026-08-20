@@ -47,6 +47,14 @@ func TestControlPlaneCompositionRejectsMissingSecurityDependencies(t *testing.T)
 	}
 }
 
+func TestControlPlaneCompositionRejectsMissingAuthorization(t *testing.T) {
+	config := validRuntimeConfig()
+	config.Authorizer = serverauth.ScopeAuthorizer{}
+	if _, err := NewControlPlaneHTTPServer(config, store.NewMemory(), "test", discardRequestAuditSink{}, func(error) {}); err == nil {
+		t.Fatal("missing authorizer was accepted")
+	}
+}
+
 type discardRequestAuditSink struct{}
 
 func (discardRequestAuditSink) Record(context.Context, audit.Event) error { return nil }

@@ -133,9 +133,10 @@ Missing exit items:
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.
 - Versioned secret-minimized HTTP request audit events, synchronized JSONL stderr sink, and fail-closed process wiring with server-generated correlation IDs, canonical routes, authentication outcomes, status, and latency.
+- Explicit scope-based API authorization with granular contracts, inventory, and findings read permissions plus a `control-plane:read` umbrella, separate `401`/`403` semantics, fail-closed environment validation, OpenAPI declarations, and authorization audit outcomes.
 
 The server can now be started explicitly, but remains restricted to loopback
-and is not production-ready. Authorization, rotation, audit middleware, real
+and is not production-ready. Fine-grained authorization, rotation, real
 PostgreSQL validation, and final platform/security gates remain incomplete.
 
 ## Remaining path to 1.0

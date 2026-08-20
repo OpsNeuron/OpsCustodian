@@ -37,14 +37,14 @@ type errorResponse struct {
 }
 
 func NewHandler(reader store.Reader, buildVersion string) http.Handler {
-	return newHandler(reader, buildVersion, nil)
+	return newHandler(reader, buildVersion, nil, nil)
 }
 
 func NewAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator) http.Handler {
-	return newHandler(reader, buildVersion, &authenticator)
+	return newHandler(reader, buildVersion, &authenticator, nil)
 }
 
-func newHandler(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator) http.Handler {
+func newHandler(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer) http.Handler {
 	api := &API{reader: reader, buildVersion: buildVersion}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
@@ -56,6 +56,9 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
 	var handler http.Handler = mux
+	if authorizer != nil {
+		handler = authorizer.middleware(handler)
+	}
 	if authenticator != nil {
 		handler = authenticator.middleware(handler)
 	}

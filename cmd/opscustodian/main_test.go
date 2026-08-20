@@ -45,6 +45,7 @@ func TestServeCommandPrintsOnlySafeValidatedConfiguration(t *testing.T) {
 		"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef",
 		"OPSCUSTODIAN_DATABASE_DSN":    "postgres://custodian:" + secret + "@database.example/opscustodian?sslmode=verify-full",
 		"OPSCUSTODIAN_API_TOKEN":       token,
+		"OPSCUSTODIAN_API_SCOPES":      "control-plane:read",
 	}), &output, func() (controlplane.ProcessDependencies, error) {
 		called = true
 		return controlplane.ProcessDependencies{}, nil
@@ -66,6 +67,7 @@ func TestServeCommandInvokesProcessWithValidatedConfiguration(t *testing.T) {
 		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/opscustodian?sslmode=disable",
 		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
 		"OPSCUSTODIAN_API_TOKEN":               "opscustodian-cli-test-token-0123456789abcdef",
+		"OPSCUSTODIAN_API_SCOPES":              "control-plane:read",
 	}), &bytes.Buffer{}, func() (controlplane.ProcessDependencies, error) {
 		factoryCalled = true
 		return controlplane.ProcessDependencies{}, nil

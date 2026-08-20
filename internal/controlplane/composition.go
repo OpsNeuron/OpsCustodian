@@ -15,7 +15,7 @@ func NewControlPlaneHTTPServer(config Config, reader store.Reader, buildVersion 
 	if reader == nil {
 		return nil, fmt.Errorf("control-plane store reader is required")
 	}
-	handler, err := server.NewAuditedAuthenticatedHandler(reader, buildVersion, config.Authenticator, config.OrganizationID, auditSink, onAuditFailure)
+	handler, err := server.NewAuditedAuthenticatedHandler(reader, buildVersion, config.Authenticator, config.Authorizer, config.OrganizationID, auditSink, onAuditFailure)
 	if err != nil {
 		return nil, err
 	}

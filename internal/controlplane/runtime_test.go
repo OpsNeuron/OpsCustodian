@@ -156,6 +156,10 @@ func validRuntimeConfig() Config {
 	if err != nil {
 		panic(err)
 	}
+	authorizer, err := server.NewScopeAuthorizer([]string{server.ScopeControlPlaneRead})
+	if err != nil {
+		panic(err)
+	}
 	return Config{
 		OrganizationID: "organization-0123456789abcdef", OrganizationDisplayName: "Agent Platform",
 		DatabaseDSN: "postgres://database/controlplane", AllowInsecureDatabase: true, ApplyMigrations: true,
@@ -164,5 +168,6 @@ func validRuntimeConfig() Config {
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
 		HTTP:          defaultHTTPConfig(),
 		Authenticator: authenticator,
+		Authorizer:    authorizer,
 	}
 }

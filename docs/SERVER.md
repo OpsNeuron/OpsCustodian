@@ -60,8 +60,12 @@ and are checked using constant-time comparison. Missing, ambiguous, duplicated,
 or invalid authorization headers receive a versioned public-safe `401` response.
 The raw token is neither retained by the authenticator nor serializable.
 
-This is authentication, not authorization. Roles, per-organization policy,
-token rotation, audit middleware, and OIDC identity are not implemented yet.
+Authentication and authorization are separate middleware boundaries. Every
+current `/api/*` operation requires an explicit read scope. `contracts:read`,
+`inventory:read`, and `findings:read` constrain access by API family, while
+`control-plane:read` grants all current read operations. An authenticated token
+without the required permission receives a public-safe `403`.
+Per-repository roles, token rotation, and OIDC identity are not implemented yet.
 The unauthenticated constructor remains available only for isolated tests and
 must not be connected to a listener. The runtime still cannot bind outside
 loopback.
@@ -69,8 +73,10 @@ loopback.
 `OPSCUSTODIAN_API_TOKEN` is required by control-plane configuration and must
 contain 32 to 4096 non-whitespace bytes. It is read from the process environment
 and immediately converted into the authenticator's digest-only representation.
-The safe configuration projection reports only
-`authenticationConfigured: true`.
+`OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
+the documented scopes. Unknown scopes fail configuration rather than granting
+future permissions accidentally. The safe configuration projection reports
+authentication state and the non-secret authorization scope list.
 
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then
@@ -139,7 +145,7 @@ signal, platform, and security integration suite is complete.
 The authenticated API has a request-audit middleware contract that emits the
 shared OpenTelemetry-compatible OpsCustodian audit envelope. It records a
 server-generated request ID, canonical route pattern, status, duration,
-organization, method, and authentication result. Raw URL/query values, headers,
+organization, method, authentication result, and authorization result. Raw URL/query values, headers,
 tokens, bodies, and remote addresses are excluded by construction.
 
 Public health, rejected authentication, successful API requests, and API errors

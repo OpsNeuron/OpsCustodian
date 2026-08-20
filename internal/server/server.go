@@ -37,6 +37,14 @@ type errorResponse struct {
 }
 
 func NewHandler(reader store.Reader, buildVersion string) http.Handler {
+	return newHandler(reader, buildVersion, nil)
+}
+
+func NewAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator) http.Handler {
+	return newHandler(reader, buildVersion, &authenticator)
+}
+
+func newHandler(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator) http.Handler {
 	api := &API{reader: reader, buildVersion: buildVersion}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
@@ -47,7 +55,11 @@ func NewHandler(reader store.Reader, buildVersion string) http.Handler {
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
-	return securityHeaders(mux)
+	var handler http.Handler = mux
+	if authenticator != nil {
+		handler = authenticator.middleware(handler)
+	}
+	return securityHeaders(handler)
 }
 
 func (api *API) health(w http.ResponseWriter, _ *http.Request) {

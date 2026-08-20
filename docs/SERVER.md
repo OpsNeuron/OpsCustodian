@@ -53,11 +53,18 @@ The handler sets `no-store`, `nosniff`, frame denial, and a restrictive Content
 Security Policy. It returns bounded public error messages rather than internal
 store errors.
 
-Authentication, authorization, tenant isolation, request-body/server limits,
-and audit middleware are not implemented yet. Consequently this handler is not
-connected to a CLI listener and must not be exposed to a network. A future
-`serve` command will default to loopback and will not support non-loopback binds
-until the authentication boundary is explicit.
+The authenticated constructor protects every `/api/*` route with an opaque
+Bearer token while leaving only `/healthz` public. Tokens must contain 32 to
+4096 bytes without whitespace, are immediately reduced to a SHA-256 digest,
+and are checked using constant-time comparison. Missing, ambiguous, duplicated,
+or invalid authorization headers receive a versioned public-safe `401` response.
+The raw token is neither retained by the authenticator nor serializable.
+
+This is authentication, not authorization. Roles, per-organization policy,
+token rotation, audit middleware, and OIDC identity are not implemented yet.
+The unauthenticated constructor remains available only for isolated tests and
+must not be connected to a listener. The runtime still cannot bind outside
+loopback.
 
 ## HTTP runtime guardrails
 

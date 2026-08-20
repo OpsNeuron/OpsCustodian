@@ -7,10 +7,13 @@ x-opscustodian-api-version: opscustodian.dev/control-plane/v1alpha1
 servers:
   - url: http://127.0.0.1:8080
     description: Future loopback-only development server
+security:
+  - bearerAuth: []
 paths:
   /healthz:
     get:
       operationId: getHealth
+      security: []
       responses:
         "200":
           description: Process is healthy
@@ -99,6 +102,12 @@ paths:
         "200": { $ref: "#/components/responses/JSONSuccess" }
         "400": { $ref: "#/components/responses/APIError" }
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque
+      description: High-entropy token supplied through server environment configuration.
   parameters:
     RepositoryID:
       name: repositoryId

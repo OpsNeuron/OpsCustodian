@@ -87,6 +87,12 @@ credentials, rejects duplicate IDs and duplicate token digests, and assigns
 scopes independently per identity. Registry mode is mutually exclusive with
 the three single-token variables. Authentication examines every configured
 digest before deciding the match, and safe configuration exposes only IDs.
+Each registry entry may set `disabled`, `notBefore`, and `expiresAt`.
+Timestamps must be RFC3339 and expiration must follow activation. The validity
+window is start-inclusive and expiration-exclusive, enabling a bounded overlap
+where old and new rotation credentials are both accepted. Disabled, future,
+expired, unknown, and malformed credentials all receive the same public-safe
+`401` response.
 
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then

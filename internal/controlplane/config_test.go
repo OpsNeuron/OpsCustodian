@@ -204,6 +204,18 @@ func TestConfigRejectsMixedCredentialModes(t *testing.T) {
 	}
 }
 
+func TestConfigAcceptsCredentialLifecycleFields(t *testing.T) {
+	_, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_CREDENTIALS":         `[{"id":"old-reader","token":"old-config-token-0123456789abcdefghijkl","scopes":["inventory:read"],"expiresAt":"2026-08-21T00:00:00Z"},{"id":"new-reader","token":"new-config-token-0123456789abcdefghijkl","scopes":["inventory:read"],"notBefore":"2026-08-20T00:00:00Z"},{"id":"disabled-reader","token":"disabled-config-token-0123456789abcdefgh","scopes":["inventory:read"],"disabled":true}]`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func environment(values map[string]string) LookupEnv {
 	return func(name string) (string, bool) {
 		value, exists := values[name]

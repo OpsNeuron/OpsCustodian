@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/store"
 )
@@ -147,6 +148,52 @@ func TestBearerCredentialRegistryRejectsAmbiguousConfiguration(t *testing.T) {
 	} {
 		if _, _, err := NewBearerCredentialSecurity(credentials); err == nil {
 			t.Fatalf("ambiguous credentials accepted: %#v", credentials)
+		}
+	}
+}
+
+func TestBearerCredentialLifecycleSupportsBoundedRotation(t *testing.T) {
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	credentials := []BearerCredential{
+		{ID: "old-reader", Token: "old-rotation-token-0123456789abcdefghijk", Scopes: []string{ScopeInventoryRead}, ExpiresAt: "2026-08-20T12:05:00Z"},
+		{ID: "new-reader", Token: "new-rotation-token-0123456789abcdefghijk", Scopes: []string{ScopeInventoryRead}, NotBefore: "2026-08-20T11:55:00Z"},
+		{ID: "future-reader", Token: "future-token-0123456789abcdefghijklmnop", Scopes: []string{ScopeInventoryRead}, NotBefore: "2026-08-20T12:05:00Z"},
+		{ID: "disabled-reader", Token: "disabled-token-0123456789abcdefghijkl", Scopes: []string{ScopeInventoryRead}, Disabled: true},
+	}
+	authenticator, _, err := newBearerCredentialSecurity(credentials, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		token, identity string
+		allowed         bool
+	}{
+		{credentials[0].Token, "old-reader", true},
+		{credentials[1].Token, "new-reader", true},
+		{credentials[2].Token, "", false},
+		{credentials[3].Token, "", false},
+	} {
+		identity, allowed := authenticator.authenticate([]string{"Bearer " + test.token})
+		if identity != test.identity || allowed != test.allowed {
+			t.Fatalf("credential result = %q, %v; want %q, %v", identity, allowed, test.identity, test.allowed)
+		}
+	}
+}
+
+func TestBearerCredentialLifecycleRejectsInvalidWindows(t *testing.T) {
+	base := BearerCredential{ID: "window-reader", Token: "window-reader-token-0123456789abcdefghijk", Scopes: []string{ScopeInventoryRead}}
+	for _, mutate := range []func(*BearerCredential){
+		func(value *BearerCredential) { value.NotBefore = "tomorrow" },
+		func(value *BearerCredential) { value.ExpiresAt = "tomorrow" },
+		func(value *BearerCredential) {
+			value.NotBefore = "2026-08-21T00:00:00Z"
+			value.ExpiresAt = "2026-08-20T00:00:00Z"
+		},
+	} {
+		credential := base
+		mutate(&credential)
+		if _, _, err := NewBearerCredentialSecurity([]BearerCredential{credential}); err == nil {
+			t.Fatalf("invalid lifecycle accepted: %#v", credential)
 		}
 	}
 }

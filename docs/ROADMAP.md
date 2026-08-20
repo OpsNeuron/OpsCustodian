@@ -115,7 +115,8 @@ runtime authorization system.
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation and OIDC pending)*
 - Initial API authorization boundary. *(granular contracts, inventory, and findings scopes plus a `control-plane:read` umbrella, fail-closed environment configuration, `403` response, OpenAPI declarations, and audit outcome implemented; repository-level roles pending)*
 - Stable credential identity. *(validated non-secret token identity and audit propagation implemented)*
-- Multi-credential rotation registry. *(bounded environment registry, independent identity grants, ambiguity rejection, and safe projection implemented; external secret-provider reload and expiry pending)*
+- Multi-credential rotation registry. *(bounded environment registry, independent identity grants, ambiguity rejection, and safe projection implemented; external secret-provider reload pending)*
+- Credential lifecycle policy. *(disablement, activation, expiration, overlap semantics, and deterministic clock-backed tests implemented; live reload and external secret providers pending)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
 - Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, and fail-closed process shutdown implemented; durable buffering and retention pending)*

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -19,15 +20,24 @@ const (
 )
 
 type BearerCredential struct {
-	ID     string   `json:"id"`
-	Token  string   `json:"token"`
-	Scopes []string `json:"scopes"`
+	ID        string   `json:"id"`
+	Token     string   `json:"token"`
+	Scopes    []string `json:"scopes"`
+	Disabled  bool     `json:"disabled,omitempty"`
+	NotBefore string   `json:"notBefore,omitempty"`
+	ExpiresAt string   `json:"expiresAt,omitempty"`
 }
 type bearerCredentialDigest struct {
-	identity string
-	digest   [sha256.Size]byte
+	identity  string
+	digest    [sha256.Size]byte
+	disabled  bool
+	notBefore time.Time
+	expiresAt time.Time
 }
-type BearerAuthenticator struct{ credentials []bearerCredentialDigest }
+type BearerAuthenticator struct {
+	credentials []bearerCredentialDigest
+	now         func() time.Time
+}
 type authenticatedIdentityContextKey struct{}
 
 func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
@@ -40,10 +50,17 @@ func NewIdentifiedBearerAuthenticator(identity, token string) (BearerAuthenticat
 }
 
 func NewBearerCredentialSecurity(credentials []BearerCredential) (BearerAuthenticator, ScopeAuthorizer, error) {
+	return newBearerCredentialSecurity(credentials, time.Now)
+}
+
+func newBearerCredentialSecurity(credentials []BearerCredential, now func() time.Time) (BearerAuthenticator, ScopeAuthorizer, error) {
 	if len(credentials) == 0 || len(credentials) > 100 {
 		return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("API credential count must be between 1 and 100")
 	}
-	authenticator := BearerAuthenticator{credentials: make([]bearerCredentialDigest, 0, len(credentials))}
+	if now == nil {
+		return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential clock is required")
+	}
+	authenticator := BearerAuthenticator{credentials: make([]bearerCredentialDigest, 0, len(credentials)), now: now}
 	grants := make(map[string]map[string]struct{}, len(credentials))
 	digests := make(map[[sha256.Size]byte]struct{}, len(credentials))
 	for _, credential := range credentials {
@@ -66,9 +83,31 @@ func NewBearerCredentialSecurity(credentials []BearerCredential) (BearerAuthenti
 			return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential %q: %w", credential.ID, err)
 		}
 		grants[credential.ID] = scopes
-		authenticator.credentials = append(authenticator.credentials, bearerCredentialDigest{identity: credential.ID, digest: digest})
+		notBefore, err := parseCredentialTime(credential.ID, "notBefore", credential.NotBefore)
+		if err != nil {
+			return BearerAuthenticator{}, ScopeAuthorizer{}, err
+		}
+		expiresAt, err := parseCredentialTime(credential.ID, "expiresAt", credential.ExpiresAt)
+		if err != nil {
+			return BearerAuthenticator{}, ScopeAuthorizer{}, err
+		}
+		if !notBefore.IsZero() && !expiresAt.IsZero() && !expiresAt.After(notBefore) {
+			return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential %q expiresAt must be after notBefore", credential.ID)
+		}
+		authenticator.credentials = append(authenticator.credentials, bearerCredentialDigest{identity: credential.ID, digest: digest, disabled: credential.Disabled, notBefore: notBefore, expiresAt: expiresAt})
 	}
 	return authenticator, ScopeAuthorizer{grants: grants}, nil
+}
+
+func parseCredentialTime(identity, field, value string) (time.Time, error) {
+	if value == "" {
+		return time.Time{}, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("credential %q %s must be RFC3339", identity, field)
+	}
+	return parsed.UTC(), nil
 }
 
 func validateBearerToken(token string) error {
@@ -131,12 +170,16 @@ func (authenticator BearerAuthenticator) authenticate(values []string) (string, 
 	}
 	digest := sha256.Sum256([]byte(token))
 	identity, matched := "", 0
+	now := authenticator.now().UTC()
 	for _, credential := range authenticator.credentials {
 		comparison := subtle.ConstantTimeCompare(credential.digest[:], digest[:])
-		if comparison == 1 {
+		active := !credential.disabled && (credential.notBefore.IsZero() || !now.Before(credential.notBefore)) && (credential.expiresAt.IsZero() || now.Before(credential.expiresAt))
+		if comparison == 1 && active {
 			identity = credential.identity
 		}
-		matched |= comparison
+		if active {
+			matched |= comparison
+		}
 	}
 	return identity, matched == 1
 }

@@ -31,6 +31,7 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_ORGANIZATION_ID":            "organization-0123456789abcdef",
 		"OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME":  "Agent Platform",
 		"OPSCUSTODIAN_DATABASE_DSN":               "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE":    "true",
 		"OPSCUSTODIAN_DATABASE_MIGRATE":           "false",
 		"OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT":   "15s",
 		"OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT": "3m",
@@ -61,8 +62,9 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			values := map[string]string{
-				"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef",
-				"OPSCUSTODIAN_DATABASE_DSN":    "postgres://database/controlplane",
+				"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+				"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+				"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
 			}
 			values[test.variable] = test.value
 			_, err := ConfigFromEnvironment(environment(values))
@@ -76,8 +78,9 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 func TestSafeConfigNeverContainsDatabaseCredentials(t *testing.T) {
 	secret := "credential-that-must-not-escape"
 	config, err := ConfigFromEnvironment(environment(map[string]string{
-		"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef",
-		"OPSCUSTODIAN_DATABASE_DSN":    "postgres://custodian:" + secret + "@database/controlplane",
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://custodian:" + secret + "@database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
 	}))
 	if err != nil {
 		t.Fatal(err)

@@ -126,6 +126,7 @@ Missing exit items:
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.
 - Driver-neutral database bootstrap with bounded ping and migration contexts, deterministic lifecycle ordering, optional migration, fail-closed cleanup, and idempotent shutdown.
 - Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25 minimum runtime alignment.
+- Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 
 The handler is intentionally not connected to a network listener until
 authentication, authorization, request limits, and safe bind defaults are

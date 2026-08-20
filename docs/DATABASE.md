@@ -93,6 +93,7 @@ currently recognizes:
 | `OPSCUSTODIAN_ORGANIZATION_ID` | required | `organization-` plus 16 lowercase hexadecimal characters |
 | `OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME` | organization ID | 1 to 200 characters |
 | `OPSCUSTODIAN_DATABASE_DSN` | required | non-empty; never included in safe configuration output |
+| `OPSCUSTODIAN_DATABASE_ALLOW_INSECURE` | `false` | explicit isolated-development override |
 | `OPSCUSTODIAN_DATABASE_MIGRATE` | `true` | boolean |
 | `OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT` | `5s` | positive, at most one minute |
 | `OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT` | `2m` | positive, at most 15 minutes |
@@ -110,6 +111,19 @@ OpsCustodian uses the official pgx v5 `database/sql` adapter, pinned in the Go
 module dependency graph. Registering the driver and constructing a lazy SQL
 handle are covered by offline tests; no connection is attempted until the
 bootstrap's bounded ping stage.
+
+### Transport security
+
+Production configuration is fail-closed: the effective pgx configuration must
+use TLS with certificate-chain and hostname verification for the primary host
+and every failover host. Consequently, implicit `prefer` and explicit
+`disable`, `allow`, `require`, or `verify-ca` modes are rejected; use
+`sslmode=verify-full` with an appropriate system or explicit CA trust source.
+
+`OPSCUSTODIAN_DATABASE_ALLOW_INSECURE=true` bypasses this guard only for an
+isolated local development database. The override is visible in the safe
+configuration projection, while the DSN remains secret. Invalid DSN errors are
+sanitized and never include credentials or the original connection string.
 
 ## Bootstrap lifecycle
 

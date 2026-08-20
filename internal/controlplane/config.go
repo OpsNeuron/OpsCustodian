@@ -24,6 +24,7 @@ type Config struct {
 	OrganizationID          string
 	OrganizationDisplayName string
 	DatabaseDSN             string
+	AllowInsecureDatabase   bool
 	ApplyMigrations         bool
 	ConnectTimeout          time.Duration
 	MigrationTimeout        time.Duration
@@ -37,6 +38,7 @@ type SafeConfig struct {
 	OrganizationID          string        `json:"organizationId"`
 	OrganizationDisplayName string        `json:"organizationDisplayName"`
 	DatabaseConfigured      bool          `json:"databaseConfigured"`
+	AllowInsecureDatabase   bool          `json:"allowInsecureDatabase"`
 	ApplyMigrations         bool          `json:"applyMigrations"`
 	ConnectTimeout          time.Duration `json:"connectTimeout"`
 	MigrationTimeout        time.Duration `json:"migrationTimeout"`
@@ -67,6 +69,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	}
 	var err error
 	if config.ApplyMigrations, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_MIGRATE", config.ApplyMigrations); err != nil {
+		return Config{}, err
+	}
+	if config.AllowInsecureDatabase, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_ALLOW_INSECURE", false); err != nil {
 		return Config{}, err
 	}
 	if config.ConnectTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT", config.ConnectTimeout); err != nil {
@@ -103,6 +108,9 @@ func (config Config) Validate() error {
 	if strings.TrimSpace(config.DatabaseDSN) == "" {
 		return fmt.Errorf("OPSCUSTODIAN_DATABASE_DSN is required")
 	}
+	if err := validateDatabaseTransport(config.DatabaseDSN, config.AllowInsecureDatabase); err != nil {
+		return err
+	}
 	if config.ConnectTimeout <= 0 || config.ConnectTimeout > time.Minute {
 		return fmt.Errorf("OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT must be between 1ns and 1m")
 	}
@@ -127,8 +135,9 @@ func (config Config) Validate() error {
 func (config Config) Safe() SafeConfig {
 	return SafeConfig{
 		OrganizationID: config.OrganizationID, OrganizationDisplayName: config.OrganizationDisplayName,
-		DatabaseConfigured: config.DatabaseDSN != "", ApplyMigrations: config.ApplyMigrations,
-		ConnectTimeout: config.ConnectTimeout, ShutdownTimeout: config.ShutdownTimeout,
+		DatabaseConfigured: config.DatabaseDSN != "", AllowInsecureDatabase: config.AllowInsecureDatabase,
+		ApplyMigrations: config.ApplyMigrations,
+		ConnectTimeout:  config.ConnectTimeout, ShutdownTimeout: config.ShutdownTimeout,
 		MigrationTimeout: config.MigrationTimeout,
 		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
 	}

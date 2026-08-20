@@ -10,12 +10,18 @@ import (
 )
 
 const (
-	defaultConnectTimeout   = 5 * time.Second
-	defaultMigrationTimeout = 2 * time.Minute
-	defaultShutdownTimeout  = 10 * time.Second
-	defaultMaxOpenConns     = 20
-	defaultMaxIdleConns     = 5
-	defaultConnMaxLifetime  = 30 * time.Minute
+	defaultConnectTimeout    = 5 * time.Second
+	defaultMigrationTimeout  = 2 * time.Minute
+	defaultShutdownTimeout   = 10 * time.Second
+	defaultMaxOpenConns      = 20
+	defaultMaxIdleConns      = 5
+	defaultConnMaxLifetime   = 30 * time.Minute
+	defaultListenAddress     = "127.0.0.1:8080"
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultReadTimeout       = 15 * time.Second
+	defaultWriteTimeout      = 30 * time.Second
+	defaultIdleTimeout       = 60 * time.Second
+	defaultMaxHeaderBytes    = 64 << 10
 )
 
 type LookupEnv func(string) (string, bool)
@@ -32,6 +38,16 @@ type Config struct {
 	MaxOpenConns            int
 	MaxIdleConns            int
 	ConnMaxLifetime         time.Duration
+	HTTP                    HTTPConfig
+}
+
+type HTTPConfig struct {
+	ListenAddress     string        `json:"listenAddress"`
+	ReadHeaderTimeout time.Duration `json:"readHeaderTimeout"`
+	ReadTimeout       time.Duration `json:"readTimeout"`
+	WriteTimeout      time.Duration `json:"writeTimeout"`
+	IdleTimeout       time.Duration `json:"idleTimeout"`
+	MaxHeaderBytes    int           `json:"maxHeaderBytes"`
 }
 
 type SafeConfig struct {
@@ -46,6 +62,7 @@ type SafeConfig struct {
 	MaxOpenConns            int           `json:"maxOpenConnections"`
 	MaxIdleConns            int           `json:"maxIdleConnections"`
 	ConnMaxLifetime         time.Duration `json:"connectionMaxLifetime"`
+	HTTP                    HTTPConfig    `json:"http"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -63,6 +80,7 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		MaxOpenConns:            defaultMaxOpenConns,
 		MaxIdleConns:            defaultMaxIdleConns,
 		ConnMaxLifetime:         defaultConnMaxLifetime,
+		HTTP:                    defaultHTTPConfig(),
 	}
 	if config.OrganizationDisplayName == "" {
 		config.OrganizationDisplayName = config.OrganizationID
@@ -92,10 +110,34 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.MaxIdleConns, err = environmentInt(lookup, "OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS", config.MaxIdleConns); err != nil {
 		return Config{}, err
 	}
+	config.HTTP.ListenAddress = environmentValueOr(lookup, "OPSCUSTODIAN_HTTP_LISTEN_ADDRESS", config.HTTP.ListenAddress)
+	if config.HTTP.ReadHeaderTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT", config.HTTP.ReadHeaderTimeout); err != nil {
+		return Config{}, err
+	}
+	if config.HTTP.ReadTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_HTTP_READ_TIMEOUT", config.HTTP.ReadTimeout); err != nil {
+		return Config{}, err
+	}
+	if config.HTTP.WriteTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_HTTP_WRITE_TIMEOUT", config.HTTP.WriteTimeout); err != nil {
+		return Config{}, err
+	}
+	if config.HTTP.IdleTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_HTTP_IDLE_TIMEOUT", config.HTTP.IdleTimeout); err != nil {
+		return Config{}, err
+	}
+	if config.HTTP.MaxHeaderBytes, err = environmentInt(lookup, "OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES", config.HTTP.MaxHeaderBytes); err != nil {
+		return Config{}, err
+	}
 	if err := config.Validate(); err != nil {
 		return Config{}, err
 	}
 	return config, nil
+}
+
+func defaultHTTPConfig() HTTPConfig {
+	return HTTPConfig{
+		ListenAddress: defaultListenAddress, ReadHeaderTimeout: defaultReadHeaderTimeout,
+		ReadTimeout: defaultReadTimeout, WriteTimeout: defaultWriteTimeout,
+		IdleTimeout: defaultIdleTimeout, MaxHeaderBytes: defaultMaxHeaderBytes,
+	}
 }
 
 func (config Config) Validate() error {
@@ -129,6 +171,9 @@ func (config Config) Validate() error {
 	if config.MaxIdleConns < 0 || config.MaxIdleConns > config.MaxOpenConns {
 		return fmt.Errorf("OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS must be between 0 and max open connections")
 	}
+	if err := config.HTTP.Validate(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -140,7 +185,15 @@ func (config Config) Safe() SafeConfig {
 		ConnectTimeout:  config.ConnectTimeout, ShutdownTimeout: config.ShutdownTimeout,
 		MigrationTimeout: config.MigrationTimeout,
 		MaxOpenConns:     config.MaxOpenConns, MaxIdleConns: config.MaxIdleConns, ConnMaxLifetime: config.ConnMaxLifetime,
+		HTTP: config.HTTP,
 	}
+}
+
+func environmentValueOr(lookup LookupEnv, name, fallback string) string {
+	if value := environmentValue(lookup, name); value != "" {
+		return value
+	}
+	return fallback
 }
 
 func environmentValue(lookup LookupEnv, name string) string {

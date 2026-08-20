@@ -58,3 +58,25 @@ and audit middleware are not implemented yet. Consequently this handler is not
 connected to a CLI listener and must not be exposed to a network. A future
 `serve` command will default to loopback and will not support non-loopback binds
 until the authentication boundary is explicit.
+
+## HTTP runtime guardrails
+
+The server runtime contract is implemented but is not connected to a CLI
+command. It accepts only literal IPv4 or IPv6 loopback addresses until
+authentication exists; wildcard, external, and hostname binds fail validation.
+The constructor configures bounded header-read, request-read, response-write,
+idle, and header-size limits. Serving uses an injected listener and performs a
+timeout-bounded graceful shutdown when its context is cancelled.
+
+| Variable | Default | Constraint |
+| --- | --- | --- |
+| `OPSCUSTODIAN_HTTP_LISTEN_ADDRESS` | `127.0.0.1:8080` | literal loopback IP and port 1–65535 |
+| `OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT` | `5s` | positive, at most 5 minutes |
+| `OPSCUSTODIAN_HTTP_READ_TIMEOUT` | `15s` | bounded and not shorter than header timeout |
+| `OPSCUSTODIAN_HTTP_WRITE_TIMEOUT` | `30s` | positive, at most 5 minutes |
+| `OPSCUSTODIAN_HTTP_IDLE_TIMEOUT` | `60s` | positive, at most 5 minutes |
+| `OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES` | `65536` | 8192 to 1048576 bytes |
+
+Unit tests verify both loopback families, rejection of exposure-prone binds,
+timeout/header bounds, cancellation, shutdown, and error propagation without
+opening a real socket.

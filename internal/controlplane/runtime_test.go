@@ -157,5 +157,6 @@ func validRuntimeConfig() Config {
 		ConnectTimeout: 5 * time.Second, ShutdownTimeout: 10 * time.Second,
 		MigrationTimeout: 2 * time.Minute,
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
+		HTTP: defaultHTTPConfig(),
 	}
 }

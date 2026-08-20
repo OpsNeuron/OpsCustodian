@@ -111,6 +111,7 @@ runtime authorization system.
 - Multi-repository ingestion and historical Finding lifecycle.
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration.
+- Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.

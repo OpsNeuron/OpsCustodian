@@ -39,12 +39,21 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS":    "40",
 		"OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS":    "10",
 		"OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME": "2h",
+		"OPSCUSTODIAN_HTTP_LISTEN_ADDRESS":        "[::1]:9090",
+		"OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT":   "4s",
+		"OPSCUSTODIAN_HTTP_READ_TIMEOUT":          "12s",
+		"OPSCUSTODIAN_HTTP_WRITE_TIMEOUT":         "20s",
+		"OPSCUSTODIAN_HTTP_IDLE_TIMEOUT":          "45s",
+		"OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES":      "32768",
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if config.ApplyMigrations || config.MigrationTimeout != 3*time.Minute || config.MaxOpenConns != 40 || config.MaxIdleConns != 10 || config.ConnMaxLifetime != 2*time.Hour {
 		t.Fatalf("explicit settings were not preserved: %#v", config.Safe())
+	}
+	if config.HTTP.ListenAddress != "[::1]:9090" || config.HTTP.ReadTimeout != 12*time.Second || config.HTTP.MaxHeaderBytes != 32768 {
+		t.Fatalf("explicit HTTP settings were not preserved: %#v", config.Safe())
 	}
 }
 

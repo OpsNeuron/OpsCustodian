@@ -77,3 +77,17 @@ func TestGranularScopesCannotCrossAPIBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestControlPlaneReadDoesNotGrantSnapshotWrites(t *testing.T) {
+	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})
+	handler := newHandler(store.NewMemory(), "test", &authenticator, &authorizer)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", strings.NewReader(`{}`))
+	request.Header.Set("Authorization", "Bearer "+serverTestBearerToken)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("read scope write status = %d", response.Code)
+	}
+}

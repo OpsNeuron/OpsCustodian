@@ -99,7 +99,7 @@ runtime authorization system.
 ## v0.5 — Organization control plane
 
 - Persistence-neutral snapshot reader/writer boundary. *(initial interface and memory implementation complete)*
-- Versioned read-only repository and finding API. *(initial tested HTTP handler complete; not network-exposed)*
+- Versioned repository, finding, and snapshot ingestion API. *(authenticated loopback runtime and tested handlers implemented)*
 - Keyset pagination, repository snapshot history, and OpenAPI contract. *(implemented in the read-only handler)*
 - Cross-snapshot Finding lifecycle projection and filtering. *(episode-aware in-memory and PostgreSQL query implementations complete; real database validation pending)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
@@ -108,12 +108,12 @@ runtime authorization system.
 - Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; real PostgreSQL driver and integration validation pending)*
 - Official pgx PostgreSQL driver wiring. *(pinned and registered; live connection and compatibility matrix deferred to final integration)*
 - PostgreSQL transport-security guard. *(verified TLS enforced across effective pgx primary/fallback configuration; certificate-chain integration deferred)*
-- Multi-repository ingestion and historical Finding lifecycle.
+- Multi-repository ingestion and historical Finding lifecycle. *(scope-isolated bounded snapshot endpoint and immutable persistence implemented; incremental scan orchestration pending)*
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration. *(experimental authenticated `serve` and secret-free `--print-config` implemented)*
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation and OIDC pending)*
-- Initial API authorization boundary. *(granular contracts, inventory, and findings scopes plus a `control-plane:read` umbrella, fail-closed environment configuration, `403` response, OpenAPI declarations, and audit outcome implemented; repository-level roles pending)*
+- Initial API authorization boundary. *(granular read scopes, isolated `snapshots:write`, explicit `control-plane:admin`, fail-closed environment configuration, `403` response, OpenAPI declarations, and audit outcome implemented; repository-level roles pending)*
 - Stable credential identity. *(validated non-secret token identity and audit propagation implemented)*
 - Multi-credential rotation registry. *(bounded environment registry, independent identity grants, ambiguity rejection, and safe projection implemented; external secret-provider reload pending)*
 - Credential lifecycle policy. *(disablement, activation, expiration, overlap semantics, and deterministic clock-backed tests implemented; external reload triggers pending)*

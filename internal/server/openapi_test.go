@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,9 +55,13 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		}
 		if path != "/healthz" {
 			operation := document.Paths[path]["get"].(map[string]any)
-			if operation["x-opscustodian-required-scope"] != requiredScope(path) {
-				t.Errorf("OpenAPI GET %s scope = %v, want %s", path, operation["x-opscustodian-required-scope"], requiredScope(path))
+			if operation["x-opscustodian-required-scope"] != requiredScope(http.MethodGet, path) {
+				t.Errorf("OpenAPI GET %s scope = %v, want %s", path, operation["x-opscustodian-required-scope"], requiredScope(http.MethodGet, path))
 			}
 		}
+	}
+	post, ok := document.Paths["/api/v1/snapshots"]["post"].(map[string]any)
+	if !ok || post["x-opscustodian-required-scope"] != requiredScope(http.MethodPost, "/api/v1/snapshots") {
+		t.Fatalf("OpenAPI snapshot ingestion scope is missing: %#v", post)
 	}
 }

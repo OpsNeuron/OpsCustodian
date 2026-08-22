@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -67,6 +68,72 @@ func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
 		if actual := response.Header().Get(name); actual != expected {
 			t.Errorf("%s = %q, want %q", name, actual, expected)
 		}
+	}
+}
+
+func TestSnapshotIngestionRequiresWriteScopeAndPersistsRepository(t *testing.T) {
+	memory := store.NewMemory()
+	readToken := "snapshot-read-token-0123456789abcdefghijkl"
+	writeToken := "snapshot-write-token-0123456789abcdefghijk"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{
+		{ID: "inventory-reader", Token: readToken, Scopes: []string{ScopeInventoryRead}},
+		{ID: "snapshot-writer", Token: writeToken, Scopes: []string{ScopeSnapshotsWrite}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(memory, "test", &authenticator, &authorizer)
+	content, _ := json.Marshal(serverTestBOM())
+
+	denied := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(content))
+	denied.Header.Set("Authorization", "Bearer "+readToken)
+	denied.Header.Set("Content-Type", "application/json")
+	deniedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deniedResponse, denied)
+	assertResponse(t, deniedResponse, http.StatusForbidden, `"code":"authorization-denied"`)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(content))
+	request.Header.Set("Authorization", "Bearer "+writeToken)
+	request.Header.Set("Content-Type", "application/json; charset=utf-8")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	assertResponse(t, response, http.StatusCreated, `"repositoryId":"repository-`, `"snapshotId":"snapshot-`, `"revision":"abc123"`)
+	page, err := memory.ListRepositories(context.Background(), store.PageRequest{Limit: 10})
+	if err != nil || len(page.Items) != 1 {
+		t.Fatalf("persisted repositories = %#v, err = %v", page, err)
+	}
+
+	conflicting := serverTestBOM()
+	conflicting.Metadata.Generator = "different-generator"
+	conflictContent, _ := json.Marshal(conflicting)
+	conflict := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(conflictContent))
+	conflict.Header.Set("Authorization", "Bearer "+writeToken)
+	conflict.Header.Set("Content-Type", "application/json")
+	conflictResponse := httptest.NewRecorder()
+	handler.ServeHTTP(conflictResponse, conflict)
+	assertResponse(t, conflictResponse, http.StatusConflict, `"code":"immutable-snapshot-conflict"`)
+}
+
+func TestSnapshotIngestionRejectsUnsafeBodies(t *testing.T) {
+	handler := NewHandler(store.NewMemory(), "test")
+	for _, test := range []struct {
+		name, contentType, body string
+		status                  int
+		code                    string
+	}{
+		{"media type", "text/plain", `{}`, http.StatusUnsupportedMediaType, "content-type-required"},
+		{"malformed", "application/json", `{`, http.StatusBadRequest, "invalid-json"},
+		{"unknown field", "application/json", `{"unknown":true}`, http.StatusBadRequest, "invalid-json"},
+		{"invalid contract", "application/json", `{}`, http.StatusUnprocessableEntity, "invalid-agent-bom"},
+		{"trailing", "application/json", `{} {}`, http.StatusBadRequest, "invalid-json"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", strings.NewReader(test.body))
+			request.Header.Set("Content-Type", test.contentType)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			assertResponse(t, response, test.status, `"code":"`+test.code+`"`)
+		})
 	}
 }
 

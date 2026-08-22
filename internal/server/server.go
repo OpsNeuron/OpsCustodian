@@ -4,16 +4,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/opscustodian/opscustodian/internal/contracts"
+	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/store"
+	"github.com/opscustodian/opscustodian/internal/validation"
 )
+
+const maximumSnapshotRequestBytes int64 = 10 << 20
 
 type API struct {
 	reader       store.Reader
+	writer       store.Writer
 	buildVersion string
 }
 
@@ -26,6 +34,15 @@ type listResponse[T any] struct {
 type valueResponse[T any] struct {
 	APIVersion string `json:"apiVersion"`
 	Value      T      `json:"value"`
+}
+
+type snapshotIngestionResponse struct {
+	RepositoryID string `json:"repositoryId"`
+	SnapshotID   string `json:"snapshotId"`
+	Revision     string `json:"revision"`
+	GeneratedAt  string `json:"generatedAt,omitempty"`
+	AssetCount   int    `json:"assetCount"`
+	FindingCount int    `json:"findingCount"`
 }
 
 type errorResponse struct {
@@ -45,7 +62,8 @@ func NewAuthenticatedHandler(reader store.Reader, buildVersion string, authentic
 }
 
 func newHandler(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer) http.Handler {
-	api := &API{reader: reader, buildVersion: buildVersion}
+	writer, _ := reader.(store.Writer)
+	api := &API{reader: reader, writer: writer, buildVersion: buildVersion}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
@@ -55,6 +73,7 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
+	mux.HandleFunc("POST /api/v1/snapshots", api.ingestSnapshot)
 	var handler http.Handler = mux
 	if authorizer != nil {
 		handler = authorizer.middleware(handler)
@@ -63,6 +82,60 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 		handler = authenticator.middleware(handler)
 	}
 	return securityHeaders(handler)
+}
+
+func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {
+	if api.writer == nil {
+		writeError(w, http.StatusServiceUnavailable, "snapshot-writer-unavailable", "snapshot ingestion is unavailable")
+		return
+	}
+	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/json" {
+		writeError(w, http.StatusUnsupportedMediaType, "content-type-required", "Content-Type must be application/json")
+		return
+	}
+	request.Body = http.MaxBytesReader(w, request.Body, maximumSnapshotRequestBytes)
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	var bom model.AgentBOM
+	if err := decoder.Decode(&bom); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "snapshot-too-large", fmt.Sprintf("Agent BOM must not exceed %d bytes", maximumSnapshotRequestBytes))
+			return
+		}
+		writeError(w, http.StatusBadRequest, "invalid-json", "request body must contain one valid Agent BOM JSON document")
+		return
+	}
+	if err := ensureJSONEOF(decoder); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid-json", "request body must contain one valid Agent BOM JSON document")
+		return
+	}
+	if issues := validation.Validate(bom); len(issues) > 0 {
+		writeError(w, http.StatusUnprocessableEntity, "invalid-agent-bom", "Agent BOM does not satisfy the supported contract")
+		return
+	}
+	snapshot, err := api.writer.PutSnapshot(request.Context(), bom)
+	if errors.Is(err, store.ErrConflict) {
+		writeError(w, http.StatusConflict, "immutable-snapshot-conflict", "the repository revision already exists with different content")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-write-failed", "snapshot could not be persisted")
+		return
+	}
+	writeJSON(w, http.StatusCreated, valueResponse[snapshotIngestionResponse]{APIVersion: contracts.ControlPlaneAPIVersion, Value: snapshotIngestionResponse{
+		SnapshotID: snapshot.SnapshotID, RepositoryID: snapshot.RepositoryID, Revision: snapshot.BOM.Metadata.Revision,
+		GeneratedAt: snapshot.BOM.Metadata.GeneratedAt, AssetCount: len(snapshot.BOM.Assets), FindingCount: len(snapshot.BOM.Findings),
+	}})
+}
+
+func ensureJSONEOF(decoder *json.Decoder) error {
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("trailing JSON value")
+	}
+	return nil
 }
 
 func (api *API) health(w http.ResponseWriter, _ *http.Request) {

@@ -146,7 +146,7 @@ func (writer *Postgres) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Sn
 		return Snapshot{}, fmt.Errorf("store snapshot: %w", err)
 	}
 	if !accepted {
-		return Snapshot{}, fmt.Errorf("snapshot %s conflicts with immutable content for revision %s", snapshotID, bom.Metadata.Revision)
+		return Snapshot{}, fmt.Errorf("%w: snapshot %s conflicts with immutable content for revision %s", ErrConflict, snapshotID, bom.Metadata.Revision)
 	}
 	for _, finding := range bom.Findings {
 		findingJSON, err := json.Marshal(finding)

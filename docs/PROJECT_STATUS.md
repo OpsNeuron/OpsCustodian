@@ -116,7 +116,7 @@ Missing exit items:
 
 - Persistence-neutral `Reader` and `Writer` interfaces for validated repository snapshots.
 - Thread-safe in-memory multi-repository history with deterministic repository IDs, latest-snapshot selection, defensive copies, and cancellation support.
-- Versioned read-only HTTP handler for health, contract discovery, repository inventory, latest Agent BOM, and cross-repository findings.
+- Versioned HTTP API for health, contract discovery, repository inventory, latest Agent BOM, cross-repository findings, and bounded snapshot ingestion.
 - Explicit empty collections, deterministic ordering, validated filters, public-safe errors, and baseline response security headers.
 - Opaque keyset pagination, immutable snapshot-history endpoints, safe snapshot identifiers, and an OpenAPI 3.1 route-conformance test.
 - Episode-aware Finding lifecycle projection with introduced, persisting, resolved, and reintroduced semantics plus source-derived observation timestamps.
@@ -141,6 +141,7 @@ Missing exit items:
 - Hardened credential-file reload boundary with bounded reads, strict JSON, symlink/non-regular rejection, Unix owner-only permission enforcement, file identity verification, and last-known-good preservation.
 - Cancellable bounded credential-file polling trigger with immediate load, retry-after-failure behavior, deterministic runtime tests, and structured result observation for future audit/metrics wiring.
 - Operational `serve` integration for credential-file hot reload with absolute-path configuration, secret-safe config projection, minimized reload audit events, coordinated cancellation, and fail-closed audit persistence.
+- Scope-isolated multi-repository snapshot ingestion with strict 10 MiB Agent BOM decoding, pre-write contract validation, deterministic identifiers, typed immutable conflicts, bounded success responses, and OpenAPI coverage.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

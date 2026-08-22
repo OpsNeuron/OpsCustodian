@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: OpsCustodian Control Plane API
   version: 0.5.0-alpha
-  description: Read-only organization inventory and effective-access API.
+  description: Organization inventory, snapshot ingestion, and effective-access API.
 x-opscustodian-api-version: opscustodian.dev/control-plane/v1alpha1
 servers:
   - url: http://127.0.0.1:8080
@@ -30,6 +30,22 @@ paths:
       x-opscustodian-required-scope: contracts:read
       responses:
         "200": { $ref: "#/components/responses/JSONSuccess" }
+  /api/v1/snapshots:
+    post:
+      operationId: ingestSnapshot
+      x-opscustodian-required-scope: snapshots:write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AgentBOM" }
+      responses:
+        "201": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "409": { $ref: "#/components/responses/APIError" }
+        "413": { $ref: "#/components/responses/APIError" }
+        "415": { $ref: "#/components/responses/APIError" }
+        "422": { $ref: "#/components/responses/APIError" }
   /api/v1/repositories:
     get:
       operationId: listRepositories
@@ -136,6 +152,10 @@ components:
       description: Opaque versioned keyset cursor returned by the previous page.
       schema: { type: string, maxLength: 700 }
   schemas:
+    AgentBOM:
+      type: object
+      description: Agent BOM document conforming to opscustodian.dev/v1alpha1.
+      required: [apiVersion, kind, metadata, assets]
     RepositoryID:
       type: string
       pattern: ^repository-[0-9a-f]{16}$

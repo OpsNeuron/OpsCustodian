@@ -1,10 +1,10 @@
-# Read-only control-plane server
+# Control-plane server
 
 The v0.5 server foundation separates HTTP APIs from persistence. The HTTP layer
-depends only on a `store.Reader`; the initial thread-safe memory store implements
-the same boundary intended for PostgreSQL.
+depends on a `store.Reader` for queries and an optional `store.Writer` for
+snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 
-## Current read-only API
+## Current API
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ the same boundary intended for PostgreSQL.
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom` | One immutable snapshot |
 | `GET` | `/api/v1/findings` | Findings across latest repository snapshots |
 | `GET` | `/api/v1/finding-lifecycles` | Current lifecycle episode for each Finding |
+| `POST` | `/api/v1/snapshots` | Validate and persist an immutable Agent BOM snapshot |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
@@ -32,8 +33,14 @@ a new episode. Observation timestamps are copied only from snapshot
 `generatedAt`; missing source timestamps remain absent.
 
 The OpenAPI 3.1 source of truth is [`api/openapi.yaml`](../api/openapi.yaml).
-A Go conformance test ensures every implemented read-only route remains
+A Go conformance test ensures every implemented route remains
 documented under the same API contract version.
+
+Snapshot ingestion requires `Content-Type: application/json`, accepts exactly
+one strict Agent BOM JSON document, and limits request bodies to 10 MiB. Contract
+violations return `422`; reusing a repository revision with different immutable
+content returns `409`. Successful writes return only deterministic repository
+and snapshot IDs plus bounded summary counts, not the submitted BOM.
 
 ## Persistence boundary
 
@@ -61,9 +68,11 @@ or invalid authorization headers receive a versioned public-safe `401` response.
 The raw token is neither retained by the authenticator nor serializable.
 
 Authentication and authorization are separate middleware boundaries. Every
-current `/api/*` operation requires an explicit read scope. `contracts:read`,
+current `/api/*` operation requires an explicit scope. `contracts:read`,
 `inventory:read`, and `findings:read` constrain access by API family, while
-`control-plane:read` grants all current read operations. An authenticated token
+`control-plane:read` grants all current read operations. Snapshot ingestion
+requires `snapshots:write`; it is deliberately not implied by
+`control-plane:read`. `control-plane:admin` explicitly grants all operations. An authenticated token
 without the required permission receives a public-safe `403`.
 Per-repository roles, token rotation, and OIDC identity are not implemented yet.
 The unauthenticated constructor remains available only for isolated tests and

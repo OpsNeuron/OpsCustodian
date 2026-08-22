@@ -8,17 +8,21 @@ import (
 )
 
 const (
-	ScopeControlPlaneRead = "control-plane:read"
-	ScopeContractsRead    = "contracts:read"
-	ScopeInventoryRead    = "inventory:read"
-	ScopeFindingsRead     = "findings:read"
+	ScopeControlPlaneRead  = "control-plane:read"
+	ScopeControlPlaneAdmin = "control-plane:admin"
+	ScopeContractsRead     = "contracts:read"
+	ScopeInventoryRead     = "inventory:read"
+	ScopeFindingsRead      = "findings:read"
+	ScopeSnapshotsWrite    = "snapshots:write"
 )
 
 var supportedScopes = map[string]struct{}{
-	ScopeControlPlaneRead: {},
-	ScopeContractsRead:    {},
-	ScopeInventoryRead:    {},
-	ScopeFindingsRead:     {},
+	ScopeControlPlaneRead:  {},
+	ScopeControlPlaneAdmin: {},
+	ScopeContractsRead:     {},
+	ScopeInventoryRead:     {},
+	ScopeFindingsRead:      {},
+	ScopeSnapshotsWrite:    {},
 }
 
 type ScopeAuthorizer struct {
@@ -73,7 +77,7 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, request)
 			return
 		}
-		required := requiredScope(request.URL.Path)
+		required := requiredScope(request.Method, request.URL.Path)
 		if principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal); ok && principal.scopes != nil {
 			authorizer = ScopeAuthorizer{scopes: principal.scopes}
 		} else if authorizer.registry != nil {
@@ -90,8 +94,10 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 			scopes = authorizer.grants[principal.identity]
 		}
 		_, broad := scopes[ScopeControlPlaneRead]
+		_, admin := scopes[ScopeControlPlaneAdmin]
 		_, specific := scopes[required]
-		if !broad && !specific {
+		broadRead := broad && required != ScopeSnapshotsWrite
+		if !admin && !broadRead && !specific {
 			setRequestAuthorization(request, "denied")
 			writeError(w, http.StatusForbidden, "authorization-denied", "the authenticated identity is not authorized for this operation")
 			return
@@ -101,8 +107,10 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 	})
 }
 
-func requiredScope(path string) string {
+func requiredScope(method, path string) string {
 	switch {
+	case method == http.MethodPost && path == "/api/v1/snapshots":
+		return ScopeSnapshotsWrite
 	case path == "/api/v1/contracts":
 		return ScopeContractsRead
 	case path == "/api/v1/findings", path == "/api/v1/finding-lifecycles":

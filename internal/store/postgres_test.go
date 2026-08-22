@@ -186,7 +186,7 @@ func TestPostgresWriterRejectsImmutableRevisionConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = writer.PutSnapshot(context.Background(), postgresTestBOM())
-	if err == nil || !strings.Contains(err.Error(), "conflicts with immutable content") {
+	if err == nil || !errors.Is(err, ErrConflict) || !strings.Contains(err.Error(), "conflicts with immutable content") {
 		t.Fatalf("PutSnapshot() error = %v", err)
 	}
 	if transaction.committed || !transaction.rolledBack {

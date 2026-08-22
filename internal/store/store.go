@@ -13,7 +13,10 @@ import (
 	"github.com/opscustodian/opscustodian/internal/validation"
 )
 
-var ErrNotFound = errors.New("snapshot not found")
+var (
+	ErrNotFound = errors.New("snapshot not found")
+	ErrConflict = errors.New("immutable snapshot conflict")
+)
 
 type RepositorySummary struct {
 	ID             string `json:"id"`
@@ -164,6 +167,13 @@ func (memory *Memory) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snap
 		memory.repositories[id] = repository
 	}
 	stored, exists := repository.snapshots[snapshotID]
+	if exists {
+		existing, _ := json.Marshal(stored.bom)
+		proposed, _ := json.Marshal(cloned)
+		if string(existing) != string(proposed) {
+			return Snapshot{}, fmt.Errorf("%w: snapshot %s", ErrConflict, snapshotID)
+		}
+	}
 	if !exists {
 		repository.nextSequence++
 		stored.sequence = repository.nextSequence

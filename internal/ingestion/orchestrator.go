@@ -92,6 +92,7 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 		return nil, fmt.Errorf("retry backoff must be positive and bounded when retries are enabled")
 	}
 	seen := make(map[string]struct{}, len(repositories))
+	normalized := make([]Repository, len(repositories))
 	results := make([]Result, len(repositories))
 	for index, repository := range repositories {
 		repository.Source = strings.TrimSpace(repository.Source)
@@ -102,13 +103,13 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 			return nil, fmt.Errorf("duplicate repository source %q", repository.Source)
 		}
 		seen[repository.Source] = struct{}{}
-		repositories[index] = repository
+		normalized[index] = repository
 		results[index] = Result{Source: repository.Source, Status: StatusCancelled, Err: context.Canceled}
 	}
 
 	semaphore := make(chan struct{}, orchestrator.MaxConcurrency)
 	var workers sync.WaitGroup
-	for index, repository := range repositories {
+	for index, repository := range normalized {
 		if ctx.Err() != nil {
 			break
 		}

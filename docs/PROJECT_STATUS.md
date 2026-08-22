@@ -145,6 +145,7 @@ Missing exit items:
 - Secret-minimized snapshot-ingestion audit outcomes with validated deterministic identifiers, bounded inventory counts, and rejection-path protection against untrusted metadata propagation.
 - Persistence-neutral multi-repository ingestion orchestration with bounded concurrency, conditional known-revision fetches, deterministic result ordering, source-integrity enforcement, and per-repository failure isolation.
 - Repository-scoped ingestion timeouts and explicitly classified transient retry handling with bounded exponential backoff, permanent-error fail-fast behavior, and attempt observability.
+- Non-overlapping ingestion scheduler with immediate startup execution, completion-based cadence, bounded cryptographic jitter, immutable configuration snapshots, structured observations, and fail-closed observer handling.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

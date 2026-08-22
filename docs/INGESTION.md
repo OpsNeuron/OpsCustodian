@@ -21,6 +21,13 @@ attempt count, preventing authentication and contract errors from causing retry
 storms. Result records expose attempt count and a bounded failure class without
 requiring callers to parse provider error strings.
 
+The scheduler runs one batch immediately at startup and measures the next
+interval from batch completion. Batches therefore cannot overlap. A bounded
+cryptographic jitter spreads provider traffic across replicas, while a copied
+repository configuration prevents concurrent mutation. Each completion is
+reported through an observer intended for audit and metrics; observer failure
+stops the scheduler instead of allowing unaudited background ingestion.
+
 Current tests use in-memory stores and fake connectors. Real GitHub/GitLab
 authentication, rate limits, webhooks, polling, retries, and distributed job
 coordination remain future integration work.

@@ -61,6 +61,13 @@ func TestFromHTTPRequestUsesSharedSecretSafeAuditEnvelope(t *testing.T) {
 	}
 }
 
+func TestFromCredentialReloadMinimizesFailureEvent(t *testing.T) {
+	event := FromCredentialReload(CredentialReloadObservation{OccurredAt: time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: false})
+	if event.EventName != "opscustodian.credential.reload.completed" || event.SeverityNumber != 13 || event.Attributes["opscustodian.credential.reload.result"] != "failed" || len(event.Attributes) != 2 {
+		t.Fatalf("credential reload event = %#v", event)
+	}
+}
+
 func TestFromDriftEmitsFindingAndSummaryWithoutSensitiveDiffValues(t *testing.T) {
 	report := drift.Report{BeforeRevision: "baseline", AfterRevision: "proposed", Changes: []drift.Change{{
 		ID: "finding-123", Type: "mcp-runtime-pin-weakened", Severity: "critical", AgentID: "mcp:server", Subject: "server",

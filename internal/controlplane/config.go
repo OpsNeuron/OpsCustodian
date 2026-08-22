@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -28,23 +29,25 @@ const (
 type LookupEnv func(string) (string, bool)
 
 type Config struct {
-	OrganizationID          string
-	OrganizationDisplayName string
-	DatabaseDSN             string
-	AllowInsecureDatabase   bool
-	ApplyMigrations         bool
-	ConnectTimeout          time.Duration
-	MigrationTimeout        time.Duration
-	ShutdownTimeout         time.Duration
-	MaxOpenConns            int
-	MaxIdleConns            int
-	ConnMaxLifetime         time.Duration
-	HTTP                    HTTPConfig
-	Authenticator           server.BearerAuthenticator
-	CredentialID            string
-	CredentialIDs           []string
-	Authorizer              server.ScopeAuthorizer
-	CredentialRegistry      *server.CredentialRegistry
+	OrganizationID           string
+	OrganizationDisplayName  string
+	DatabaseDSN              string
+	AllowInsecureDatabase    bool
+	ApplyMigrations          bool
+	ConnectTimeout           time.Duration
+	MigrationTimeout         time.Duration
+	ShutdownTimeout          time.Duration
+	MaxOpenConns             int
+	MaxIdleConns             int
+	ConnMaxLifetime          time.Duration
+	HTTP                     HTTPConfig
+	Authenticator            server.BearerAuthenticator
+	CredentialID             string
+	CredentialIDs            []string
+	Authorizer               server.ScopeAuthorizer
+	CredentialRegistry       *server.CredentialRegistry
+	CredentialFile           string
+	CredentialReloadInterval time.Duration
 }
 
 type HTTPConfig struct {
@@ -73,6 +76,8 @@ type SafeConfig struct {
 	CredentialID             string        `json:"credentialId"`
 	CredentialIDs            []string      `json:"credentialIds"`
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
+	CredentialFileConfigured bool          `json:"credentialFileConfigured"`
+	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -126,6 +131,18 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	}
 	if config.OrganizationDisplayName == "" {
 		config.OrganizationDisplayName = config.OrganizationID
+	}
+	config.CredentialFile = environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIAL_FILE")
+	if config.CredentialFile != "" {
+		if !filepath.IsAbs(config.CredentialFile) {
+			return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIAL_FILE must be an absolute path")
+		}
+		config.CredentialReloadInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL", 30*time.Second)
+		if err != nil {
+			return Config{}, err
+		}
+	} else if environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL") != "" {
+		return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL requires OPSCUSTODIAN_API_CREDENTIAL_FILE")
 	}
 	if config.ApplyMigrations, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_MIGRATE", config.ApplyMigrations); err != nil {
 		return Config{}, err
@@ -227,6 +244,12 @@ func (config Config) Validate() error {
 	if !config.Authorizer.Configured() {
 		return fmt.Errorf("OPSCUSTODIAN_API_SCOPES is required")
 	}
+	if config.CredentialFile != "" && (config.CredentialReloadInterval < server.MinimumCredentialReloadInterval || config.CredentialReloadInterval > server.MaximumCredentialReloadInterval) {
+		return fmt.Errorf("OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL must be between 1s and 1h")
+	}
+	if config.CredentialFile != "" && config.CredentialRegistry == nil {
+		return fmt.Errorf("credential file reload requires a configured credential registry")
+	}
 	return nil
 }
 
@@ -243,6 +266,8 @@ func (config Config) Safe() SafeConfig {
 		CredentialID:             config.CredentialID,
 		CredentialIDs:            append([]string(nil), config.CredentialIDs...),
 		AuthorizationScopes:      config.Authorizer.Scopes(),
+		CredentialFileConfigured: config.CredentialFile != "",
+		CredentialReloadInterval: config.CredentialReloadInterval,
 	}
 }
 

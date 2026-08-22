@@ -23,6 +23,8 @@ exporter can map the envelope to OTLP.
 - `opscustodian.diff.completed`: one severity-count summary per drift report.
 - `opscustodian.http.request.completed`: one minimized control-plane request
   observation emitted by the server audit middleware.
+- `opscustodian.credential.reload.completed`: one secret-free success or failure
+  outcome for an operational credential-file reload attempt.
 
 Event names contain no asset IDs, revisions, finding IDs, or other dynamic
 values. Those values are flat `opscustodian.*` attributes so backends can
@@ -72,6 +74,11 @@ HTTP shutdown, and closes PostgreSQL. OpsCustodian will not silently continue
 serving unaudited requests. Durable buffering, rotation, retention, and backend
 delivery remain responsibilities of the service supervisor or a future bounded
 audit exporter.
+
+Credential reload events contain only organization ID and the outcome
+`succeeded` or `failed`. File paths, parser errors, credential IDs, scopes,
+tokens, and digests are excluded so a malformed secret file cannot become an
+audit-data exfiltration channel.
 
 ## OTLP/HTTP export
 

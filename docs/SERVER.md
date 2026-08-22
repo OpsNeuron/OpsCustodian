@@ -115,8 +115,16 @@ load and retries at a bounded interval from 1 second to 1 hour. Every attempt
 produces a structured result callback suitable for audit and metrics. A failed
 attempt is observable but does not terminate the watcher or replace the active
 snapshot; later corrected files can recover automatically. Context cancellation
-stops polling cleanly. Process-lifecycle and audit-sink wiring remain the next
-operational step.
+stops polling cleanly.
+
+`serve` now activates this watcher when
+`OPSCUSTODIAN_API_CREDENTIAL_FILE` contains an absolute path. Bootstrap
+credentials still come from the environment, preserving a last-known-good
+identity set before the first file attempt. The optional
+`OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL` defaults to 30 seconds and is
+bounded from 1 second to 1 hour. Safe configuration exposes only whether a file
+is configured and its interval, never its path. Each attempt emits a minimized
+credential reload audit event; an audit sink failure remains process-fatal.
 
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then

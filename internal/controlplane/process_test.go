@@ -7,11 +7,14 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/audit"
+	"github.com/opscustodian/opscustodian/internal/server"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
@@ -84,6 +87,42 @@ func TestRunProcessStopsWhenRequestAuditSinkFails(t *testing.T) {
 	}
 }
 
+func TestRunProcessWiresCredentialWatcherAndAuditsResults(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	sink := &processRecordingAuditSink{}
+	dependencies.AuditSink = sink
+	dependencies.Serve = func(ctx context.Context, _ net.Listener, _ managedHTTPServer, _ Config) error {
+		<-ctx.Done()
+		return nil
+	}
+	dependencies.WatchCredentials = func(_ context.Context, registry *server.CredentialRegistry, path string, interval time.Duration, observer server.CredentialReloadObserver) error {
+		if registry == nil || !filepath.IsAbs(path) || interval != 15*time.Second {
+			t.Fatalf("watcher inputs = %v, %q, %s", registry, path, interval)
+		}
+		observer(server.CredentialReloadResult{OccurredAt: time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC), Succeeded: false, Err: errors.New("invalid update")})
+		observer(server.CredentialReloadResult{OccurredAt: time.Date(2026, 8, 22, 10, 0, 1, 0, time.UTC), Succeeded: true})
+		return nil
+	}
+	config := validRuntimeConfig()
+	registry, err := server.NewCredentialRegistry([]server.BearerCredential{{ID: "process-reader", Token: "process-reader-token-0123456789abcdefgh", Scopes: []string{server.ScopeControlPlaneRead}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.CredentialRegistry = registry
+	config.Authenticator, config.Authorizer, _ = registry.Security()
+	config.CredentialID = ""
+	config.CredentialIDs = config.Authenticator.CredentialIDs()
+	config.CredentialFile = filepath.Join(t.TempDir(), "credentials.json")
+	config.CredentialReloadInterval = 15 * time.Second
+	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.events) != 2 || sink.events[0].EventName != "opscustodian.credential.reload.completed" || sink.events[0].Attributes["opscustodian.credential.reload.result"] != "failed" || sink.events[1].Attributes["opscustodian.credential.reload.result"] != "succeeded" {
+		t.Fatalf("reload audit events = %#v", sink.events)
+	}
+}
+
 func TestRunProcessRejectsIncompleteProcessDependenciesBeforeDatabaseIO(t *testing.T) {
 	opened := false
 	database := successfulDependencies()
@@ -98,7 +137,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -125,6 +164,9 @@ func processTestDependencies(events *[]string) ProcessDependencies {
 			*events = append(*events, "serve")
 			return nil
 		},
+		WatchCredentials: func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error {
+			return nil
+		},
 	}
 }
 
@@ -143,4 +185,11 @@ type processFailingAuditSink struct{}
 
 func (processFailingAuditSink) Record(context.Context, audit.Event) error {
 	return errors.New("audit storage unavailable")
+}
+
+type processRecordingAuditSink struct{ events []audit.Event }
+
+func (sink *processRecordingAuditSink) Record(_ context.Context, event audit.Event) error {
+	sink.events = append(sink.events, event)
+	return nil
 }

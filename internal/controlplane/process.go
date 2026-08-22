@@ -7,16 +7,18 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/server"
 )
 
 type ProcessDependencies struct {
-	Database  Dependencies
-	Listen    func(string, string) (net.Listener, error)
-	Serve     func(context.Context, net.Listener, managedHTTPServer, Config) error
-	AuditSink server.RequestAuditSink
+	Database         Dependencies
+	Listen           func(string, string) (net.Listener, error)
+	Serve            func(context.Context, net.Listener, managedHTTPServer, Config) error
+	AuditSink        server.RequestAuditSink
+	WatchCredentials func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error
 }
 
 func DefaultProcessDependencies() (ProcessDependencies, error) {
@@ -35,11 +37,12 @@ func DefaultProcessDependencies() (ProcessDependencies, error) {
 		Serve: func(ctx context.Context, listener net.Listener, server managedHTTPServer, config Config) error {
 			return serveHTTP(ctx, listener, server, config.ShutdownTimeout)
 		},
+		WatchCredentials: server.WatchCredentialFile,
 	}, nil
 }
 
 func RunProcess(ctx context.Context, config Config, buildVersion string, dependencies ProcessDependencies) (resultErr error) {
-	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil {
+	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil {
 		return fmt.Errorf("complete control-plane process dependencies are required")
 	}
 	runtime, err := Bootstrap(ctx, config, dependencies.Database)
@@ -74,6 +77,22 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	defer cancelServe()
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- dependencies.Serve(serveContext, listener, httpServer, config) }()
+	var watcherResult <-chan error
+	if config.CredentialFile != "" {
+		results := make(chan error, 1)
+		watcherResult = results
+		go func() {
+			results <- dependencies.WatchCredentials(serveContext, config.CredentialRegistry, config.CredentialFile, config.CredentialReloadInterval, func(result server.CredentialReloadResult) {
+				err := dependencies.AuditSink.Record(serveContext, audit.FromCredentialReload(audit.CredentialReloadObservation{OccurredAt: result.OccurredAt, OrganizationID: config.OrganizationID, Succeeded: result.Succeeded}))
+				if err != nil {
+					select {
+					case auditFailures <- fmt.Errorf("record credential reload audit: %w", err):
+					default:
+					}
+				}
+			})
+		}()
+	}
 	select {
 	case err := <-serveResult:
 		return err
@@ -84,6 +103,13 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return errors.Join(auditErr, serveErr)
 		}
 		return auditErr
+	case watcherErr := <-watcherResult:
+		cancelServe()
+		serveErr := <-serveResult
+		if watcherErr != nil || serveErr != nil {
+			return errors.Join(watcherErr, serveErr)
+		}
+		return nil
 	}
 }
 

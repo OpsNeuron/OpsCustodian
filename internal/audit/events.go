@@ -42,6 +42,23 @@ type HTTPRequestObservation struct {
 	Identity       string
 }
 
+type CredentialReloadObservation struct {
+	OccurredAt     time.Time
+	OrganizationID string
+	Succeeded      bool
+}
+
+func FromCredentialReload(observation CredentialReloadObservation) Event {
+	outcome, severity := "succeeded", 9
+	if !observation.Succeeded {
+		outcome, severity = "failed", 13
+	}
+	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.credential.reload.completed", severity, "OpsCustodian credential reload completed", map[string]any{
+		"opscustodian.organization.id":          observation.OrganizationID,
+		"opscustodian.credential.reload.result": outcome,
+	})
+}
+
 func FromHTTPRequest(observation HTTPRequestObservation) Event {
 	severity := 9
 	if observation.Status == 401 || observation.Status == 403 || observation.Status >= 500 {

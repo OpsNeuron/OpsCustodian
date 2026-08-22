@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -213,6 +214,50 @@ func TestConfigAcceptsCredentialLifecycleFields(t *testing.T) {
 	}))
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConfigEnablesSecretSafeCredentialFileReload(t *testing.T) {
+	secretPath := filepath.Join(t.TempDir(), "credentials.json")
+	config, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":                "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":                   "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE":        "true",
+		"OPSCUSTODIAN_API_TOKEN":                      controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":                   "bootstrap-reader",
+		"OPSCUSTODIAN_API_SCOPES":                     "control-plane:read",
+		"OPSCUSTODIAN_API_CREDENTIAL_FILE":            secretPath,
+		"OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL": "15s",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := json.Marshal(config.Safe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.CredentialReloadInterval != 15*time.Second || !strings.Contains(string(content), `"credentialFileConfigured":true`) || strings.Contains(string(content), secretPath) {
+		t.Fatalf("safe credential file config = %s", content)
+	}
+}
+
+func TestConfigRejectsUnsafeCredentialFileSettings(t *testing.T) {
+	base := map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":            "bootstrap-reader",
+		"OPSCUSTODIAN_API_SCOPES":              "control-plane:read",
+	}
+	base["OPSCUSTODIAN_API_CREDENTIAL_FILE"] = "relative/credentials.json"
+	if _, err := ConfigFromEnvironment(environment(base)); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("relative path error = %v", err)
+	}
+	delete(base, "OPSCUSTODIAN_API_CREDENTIAL_FILE")
+	base["OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL"] = "15s"
+	if _, err := ConfigFromEnvironment(environment(base)); err == nil || !strings.Contains(err.Error(), "requires") {
+		t.Fatalf("orphan interval error = %v", err)
 	}
 }
 

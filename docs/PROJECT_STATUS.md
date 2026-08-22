@@ -140,6 +140,7 @@ Missing exit items:
 - Atomic in-process credential reload registry with immutable per-request security snapshots, last-known-good preservation after invalid reloads, and synchronized authentication/authorization publication.
 - Hardened credential-file reload boundary with bounded reads, strict JSON, symlink/non-regular rejection, Unix owner-only permission enforcement, file identity verification, and last-known-good preservation.
 - Cancellable bounded credential-file polling trigger with immediate load, retry-after-failure behavior, deterministic runtime tests, and structured result observation for future audit/metrics wiring.
+- Operational `serve` integration for credential-file hot reload with absolute-path configuration, secret-safe config projection, minimized reload audit events, coordinated cancellation, and fail-closed audit persistence.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

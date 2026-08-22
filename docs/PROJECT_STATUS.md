@@ -151,6 +151,7 @@ Missing exit items:
 - Optional fail-closed `serve` wiring for RepositorySet loading, local connector orchestration, non-overlapping scheduling, bounded ingestion audit summaries, and coordinated HTTP/database cancellation.
 - Hardened GitHub revision-discovery client with strict repository/ref identity, secret-reference-only authentication, redirect prevention, bounded HTTPS requests/responses, immutable SHA validation, and transient rate-limit/server classification.
 - Bounded GitHub ZIP materialization with isolated temporary workspaces, single-root enforcement, Zip Slip/symlink/special-file/duplicate rejection, compressed/extracted/entry ceilings, cancellation, fixed permissions, and idempotent cleanup.
+- Two-stage GitHub archive acquisition with immutable-SHA requests, allowlisted HTTPS redirect targets, single-redirect enforcement, Authorization stripping, signed-URL error minimization, direct-response support, and transient failure classification.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

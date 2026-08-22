@@ -27,3 +27,10 @@ and rejects traversal, backslashes, absolute paths, symlinks, special files,
 case-insensitive duplicates, and multiple roots. Extracted permissions are
 fixed rather than inherited, cancellation is honored, and cleanup is
 idempotent.
+
+Archive acquisition performs at most two requests. The authenticated API
+request may redirect only to an explicitly allowlisted HTTPS archive host. The
+second request is constructed from scratch without Authorization and cannot
+redirect again. Signed query parameters are accepted for the allowlisted target
+but are never returned in errors. Direct archive responses are also supported;
+status and transport failures reuse the bounded transient retry contract.

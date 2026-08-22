@@ -83,22 +83,9 @@ func (client *GitHubRevisionClient) Resolve(ctx context.Context, repository Repo
 	if err := validateGitHubRef(repository.Ref); err != nil {
 		return "", err
 	}
-	token := ""
-	if repository.CredentialReference != "" {
-		if err := validateSafeString(repository.CredentialReference, 256); err != nil || client.credentials == nil {
-			return "", fmt.Errorf("GitHub credential reference is invalid or unavailable")
-		}
-		token, err = client.credentials.Resolve(ctx, repository.CredentialReference)
-		if err != nil {
-			message := errors.New("GitHub credential resolution failed")
-			if isTransient(err) {
-				return "", Transient(message)
-			}
-			return "", message
-		}
-		if err := validateGitHubToken(token); err != nil {
-			return "", fmt.Errorf("resolved GitHub credential is invalid")
-		}
+	token, err := resolveGitHubCredential(ctx, repository.CredentialReference, client.credentials)
+	if err != nil {
+		return "", err
 	}
 
 	requestURL := *client.endpoint
@@ -187,6 +174,27 @@ func validateGitHubToken(token string) error {
 		}
 	}
 	return nil
+}
+
+func resolveGitHubCredential(ctx context.Context, reference string, resolver CredentialResolver) (string, error) {
+	if reference == "" {
+		return "", nil
+	}
+	if err := validateSafeString(reference, 256); err != nil || resolver == nil {
+		return "", fmt.Errorf("GitHub credential reference is invalid or unavailable")
+	}
+	token, err := resolver.Resolve(ctx, reference)
+	if err != nil {
+		message := errors.New("GitHub credential resolution failed")
+		if isTransient(err) {
+			return "", Transient(message)
+		}
+		return "", message
+	}
+	if err := validateGitHubToken(token); err != nil {
+		return "", fmt.Errorf("resolved GitHub credential is invalid")
+	}
+	return token, nil
 }
 
 func normalizeGitHubSHA(value string) (string, error) {

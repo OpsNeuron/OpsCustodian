@@ -68,6 +68,16 @@ func TestFromCredentialReloadMinimizesFailureEvent(t *testing.T) {
 	}
 }
 
+func TestFromIngestionScheduleEmitsOnlyBoundedSummary(t *testing.T) {
+	event := FromIngestionSchedule(IngestionScheduleObservation{
+		OccurredAt: time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef",
+		DurationMillis: 25, RepositoryCount: 3, PersistedCount: 1, UnchangedCount: 1, FailedCount: 1, Succeeded: true,
+	})
+	if event.EventName != "opscustodian.ingestion.schedule.completed" || event.SeverityNumber != 13 || event.Attributes["opscustodian.ingestion.failed.count"] != 1 || len(event.Attributes) != 9 {
+		t.Fatalf("ingestion schedule event = %#v", event)
+	}
+}
+
 func TestFromDriftEmitsFindingAndSummaryWithoutSensitiveDiffValues(t *testing.T) {
 	report := drift.Report{BeforeRevision: "baseline", AfterRevision: "proposed", Changes: []drift.Change{{
 		ID: "finding-123", Type: "mcp-runtime-pin-weakened", Severity: "critical", AgentID: "mcp:server", Subject: "server",

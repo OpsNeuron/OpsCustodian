@@ -108,7 +108,7 @@ runtime authorization system.
 - Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; real PostgreSQL driver and integration validation pending)*
 - Official pgx PostgreSQL driver wiring. *(pinned and registered; live connection and compatibility matrix deferred to final integration)*
 - PostgreSQL transport-security guard. *(verified TLS enforced across effective pgx primary/fallback configuration; certificate-chain integration deferred)*
-- Multi-repository ingestion and historical Finding lifecycle. *(endpoint, immutable persistence, orchestration/scheduler, connector registry, deterministic local connector, and versioned RepositorySet loader implemented; process wiring and production Git provider connector pending)*
+- Multi-repository ingestion and historical Finding lifecycle. *(endpoint, immutable persistence, orchestration/scheduler, connector registry, local connector, RepositorySet loader, process wiring, and audit summary implemented; production Git provider connector pending)*
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration. *(experimental authenticated `serve` and secret-free `--print-config` implemented)*
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*

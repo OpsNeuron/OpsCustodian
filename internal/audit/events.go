@@ -58,6 +58,37 @@ type CredentialReloadObservation struct {
 	Succeeded      bool
 }
 
+type IngestionScheduleObservation struct {
+	OccurredAt      time.Time
+	OrganizationID  string
+	DurationMillis  int64
+	RepositoryCount int
+	PersistedCount  int
+	UnchangedCount  int
+	ConflictCount   int
+	FailedCount     int
+	CancelledCount  int
+	Succeeded       bool
+}
+
+func FromIngestionSchedule(observation IngestionScheduleObservation) Event {
+	severity, outcome := 9, "succeeded"
+	if !observation.Succeeded || observation.FailedCount > 0 || observation.ConflictCount > 0 {
+		severity, outcome = 13, "completed-with-errors"
+	}
+	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.ingestion.schedule.completed", severity, "OpsCustodian ingestion schedule completed", map[string]any{
+		"opscustodian.organization.id":            observation.OrganizationID,
+		"opscustodian.ingestion.result":           outcome,
+		"opscustodian.ingestion.repository.count": observation.RepositoryCount,
+		"opscustodian.ingestion.persisted.count":  observation.PersistedCount,
+		"opscustodian.ingestion.unchanged.count":  observation.UnchangedCount,
+		"opscustodian.ingestion.conflict.count":   observation.ConflictCount,
+		"opscustodian.ingestion.failed.count":     observation.FailedCount,
+		"opscustodian.ingestion.cancelled.count":  observation.CancelledCount,
+		"opscustodian.ingestion.duration_ms":      max(observation.DurationMillis, 0),
+	})
+}
+
 func FromCredentialReload(observation CredentialReloadObservation) Event {
 	outcome, severity := "succeeded", 9
 	if !observation.Succeeded {

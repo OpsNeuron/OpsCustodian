@@ -48,6 +48,7 @@ type Config struct {
 	CredentialRegistry       *server.CredentialRegistry
 	CredentialFile           string
 	CredentialReloadInterval time.Duration
+	RepositorySetFile        string
 }
 
 type HTTPConfig struct {
@@ -78,6 +79,7 @@ type SafeConfig struct {
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
 	CredentialFileConfigured bool          `json:"credentialFileConfigured"`
 	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
+	RepositorySetConfigured  bool          `json:"repositorySetConfigured"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -143,6 +145,10 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		}
 	} else if environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL") != "" {
 		return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIAL_RELOAD_INTERVAL requires OPSCUSTODIAN_API_CREDENTIAL_FILE")
+	}
+	config.RepositorySetFile = environmentValue(lookup, "OPSCUSTODIAN_REPOSITORY_SET_FILE")
+	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
+		return Config{}, fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
 	}
 	if config.ApplyMigrations, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_MIGRATE", config.ApplyMigrations); err != nil {
 		return Config{}, err
@@ -250,6 +256,9 @@ func (config Config) Validate() error {
 	if config.CredentialFile != "" && config.CredentialRegistry == nil {
 		return fmt.Errorf("credential file reload requires a configured credential registry")
 	}
+	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
+		return fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
+	}
 	return nil
 }
 
@@ -268,6 +277,7 @@ func (config Config) Safe() SafeConfig {
 		AuthorizationScopes:      config.Authorizer.Scopes(),
 		CredentialFileConfigured: config.CredentialFile != "",
 		CredentialReloadInterval: config.CredentialReloadInterval,
+		RepositorySetConfigured:  config.RepositorySetFile != "",
 	}
 }
 

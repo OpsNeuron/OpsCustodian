@@ -159,6 +159,7 @@ timeout-bounded graceful shutdown when its context is cancelled.
 | `OPSCUSTODIAN_HTTP_WRITE_TIMEOUT` | `30s` | positive, at most 5 minutes |
 | `OPSCUSTODIAN_HTTP_IDLE_TIMEOUT` | `60s` | positive, at most 5 minutes |
 | `OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES` | `65536` | 8192 to 1048576 bytes |
+| `OPSCUSTODIAN_REPOSITORY_SET_FILE` | unset | clean absolute path to a strict versioned RepositorySet JSON file |
 
 Unit tests verify both loopback families, rejection of exposure-prone binds,
 timeout/header bounds, cancellation, shutdown, and error propagation without
@@ -168,12 +169,19 @@ opening a real socket.
 
 The control-plane process orchestrator now owns startup and cleanup order:
 
-1. validate configuration and bootstrap PostgreSQL;
-2. construct the authenticated HTTP server;
-3. acquire the loopback listener;
-4. serve until the caller's context is cancelled or serving fails;
-5. close the listener; and
-6. close the database exactly once.
+1. validate configuration and process dependencies;
+2. load and validate the optional RepositorySet before external I/O;
+3. bootstrap PostgreSQL and optionally apply migrations;
+4. construct the authenticated HTTP server;
+5. acquire the loopback listener;
+6. run HTTP, optional credential reload, and optional ingestion scheduling under one cancellation scope;
+7. stop on serving, watcher, scheduler, or audit failure;
+8. close the listener and database exactly once.
+
+Scheduled ingestion emits one bounded audit summary containing outcome,
+duration, and status counts. Repository paths, connector errors, BOM content,
+and credentials are excluded. An ingestion audit failure stops the scheduler
+and process rather than continuing unaudited.
 
 Listener and serving functions are injected for deterministic tests. Failures
 before listener creation cannot leak a database handle, failures while serving

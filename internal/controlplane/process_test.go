@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/audit"
+	"github.com/opscustodian/opscustodian/internal/ingestion"
 	"github.com/opscustodian/opscustodian/internal/server"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
@@ -123,6 +124,46 @@ func TestRunProcessWiresCredentialWatcherAndAuditsResults(t *testing.T) {
 	}
 }
 
+func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	sink := &processRecordingAuditSink{}
+	dependencies.AuditSink = sink
+	dependencies.Serve = func(ctx context.Context, _ net.Listener, _ managedHTTPServer, _ Config) error {
+		<-ctx.Done()
+		return nil
+	}
+	root := t.TempDir()
+	dependencies.LoadRepositorySet = func(path string) (ingestion.RepositorySet, error) {
+		if !filepath.IsAbs(path) {
+			t.Fatalf("repository set path = %q", path)
+		}
+		return ingestion.RepositorySet{
+			Repositories: []ingestion.Repository{{Source: "github:acme/platform", Connector: ingestion.LocalConnectorName, Location: root, Revision: "abc123"}},
+			Interval:     time.Minute, MaxJitter: time.Second, MaxConcurrency: 2, RepositoryTimeout: 30 * time.Second,
+			Retry: ingestion.RetryPolicy{MaxAttempts: 1},
+		}, nil
+	}
+	dependencies.RunIngestionScheduler = func(_ context.Context, scheduler ingestion.Scheduler) error {
+		if len(scheduler.Repositories) != 1 || scheduler.Interval != time.Minute || scheduler.MaxJitter != time.Second {
+			t.Fatalf("scheduler = %#v", scheduler)
+		}
+		return scheduler.Observer(ingestion.ScheduleObservation{
+			StartedAt:  time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC),
+			FinishedAt: time.Date(2026, 8, 22, 10, 0, 2, 0, time.UTC),
+			Results:    []ingestion.Result{{Status: ingestion.StatusPersisted}, {Status: ingestion.StatusFailed}},
+		})
+	}
+	config := validRuntimeConfig()
+	config.RepositorySetFile = filepath.Join(t.TempDir(), "repositories.json")
+	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
+		t.Fatal(err)
+	}
+	if len(sink.events) != 1 || sink.events[0].EventName != "opscustodian.ingestion.schedule.completed" || sink.events[0].Attributes["opscustodian.ingestion.persisted.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.failed.count"] != 1 {
+		t.Fatalf("ingestion audit events = %#v", sink.events)
+	}
+}
+
 func TestRunProcessRejectsIncompleteProcessDependenciesBeforeDatabaseIO(t *testing.T) {
 	opened := false
 	database := successfulDependencies()
@@ -137,7 +178,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -167,6 +208,8 @@ func processTestDependencies(events *[]string) ProcessDependencies {
 		WatchCredentials: func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error {
 			return nil
 		},
+		LoadRepositorySet:     ingestion.LoadRepositorySet,
+		RunIngestionScheduler: func(ctx context.Context, scheduler ingestion.Scheduler) error { return scheduler.Run(ctx) },
 	}
 }
 

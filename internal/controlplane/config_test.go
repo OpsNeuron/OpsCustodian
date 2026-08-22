@@ -261,6 +261,28 @@ func TestConfigRejectsUnsafeCredentialFileSettings(t *testing.T) {
 	}
 }
 
+func TestConfigEnablesSecretSafeRepositorySet(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "repositories.json")
+	values := map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef", "OPSCUSTODIAN_DATABASE_DSN": "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true", "OPSCUSTODIAN_API_TOKEN": controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID": "bootstrap-reader", "OPSCUSTODIAN_API_SCOPES": "control-plane:read",
+		"OPSCUSTODIAN_REPOSITORY_SET_FILE": path,
+	}
+	config, err := ConfigFromEnvironment(environment(values))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, _ := json.Marshal(config.Safe())
+	if config.RepositorySetFile != path || !strings.Contains(string(content), `"repositorySetConfigured":true`) || strings.Contains(string(content), path) {
+		t.Fatalf("safe repository set config = %s", content)
+	}
+	values["OPSCUSTODIAN_REPOSITORY_SET_FILE"] = "relative/repositories.json"
+	if _, err := ConfigFromEnvironment(environment(values)); err == nil || !strings.Contains(err.Error(), "absolute") {
+		t.Fatalf("relative repository set error = %v", err)
+	}
+}
+
 func environment(values map[string]string) LookupEnv {
 	return func(name string) (string, bool) {
 		value, exists := values[name]

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/store"
@@ -85,7 +86,9 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 }
 
 func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {
+	setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{Result: "rejected"})
 	if api.writer == nil {
+		setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{Result: "unavailable"})
 		writeError(w, http.StatusServiceUnavailable, "snapshot-writer-unavailable", "snapshot ingestion is unavailable")
 		return
 	}
@@ -117,13 +120,23 @@ func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {
 	}
 	snapshot, err := api.writer.PutSnapshot(request.Context(), bom)
 	if errors.Is(err, store.ErrConflict) {
+		repositoryID := store.RepositoryID(bom.Metadata.Source)
+		setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{
+			Result: "conflict", RepositoryID: repositoryID,
+			SnapshotID: store.SnapshotID(repositoryID, bom.Metadata.Revision), Revision: bom.Metadata.Revision,
+		})
 		writeError(w, http.StatusConflict, "immutable-snapshot-conflict", "the repository revision already exists with different content")
 		return
 	}
 	if err != nil {
+		setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{Result: "failed"})
 		writeError(w, http.StatusInternalServerError, "store-write-failed", "snapshot could not be persisted")
 		return
 	}
+	setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{
+		Result: "persisted", RepositoryID: snapshot.RepositoryID, SnapshotID: snapshot.SnapshotID,
+		Revision: snapshot.BOM.Metadata.Revision, AssetCount: len(snapshot.BOM.Assets), FindingCount: len(snapshot.BOM.Findings),
+	})
 	writeJSON(w, http.StatusCreated, valueResponse[snapshotIngestionResponse]{APIVersion: contracts.ControlPlaneAPIVersion, Value: snapshotIngestionResponse{
 		SnapshotID: snapshot.SnapshotID, RepositoryID: snapshot.RepositoryID, Revision: snapshot.BOM.Metadata.Revision,
 		GeneratedAt: snapshot.BOM.Metadata.GeneratedAt, AssetCount: len(snapshot.BOM.Assets), FindingCount: len(snapshot.BOM.Findings),

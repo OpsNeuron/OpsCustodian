@@ -64,6 +64,66 @@ func TestRequestAuditDistinguishesRejectedAndPublicRequests(t *testing.T) {
 	}
 }
 
+func TestRequestAuditCapturesBoundedSnapshotIngestionMetadata(t *testing.T) {
+	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeSnapshotsWrite})
+	sink := &recordingRequestAuditSink{}
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
+		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bom := serverTestBOM()
+	bom.Metadata.Revision = "audit-ingestion"
+	body, _ := json.Marshal(bom)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", strings.NewReader(string(body)))
+	request.Header.Set("Authorization", "Bearer "+serverTestBearerToken)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || len(sink.events) != 1 {
+		t.Fatalf("response = %d, events = %#v", response.Code, sink.events)
+	}
+	attributes := sink.events[0].Attributes
+	if attributes["opscustodian.snapshot.ingestion.result"] != "persisted" || attributes["opscustodian.snapshot.revision"] != "audit-ingestion" || attributes["opscustodian.snapshot.asset.count"] != len(bom.Assets) {
+		t.Fatalf("snapshot audit attributes = %#v", attributes)
+	}
+	content, _ := json.Marshal(sink.events[0])
+	if strings.Contains(string(content), string(body)) || strings.Contains(string(content), serverTestBearerToken) {
+		t.Fatalf("snapshot audit leaked request data: %s", content)
+	}
+}
+
+func TestRequestAuditRejectsSnapshotWithoutRecordingUntrustedMetadata(t *testing.T) {
+	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopeSnapshotsWrite})
+	sink := &recordingRequestAuditSink{}
+	handler, err := newAuditedAuthenticatedHandler(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, requestAuditOptions{
+		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	untrusted := `{"metadata":{"source":"secret-source","revision":"secret-revision"}}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", strings.NewReader(untrusted))
+	request.Header.Set("Authorization", "Bearer "+serverTestBearerToken)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity || len(sink.events) != 1 {
+		t.Fatalf("response = %d, events = %#v", response.Code, sink.events)
+	}
+	attributes := sink.events[0].Attributes
+	if attributes["opscustodian.snapshot.ingestion.result"] != "rejected" || attributes["opscustodian.repository.id"] != nil || attributes["opscustodian.snapshot.revision"] != nil {
+		t.Fatalf("rejected snapshot audit attributes = %#v", attributes)
+	}
+	content, _ := json.Marshal(sink.events[0])
+	if strings.Contains(string(content), "secret-source") || strings.Contains(string(content), "secret-revision") {
+		t.Fatalf("snapshot audit leaked untrusted metadata: %s", content)
+	}
+}
+
 func TestRequestAuditRequiresSafeDependencies(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
 	authorizer, _ := NewScopeAuthorizer([]string{ScopeControlPlaneRead})

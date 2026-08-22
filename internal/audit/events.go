@@ -40,6 +40,16 @@ type HTTPRequestObservation struct {
 	Authentication string
 	Authorization  string
 	Identity       string
+	Snapshot       *SnapshotIngestionObservation
+}
+
+type SnapshotIngestionObservation struct {
+	Result       string
+	RepositoryID string
+	SnapshotID   string
+	Revision     string
+	AssetCount   int
+	FindingCount int
 }
 
 type CredentialReloadObservation struct {
@@ -64,7 +74,7 @@ func FromHTTPRequest(observation HTTPRequestObservation) Event {
 	if observation.Status == 401 || observation.Status == 403 || observation.Status >= 500 {
 		severity = 13
 	}
-	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.http.request.completed", severity, "OpsCustodian control-plane HTTP request completed", map[string]any{
+	attributes := map[string]any{
 		"opscustodian.request.id":            observation.RequestID,
 		"opscustodian.organization.id":       observation.OrganizationID,
 		"opscustodian.authentication.result": observation.Authentication,
@@ -74,7 +84,24 @@ func FromHTTPRequest(observation HTTPRequestObservation) Event {
 		"http.route":                         observation.Route,
 		"http.response.status_code":          observation.Status,
 		"http.server.request.duration_ms":    observation.DurationMillis,
-	})
+	}
+	if snapshot := observation.Snapshot; snapshot != nil {
+		attributes["opscustodian.snapshot.ingestion.result"] = snapshot.Result
+		if snapshot.RepositoryID != "" {
+			attributes["opscustodian.repository.id"] = snapshot.RepositoryID
+		}
+		if snapshot.SnapshotID != "" {
+			attributes["opscustodian.snapshot.id"] = snapshot.SnapshotID
+		}
+		if snapshot.Revision != "" {
+			attributes["opscustodian.snapshot.revision"] = snapshot.Revision
+		}
+		if snapshot.Result == "persisted" {
+			attributes["opscustodian.snapshot.asset.count"] = snapshot.AssetCount
+			attributes["opscustodian.snapshot.finding.count"] = snapshot.FindingCount
+		}
+	}
+	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.http.request.completed", severity, "OpsCustodian control-plane HTTP request completed", attributes)
 }
 
 func FromBOM(bom model.AgentBOM, occurredAt time.Time) []Event {

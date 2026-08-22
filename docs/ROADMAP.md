@@ -123,7 +123,7 @@ runtime authorization system.
 - Operational credential reload wiring. *(environment configuration, process lifecycle, minimized audit events, and fail-closed audit handling implemented; real secret rotation validation deferred)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
-- Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, and fail-closed process shutdown implemented; durable buffering and retention pending)*
+- Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, fail-closed process shutdown, and bounded snapshot-ingestion outcomes implemented; durable buffering and retention pending)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.

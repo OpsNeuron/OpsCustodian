@@ -27,6 +27,7 @@ type requestAuditState struct {
 	authentication string
 	authorization  string
 	identity       string
+	snapshot       *audit.SnapshotIngestionObservation
 }
 type requestAuditContextKey struct{}
 
@@ -73,6 +74,7 @@ func requestAuditMiddleware(next http.Handler, organizationID string, sink Reque
 			OrganizationID: organizationID, Method: request.Method, Route: route,
 			Status: response.status, DurationMillis: max(finished.Sub(started).Milliseconds(), 0),
 			Authentication: state.authentication, Authorization: state.authorization, Identity: state.identity,
+			Snapshot: state.snapshot,
 		})); err != nil {
 			onFailure(fmt.Errorf("record control-plane request audit: %w", err))
 		}
@@ -109,6 +111,12 @@ func setRequestAuthorization(request *http.Request, value string) {
 func setRequestIdentity(request *http.Request, value string) {
 	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
 		state.identity = value
+	}
+}
+
+func setSnapshotIngestionAudit(request *http.Request, observation audit.SnapshotIngestionObservation) {
+	if state, ok := request.Context().Value(requestAuditContextKey{}).(*requestAuditState); ok {
+		state.snapshot = &observation
 	}
 }
 

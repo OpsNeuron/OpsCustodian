@@ -142,6 +142,7 @@ Missing exit items:
 - Cancellable bounded credential-file polling trigger with immediate load, retry-after-failure behavior, deterministic runtime tests, and structured result observation for future audit/metrics wiring.
 - Operational `serve` integration for credential-file hot reload with absolute-path configuration, secret-safe config projection, minimized reload audit events, coordinated cancellation, and fail-closed audit persistence.
 - Scope-isolated multi-repository snapshot ingestion with strict 10 MiB Agent BOM decoding, pre-write contract validation, deterministic identifiers, typed immutable conflicts, bounded success responses, and OpenAPI coverage.
+- Secret-minimized snapshot-ingestion audit outcomes with validated deterministic identifiers, bounded inventory counts, and rejection-path protection against untrusted metadata propagation.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

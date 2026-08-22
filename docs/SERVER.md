@@ -50,9 +50,10 @@ The store distinguishes read and write capabilities:
   findings.
 - `Writer` ingests a validated Agent BOM snapshot.
 
-HTTP handlers receive only `Reader`. There are no mutation endpoints. The
-memory implementation keeps multiple revisions, makes defensive copies, honors
-request cancellation, and can be replaced without changing the API layer.
+Read handlers depend only on `Reader`; snapshot ingestion is enabled only when
+the supplied store also implements `Writer`. The memory implementation keeps
+multiple immutable revisions, makes defensive copies, honors request
+cancellation, and can be replaced without changing the API layer.
 
 ## Security status
 
@@ -204,6 +205,12 @@ shared OpenTelemetry-compatible OpsCustodian audit envelope. It records a
 server-generated request ID, canonical route pattern, status, duration,
 organization, method, authentication result, and authorization result. Raw URL/query values, headers,
 tokens, bodies, and remote addresses are excluded by construction.
+
+Snapshot-ingestion request events add a bounded result (`persisted`, `conflict`,
+`rejected`, `failed`, or `unavailable`). Only after contract validation may an
+event include deterministic repository/snapshot IDs and revision; successful
+writes also include asset and Finding counts. Rejected untrusted metadata is
+never copied from the request into audit attributes.
 
 Public health, rejected authentication, successful API requests, and API errors
 are distinguished without exposing credential material. The middleware requires

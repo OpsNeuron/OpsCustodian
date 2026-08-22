@@ -14,6 +14,13 @@ immutable revision conflict does not prevent other repositories from being
 processed. Results retain configuration order so automation and audit systems
 receive deterministic output even when fetches complete out of order.
 
+Each repository may have an independent timeout. Connectors explicitly mark
+retry-safe transient failures; unmarked errors are permanent and are attempted
+once. Transient failures use a bounded exponential backoff and a fixed maximum
+attempt count, preventing authentication and contract errors from causing retry
+storms. Result records expose attempt count and a bounded failure class without
+requiring callers to parse provider error strings.
+
 Current tests use in-memory stores and fake connectors. Real GitHub/GitLab
 authentication, rate limits, webhooks, polling, retries, and distributed job
 coordination remain future integration work.

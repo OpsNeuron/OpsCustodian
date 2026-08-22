@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/store"
@@ -37,18 +38,44 @@ type Fetcher interface {
 	Fetch(context.Context, FetchRequest) (FetchResult, error)
 }
 
+type transientError struct{ err error }
+
+func (err transientError) Error() string { return err.err.Error() }
+func (err transientError) Unwrap() error { return err.err }
+
+// Transient marks connector failures that may safely be retried, such as rate
+// limiting or temporary provider unavailability. All unmarked errors are
+// permanent by default.
+func Transient(err error) error {
+	if err == nil {
+		return nil
+	}
+	return transientError{err: err}
+}
+
+type RetryPolicy struct {
+	MaxAttempts    int
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+}
+
 type Result struct {
-	Source   string
-	Status   string
-	Snapshot store.Snapshot
-	Err      error
+	Source       string
+	Status       string
+	Snapshot     store.Snapshot
+	Err          error
+	Attempts     int
+	FailureClass string
 }
 
 type Orchestrator struct {
-	Reader         store.Reader
-	Writer         store.Writer
-	Fetcher        Fetcher
-	MaxConcurrency int
+	Reader            store.Reader
+	Writer            store.Writer
+	Fetcher           Fetcher
+	MaxConcurrency    int
+	RepositoryTimeout time.Duration
+	Retry             RetryPolicy
+	sleep             func(context.Context, time.Duration) error
 }
 
 func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Repository) ([]Result, error) {
@@ -57,6 +84,12 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 	}
 	if orchestrator.MaxConcurrency < 1 {
 		return nil, fmt.Errorf("ingestion concurrency must be positive")
+	}
+	if orchestrator.RepositoryTimeout < 0 || orchestrator.Retry.MaxAttempts < 0 || orchestrator.Retry.InitialBackoff < 0 || orchestrator.Retry.MaxBackoff < 0 {
+		return nil, fmt.Errorf("ingestion timeout and retry values must not be negative")
+	}
+	if orchestrator.Retry.MaxAttempts > 1 && (orchestrator.Retry.InitialBackoff <= 0 || orchestrator.Retry.MaxBackoff < orchestrator.Retry.InitialBackoff) {
+		return nil, fmt.Errorf("retry backoff must be positive and bounded when retries are enabled")
 	}
 	seen := make(map[string]struct{}, len(repositories))
 	results := make([]Result, len(repositories))
@@ -101,6 +134,11 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 
 func (orchestrator Orchestrator) ingest(ctx context.Context, repository Repository) Result {
 	result := Result{Source: repository.Source, Status: StatusFailed}
+	if orchestrator.RepositoryTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, orchestrator.RepositoryTimeout)
+		defer cancel()
+	}
 	repositoryID := store.RepositoryID(repository.Source)
 	knownRevision := ""
 	latest, err := orchestrator.Reader.LatestSnapshot(ctx, repositoryID)
@@ -111,9 +149,20 @@ func (orchestrator Orchestrator) ingest(ctx context.Context, repository Reposito
 		return result
 	}
 
-	fetched, err := orchestrator.Fetcher.Fetch(ctx, FetchRequest{Source: repository.Source, KnownRevision: knownRevision})
+	fetched, attempts, err := orchestrator.fetchWithRetry(ctx, FetchRequest{Source: repository.Source, KnownRevision: knownRevision})
+	result.Attempts = attempts
 	if err != nil {
 		result.Err = fmt.Errorf("fetch repository: %w", err)
+		if errors.Is(err, context.Canceled) {
+			result.Status = StatusCancelled
+			result.FailureClass = "cancelled"
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			result.FailureClass = "timeout"
+		} else if isTransient(err) {
+			result.FailureClass = "transient"
+		} else {
+			result.FailureClass = "permanent"
+		}
 		return result
 	}
 	if fetched.Unchanged {
@@ -144,4 +193,52 @@ func (orchestrator Orchestrator) ingest(ctx context.Context, repository Reposito
 	result.Snapshot = snapshot
 	result.Err = nil
 	return result
+}
+
+func (orchestrator Orchestrator) fetchWithRetry(ctx context.Context, request FetchRequest) (FetchResult, int, error) {
+	maxAttempts := orchestrator.Retry.MaxAttempts
+	if maxAttempts == 0 {
+		maxAttempts = 1
+	}
+	backoff := orchestrator.Retry.InitialBackoff
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, err := orchestrator.Fetcher.Fetch(ctx, request)
+		if err == nil {
+			return result, attempt, nil
+		}
+		if !isTransient(err) || attempt == maxAttempts || ctx.Err() != nil {
+			if ctx.Err() != nil {
+				return FetchResult{}, attempt, ctx.Err()
+			}
+			return FetchResult{}, attempt, err
+		}
+		if err := orchestrator.wait(ctx, backoff); err != nil {
+			return FetchResult{}, attempt, err
+		}
+		if backoff >= orchestrator.Retry.MaxBackoff-backoff {
+			backoff = orchestrator.Retry.MaxBackoff
+		} else {
+			backoff *= 2
+		}
+	}
+	panic("unreachable")
+}
+
+func (orchestrator Orchestrator) wait(ctx context.Context, duration time.Duration) error {
+	if orchestrator.sleep != nil {
+		return orchestrator.sleep(ctx, duration)
+	}
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func isTransient(err error) bool {
+	var candidate transientError
+	return errors.As(err, &candidate)
 }

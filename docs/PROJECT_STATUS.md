@@ -144,6 +144,7 @@ Missing exit items:
 - Scope-isolated multi-repository snapshot ingestion with strict 10 MiB Agent BOM decoding, pre-write contract validation, deterministic identifiers, typed immutable conflicts, bounded success responses, and OpenAPI coverage.
 - Secret-minimized snapshot-ingestion audit outcomes with validated deterministic identifiers, bounded inventory counts, and rejection-path protection against untrusted metadata propagation.
 - Persistence-neutral multi-repository ingestion orchestration with bounded concurrency, conditional known-revision fetches, deterministic result ordering, source-integrity enforcement, and per-repository failure isolation.
+- Repository-scoped ingestion timeouts and explicitly classified transient retry handling with bounded exponential backoff, permanent-error fail-fast behavior, and attempt observability.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

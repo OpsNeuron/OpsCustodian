@@ -21,12 +21,12 @@ const (
 )
 
 type Repository struct {
-	Source      string
-	Connector   string
-	Location    string
-	Revision    string
-	Boundaries  []string
-	MaxFileSize int64
+	Source      string   `json:"source"`
+	Connector   string   `json:"connector"`
+	Location    string   `json:"location"`
+	Revision    string   `json:"revision"`
+	Boundaries  []string `json:"boundaries,omitempty"`
+	MaxFileSize int64    `json:"maxFileSize,omitempty"`
 }
 
 type FetchRequest struct {

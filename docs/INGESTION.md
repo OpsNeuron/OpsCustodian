@@ -36,6 +36,14 @@ production parser pipeline, skips known revisions, and removes execution time
 from immutable BOM content so independent instances produce the same document
 for the same source and revision.
 
+Repository sets use the versioned `opscustodian.dev/ingestion/v1alpha1`
+contract and are loaded only from a bounded, regular, non-symlink absolute
+file. JSON decoding is strict, duplicate sources and unsafe paths are rejected,
+and schedule/retry limits are validated before runtime construction. The schema
+intentionally has no token, password, or credential fields; provider secrets
+will be referenced from environment or a secret manager rather than serialized
+into repository configuration.
+
 Current tests use in-memory stores and fake connectors. Real GitHub/GitLab
 authentication, rate limits, webhooks, polling, retries, and distributed job
 coordination remain future integration work.

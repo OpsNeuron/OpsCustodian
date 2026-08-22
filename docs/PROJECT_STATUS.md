@@ -147,6 +147,7 @@ Missing exit items:
 - Repository-scoped ingestion timeouts and explicitly classified transient retry handling with bounded exponential backoff, permanent-error fail-fast behavior, and attempt observability.
 - Non-overlapping ingestion scheduler with immediate startup execution, completion-based cadence, bounded cryptographic jitter, immutable configuration snapshots, structured observations, and fail-closed observer handling.
 - Validated connector registry and secret-free repository configuration with a deterministic local-checkout connector that reuses the production parser pipeline and enforces source/revision identity.
+- Versioned strict RepositorySet JSON contract and bounded race-resistant file loader with startup validation for scheduling, retry policy, duplicate identity, boundaries, paths, and connector support.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

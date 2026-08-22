@@ -19,3 +19,11 @@ responses fail permanently.
 Current tests use local HTTP fakes. Archive acquisition, safe extraction,
 checkout scanning, GitHub App authentication, and real GitHub rate-limit tests
 remain subsequent work.
+
+The archive materialization boundary accepts a streamed ZIP only into an
+OpsCustodian-owned temporary workspace. It enforces compressed size, extracted
+size, and entry-count ceilings; strips exactly one GitHub top-level directory;
+and rejects traversal, backslashes, absolute paths, symlinks, special files,
+case-insensitive duplicates, and multiple roots. Extracted permissions are
+fixed rather than inherited, cancellation is honored, and cleanup is
+idempotent.

@@ -150,6 +150,7 @@ Missing exit items:
 - Versioned strict RepositorySet JSON contract and bounded race-resistant file loader with startup validation for scheduling, retry policy, duplicate identity, boundaries, paths, and connector support.
 - Optional fail-closed `serve` wiring for RepositorySet loading, local connector orchestration, non-overlapping scheduling, bounded ingestion audit summaries, and coordinated HTTP/database cancellation.
 - Hardened GitHub revision-discovery client with strict repository/ref identity, secret-reference-only authentication, redirect prevention, bounded HTTPS requests/responses, immutable SHA validation, and transient rate-limit/server classification.
+- Bounded GitHub ZIP materialization with isolated temporary workspaces, single-root enforcement, Zip Slip/symlink/special-file/duplicate rejection, compressed/extracted/entry ceilings, cancellation, fixed permissions, and idempotent cleanup.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

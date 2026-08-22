@@ -87,7 +87,7 @@ a representative repository without manually assembling an inventory.
 - HTML reporter tests. *(self-contained output, escaping, filter, encoding, and escalation coverage implemented, pending validation)*
 - Scanner integration test. *(temporary-repository full-pipeline invariants and deterministic repeat scan implemented, pending validation)*
 - Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*
-- Optional GitHub API enrichment. *(immutable revision discovery, safe credential resolution, redirect prevention, and retry classification implemented; archive materialization pending)*
+- Optional GitHub API enrichment. *(immutable revision discovery, safe credential resolution, redirect prevention, retry classification, and hardened ZIP materialization implemented; archive HTTP acquisition pending)*
 - Local GitHub reusable-workflow composition and delegation access paths. *(implemented offline with permission ceilings, secret propagation, and bounded cycle analysis)*
 - Declared-versus-effective access findings. *(versioned contract, initial Kubernetes producer, terminal/JSON/SARIF/HTML consumers, and CI threshold implemented)*
 - OpenTelemetry audit events. *(versioned offline JSONL event envelope, CLI conversion, and guarded OTLP/HTTP JSON exporter implemented)*

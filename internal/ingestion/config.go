@@ -142,6 +142,9 @@ func validateRepositorySet(document RepositorySetDocument) (RepositorySet, error
 		if repository.Connector != LocalConnectorName {
 			return RepositorySet{}, fmt.Errorf("repositories[%d].connector %q is unsupported", index, repository.Connector)
 		}
+		if repository.Ref != "" || repository.CredentialReference != "" {
+			return RepositorySet{}, fmt.Errorf("repositories[%d] local connector does not accept ref or credentialReference", index)
+		}
 		if err := validateSafeString(repository.Revision, 512); err != nil {
 			return RepositorySet{}, fmt.Errorf("repositories[%d].revision is invalid", index)
 		}

@@ -21,12 +21,14 @@ const (
 )
 
 type Repository struct {
-	Source      string   `json:"source"`
-	Connector   string   `json:"connector"`
-	Location    string   `json:"location"`
-	Revision    string   `json:"revision"`
-	Boundaries  []string `json:"boundaries,omitempty"`
-	MaxFileSize int64    `json:"maxFileSize,omitempty"`
+	Source              string   `json:"source"`
+	Connector           string   `json:"connector"`
+	Location            string   `json:"location"`
+	Revision            string   `json:"revision"`
+	Ref                 string   `json:"ref,omitempty"`
+	CredentialReference string   `json:"credentialReference,omitempty"`
+	Boundaries          []string `json:"boundaries,omitempty"`
+	MaxFileSize         int64    `json:"maxFileSize,omitempty"`
 }
 
 type FetchRequest struct {

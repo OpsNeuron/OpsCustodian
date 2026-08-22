@@ -149,6 +149,7 @@ Missing exit items:
 - Validated connector registry and secret-free repository configuration with a deterministic local-checkout connector that reuses the production parser pipeline and enforces source/revision identity.
 - Versioned strict RepositorySet JSON contract and bounded race-resistant file loader with startup validation for scheduling, retry policy, duplicate identity, boundaries, paths, and connector support.
 - Optional fail-closed `serve` wiring for RepositorySet loading, local connector orchestration, non-overlapping scheduling, bounded ingestion audit summaries, and coordinated HTTP/database cancellation.
+- Hardened GitHub revision-discovery client with strict repository/ref identity, secret-reference-only authentication, redirect prevention, bounded HTTPS requests/responses, immutable SHA validation, and transient rate-limit/server classification.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

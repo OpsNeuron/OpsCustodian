@@ -165,7 +165,7 @@ func (fetcher *recordingFetcher) Fetch(_ context.Context, request FetchRequest) 
 type mapFetcher struct{ results map[string]FetchResult }
 
 func (fetcher mapFetcher) Fetch(_ context.Context, request FetchRequest) (FetchResult, error) {
-	return fetcher.results[request.Source], nil
+	return fetcher.results[request.Repository.Source], nil
 }
 
 type concurrencyFetcher struct {
@@ -192,11 +192,11 @@ func (fetcher *retryFetcher) Fetch(_ context.Context, _ FetchRequest) (FetchResu
 type timeoutFetcher struct{}
 
 func (timeoutFetcher) Fetch(ctx context.Context, request FetchRequest) (FetchResult, error) {
-	if request.Source == "github:acme/slow" {
+	if request.Repository.Source == "github:acme/slow" {
 		<-ctx.Done()
 		return FetchResult{}, ctx.Err()
 	}
-	return FetchResult{BOM: ingestionTestBOM(request.Source, "revision-1")}, nil
+	return FetchResult{BOM: ingestionTestBOM(request.Repository.Source, "revision-1")}, nil
 }
 
 func (fetcher *concurrencyFetcher) Fetch(ctx context.Context, request FetchRequest) (FetchResult, error) {
@@ -210,7 +210,7 @@ func (fetcher *concurrencyFetcher) Fetch(ctx context.Context, request FetchReque
 	}
 	select {
 	case <-fetcher.release:
-		return FetchResult{BOM: ingestionTestBOM(request.Source, "revision-1")}, nil
+		return FetchResult{BOM: ingestionTestBOM(request.Repository.Source, "revision-1")}, nil
 	case <-ctx.Done():
 		return FetchResult{}, ctx.Err()
 	}

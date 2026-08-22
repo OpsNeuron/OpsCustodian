@@ -63,14 +63,14 @@ func (scheduler Scheduler) Run(ctx context.Context) error {
 	if jitter == nil {
 		jitter = randomScheduleJitter
 	}
-	repositories := append([]Repository(nil), scheduler.Repositories...)
+	repositories := cloneRepositories(scheduler.Repositories)
 
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
 		started := now().UTC()
-		results, runErr := scheduler.Runner.Run(ctx, append([]Repository(nil), repositories...))
+		results, runErr := scheduler.Runner.Run(ctx, cloneRepositories(repositories))
 		observation := ScheduleObservation{
 			StartedAt: started, FinishedAt: now().UTC(), Results: append([]Result(nil), results...), Err: runErr,
 		}
@@ -94,6 +94,15 @@ func (scheduler Scheduler) Run(ctx context.Context) error {
 			return fmt.Errorf("wait for ingestion schedule: %w", err)
 		}
 	}
+}
+
+func cloneRepositories(repositories []Repository) []Repository {
+	cloned := make([]Repository, len(repositories))
+	for index, repository := range repositories {
+		repository.Boundaries = append([]string(nil), repository.Boundaries...)
+		cloned[index] = repository
+	}
+	return cloned
 }
 
 func waitForSchedule(ctx context.Context, duration time.Duration) error {

@@ -146,6 +146,7 @@ Missing exit items:
 - Persistence-neutral multi-repository ingestion orchestration with bounded concurrency, conditional known-revision fetches, deterministic result ordering, source-integrity enforcement, and per-repository failure isolation.
 - Repository-scoped ingestion timeouts and explicitly classified transient retry handling with bounded exponential backoff, permanent-error fail-fast behavior, and attempt observability.
 - Non-overlapping ingestion scheduler with immediate startup execution, completion-based cadence, bounded cryptographic jitter, immutable configuration snapshots, structured observations, and fail-closed observer handling.
+- Validated connector registry and secret-free repository configuration with a deterministic local-checkout connector that reuses the production parser pipeline and enforces source/revision identity.
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization, rotation, real

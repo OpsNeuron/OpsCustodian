@@ -21,11 +21,16 @@ const (
 )
 
 type Repository struct {
-	Source string
+	Source      string
+	Connector   string
+	Location    string
+	Revision    string
+	Boundaries  []string
+	MaxFileSize int64
 }
 
 type FetchRequest struct {
-	Source        string
+	Repository    Repository
 	KnownRevision string
 }
 
@@ -96,6 +101,7 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 	results := make([]Result, len(repositories))
 	for index, repository := range repositories {
 		repository.Source = strings.TrimSpace(repository.Source)
+		repository.Boundaries = append([]string(nil), repository.Boundaries...)
 		if repository.Source == "" {
 			return nil, fmt.Errorf("repository source at index %d is required", index)
 		}
@@ -150,7 +156,7 @@ func (orchestrator Orchestrator) ingest(ctx context.Context, repository Reposito
 		return result
 	}
 
-	fetched, attempts, err := orchestrator.fetchWithRetry(ctx, FetchRequest{Source: repository.Source, KnownRevision: knownRevision})
+	fetched, attempts, err := orchestrator.fetchWithRetry(ctx, FetchRequest{Repository: repository, KnownRevision: knownRevision})
 	result.Attempts = attempts
 	if err != nil {
 		result.Err = fmt.Errorf("fetch repository: %w", err)

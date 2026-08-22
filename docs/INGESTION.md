@@ -28,6 +28,14 @@ repository configuration prevents concurrent mutation. Each completion is
 reported through an observer intended for audit and metrics; observer failure
 stops the scheduler instead of allowing unaudited background ingestion.
 
+Connectors are selected through a validated registry. Repository configuration
+separates the stable BOM source from connector type, materialized location,
+revision, boundaries, and file-size policy; it contains no credential values.
+The initial `local` connector requires a clean absolute directory, reuses the
+production parser pipeline, skips known revisions, and removes execution time
+from immutable BOM content so independent instances produce the same document
+for the same source and revision.
+
 Current tests use in-memory stores and fake connectors. Real GitHub/GitLab
 authentication, rate limits, webhooks, polling, retries, and distributed job
 coordination remain future integration work.

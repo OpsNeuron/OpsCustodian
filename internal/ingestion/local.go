@@ -23,9 +23,11 @@ type LocalConnector struct {
 }
 
 func NewLocalConnector() LocalConnector {
-	return LocalConnector{Parsers: []parsers.Parser{
-		githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}, kubernetes.Parser{},
-	}}
+	return LocalConnector{Parsers: defaultIngestionParsers()}
+}
+
+func defaultIngestionParsers() []parsers.Parser {
+	return []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}, kubernetes.Parser{}}
 }
 
 func (LocalConnector) Name() string { return LocalConnectorName }

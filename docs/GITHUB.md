@@ -34,3 +34,9 @@ second request is constructed from scratch without Authorization and cannot
 redirect again. Signed query parameters are accepted for the allowlisted target
 but are never returned in errors. Direct archive responses are also supported;
 status and transport failures reuse the bounded transient retry contract.
+
+`GitHubConnector` now composes revision discovery, unchanged-SHA short-circuit,
+controlled archive acquisition, hardened materialization, the production parser
+pipeline, and deterministic Agent BOM generation. Temporary checkout cleanup is
+mandatory and cleanup failure invalidates the fetch rather than silently
+leaking workspace state.

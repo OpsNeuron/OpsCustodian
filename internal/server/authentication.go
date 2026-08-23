@@ -150,7 +150,7 @@ func (authenticator BearerAuthenticator) CredentialIDs() []string {
 
 func (authenticator BearerAuthenticator) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/healthz" {
+		if request.URL.Path == "/healthz" || request.URL.Path == "/readyz" {
 			setRequestAuthentication(request, "public")
 			next.ServeHTTP(w, request)
 			return

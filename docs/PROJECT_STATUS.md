@@ -11,6 +11,11 @@ effective-access milestone. The milestone remains pending final integration,
 upstream compatibility, browser, OPA-runtime, and real-environment validation;
 those results must not be represented as production readiness.
 
+The control-plane runtime now separates public liveness (`/healthz`) from
+bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
+ingestion outcomes, and GitHub App authentication update fixed low-cardinality
+component states without exposing repository, credential, path, or error data.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

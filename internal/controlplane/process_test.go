@@ -128,8 +128,10 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 	var events []string
 	dependencies := processTestDependencies(&events)
 	sink := &processRecordingAuditSink{}
+	httpServers := make(chan *http.Server, 1)
 	dependencies.AuditSink = sink
-	dependencies.Serve = func(ctx context.Context, _ net.Listener, _ managedHTTPServer, _ Config) error {
+	dependencies.Serve = func(ctx context.Context, _ net.Listener, managed managedHTTPServer, _ Config) error {
+		httpServers <- managed.(*http.Server)
 		<-ctx.Done()
 		return nil
 	}
@@ -148,18 +150,26 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 		if len(scheduler.Repositories) != 1 || scheduler.Interval != time.Minute || scheduler.MaxJitter != time.Second {
 			t.Fatalf("scheduler = %#v", scheduler)
 		}
-		return scheduler.Observer(ingestion.ScheduleObservation{
+		if err := scheduler.Observer(ingestion.ScheduleObservation{
 			StartedAt:  time.Date(2026, 8, 22, 10, 0, 0, 0, time.UTC),
 			FinishedAt: time.Date(2026, 8, 22, 10, 0, 2, 0, time.UTC),
-			Results:    []ingestion.Result{{Status: ingestion.StatusPersisted}, {Status: ingestion.StatusFailed}},
-		})
+			Results:    []ingestion.Result{{Status: ingestion.StatusPersisted}, {Status: ingestion.StatusUnchanged}},
+		}); err != nil {
+			return err
+		}
+		response := httptest.NewRecorder()
+		(<-httpServers).Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"ingestion":"ready"`) {
+			t.Fatalf("readiness response = %d %s", response.Code, response.Body.String())
+		}
+		return nil
 	}
 	config := validRuntimeConfig()
 	config.RepositorySetFile = filepath.Join(t.TempDir(), "repositories.json")
 	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
 		t.Fatal(err)
 	}
-	if len(sink.events) != 1 || sink.events[0].EventName != "opscustodian.ingestion.schedule.completed" || sink.events[0].Attributes["opscustodian.ingestion.persisted.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.failed.count"] != 1 {
+	if len(sink.events) != 2 || sink.events[0].EventName != "opscustodian.ingestion.schedule.completed" || sink.events[0].Attributes["opscustodian.ingestion.persisted.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.unchanged.count"] != 1 {
 		t.Fatalf("ingestion audit events = %#v", sink.events)
 	}
 }

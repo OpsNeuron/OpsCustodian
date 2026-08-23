@@ -24,6 +24,21 @@ paths:
                 required: [status]
                 properties:
                   status: { const: ok }
+  /readyz:
+    get:
+      operationId: getReadiness
+      security: []
+      responses:
+        "200":
+          description: Control plane dependencies are ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: One or more required dependencies are not ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
   /api/v1/contracts:
     get:
       operationId: getContracts
@@ -152,6 +167,20 @@ components:
       description: Opaque versioned keyset cursor returned by the previous page.
       schema: { type: string, maxLength: 700 }
   schemas:
+    Readiness:
+      type: object
+      additionalProperties: false
+      required: [status, components]
+      properties:
+        status: { enum: [ready, not-ready] }
+        components:
+          type: object
+          additionalProperties: false
+          required: [database, ingestion, github-auth]
+          properties:
+            database: { enum: [starting, ready, degraded, disabled] }
+            ingestion: { enum: [starting, ready, degraded, disabled] }
+            github-auth: { enum: [starting, ready, degraded, disabled] }
     AgentBOM:
       type: object
       description: Agent BOM document conforming to opscustodian.dev/v1alpha1.

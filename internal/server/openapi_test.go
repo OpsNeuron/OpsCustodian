@@ -41,8 +41,16 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 	if !exists || len(security.([]any)) != 0 {
 		t.Fatalf("OpenAPI health operation must explicitly disable authentication: %#v", security)
 	}
+	readiness, ok := document.Paths["/readyz"]["get"].(map[string]any)
+	if !ok {
+		t.Fatal("OpenAPI readiness operation is invalid")
+	}
+	security, exists = readiness["security"]
+	if !exists || len(security.([]any)) != 0 {
+		t.Fatalf("OpenAPI readiness operation must explicitly disable authentication: %#v", security)
+	}
 	paths := []string{
-		"/healthz", "/api/v1/contracts", "/api/v1/repositories",
+		"/healthz", "/readyz", "/api/v1/contracts", "/api/v1/repositories",
 		"/api/v1/repositories/{repositoryId}/bom",
 		"/api/v1/repositories/{repositoryId}/snapshots",
 		"/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom",
@@ -53,7 +61,7 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		if _, exists := document.Paths[path]["get"]; !exists {
 			t.Errorf("OpenAPI does not document GET %s", path)
 		}
-		if path != "/healthz" {
+		if path != "/healthz" && path != "/readyz" {
 			operation := document.Paths[path]["get"].(map[string]any)
 			if operation["x-opscustodian-required-scope"] != requiredScope(http.MethodGet, path) {
 				t.Errorf("OpenAPI GET %s scope = %v, want %s", path, operation["x-opscustodian-required-scope"], requiredScope(http.MethodGet, path))

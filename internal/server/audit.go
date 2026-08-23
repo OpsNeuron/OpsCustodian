@@ -32,10 +32,18 @@ type requestAuditState struct {
 type requestAuditContextKey struct{}
 
 func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler) (http.Handler, error) {
-	return newAuditedAuthenticatedHandler(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
+	return NewAuditedAuthenticatedHandlerWithReadiness(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readyReadiness{})
+}
+
+func NewAuditedAuthenticatedHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader) (http.Handler, error) {
+	return newAuditedAuthenticatedHandlerWithReadiness(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readiness, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
 }
 
 func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) (http.Handler, error) {
+	return newAuditedAuthenticatedHandlerWithReadiness(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readyReadiness{}, options)
+}
+
+func newAuditedAuthenticatedHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader, options requestAuditOptions) (http.Handler, error) {
 	if sink == nil || onFailure == nil {
 		return nil, fmt.Errorf("request audit sink and failure handler are required")
 	}
@@ -48,7 +56,7 @@ func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, au
 	if !authorizer.Configured() {
 		return nil, fmt.Errorf("configured request authorizer is required")
 	}
-	return requestAuditMiddleware(newHandler(reader, buildVersion, &authenticator, &authorizer), organizationID, sink, onFailure, options), nil
+	return requestAuditMiddleware(newHandlerWithReadiness(reader, buildVersion, &authenticator, &authorizer, readiness), organizationID, sink, onFailure, options), nil
 }
 
 func requestAuditMiddleware(next http.Handler, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) http.Handler {

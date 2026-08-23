@@ -69,8 +69,17 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return fmt.Errorf("load ingestion repository set: %w", err)
 		}
 	}
+	usesGitHubApp := repositorySetUsesGitHubApp(repositorySet)
+	readiness := server.NewReadinessTracker(config.RepositorySetFile != "", usesGitHubApp)
 	auditFailures := make(chan error, 1)
 	githubAuthObserver := func(observationContext context.Context, observation ingestion.GitHubAuthObservation) error {
+		githubStatus := server.ReadinessDegraded
+		if observation.Result == ingestion.GitHubAuthResultHit || observation.Result == ingestion.GitHubAuthResultRefreshed || observation.Result == ingestion.GitHubAuthResultSucceeded {
+			githubStatus = server.ReadinessReady
+		}
+		if err := readiness.Update(server.ReadinessGitHubAuth, githubStatus); err != nil {
+			return err
+		}
 		event := audit.FromGitHubAuthentication(audit.GitHubAuthenticationObservation{
 			OccurredAt: observation.OccurredAt, OrganizationID: config.OrganizationID,
 			Operation: observation.Operation, Result: observation.Result, Transient: observation.Transient,
@@ -93,7 +102,7 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return fmt.Errorf("initialize GitHub environment credential resolver: %w", err)
 		}
 		var appCredentials ingestion.CredentialResolver
-		if repositorySetUsesGitHubApp(repositorySet) {
+		if usesGitHubApp {
 			if config.GitHubAppID == 0 || config.GitHubAppPrivateKeyFile == "" {
 				return fmt.Errorf("repository set requires GitHub App authentication but it is not configured")
 			}
@@ -125,6 +134,9 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			resultErr = errors.Join(resultErr, fmt.Errorf("close PostgreSQL database: %w", err))
 		}
 	}()
+	if err := readiness.Update(server.ReadinessDatabase, server.ReadinessReady); err != nil {
+		return err
+	}
 	var ingestionRunner ingestion.BatchRunner
 	if config.RepositorySetFile != "" {
 		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: githubCredentials})
@@ -149,12 +161,12 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		}
 	}
 
-	httpServer, err := NewControlPlaneHTTPServer(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
+	httpServer, err := NewControlPlaneHTTPServerWithReadiness(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
 		select {
 		case auditFailures <- err:
 		default:
 		}
-	})
+	}, readiness)
 	if err != nil {
 		return err
 	}
@@ -195,6 +207,19 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 				Runner: ingestionRunner, Repositories: repositorySet.Repositories,
 				Interval: repositorySet.Interval, MaxJitter: repositorySet.MaxJitter,
 				Observer: func(observation ingestion.ScheduleObservation) error {
+					ingestionStatus := server.ReadinessReady
+					for _, result := range observation.Results {
+						if result.Status == ingestion.StatusFailed || result.Status == ingestion.StatusConflict || result.Status == ingestion.StatusCancelled {
+							ingestionStatus = server.ReadinessDegraded
+							break
+						}
+					}
+					if observation.Err != nil {
+						ingestionStatus = server.ReadinessDegraded
+					}
+					if err := readiness.Update(server.ReadinessIngestion, ingestionStatus); err != nil {
+						return err
+					}
 					event := ingestionScheduleAuditEvent(config.OrganizationID, observation)
 					if err := dependencies.AuditSink.Record(serveContext, event); err != nil {
 						return fmt.Errorf("record ingestion schedule audit: %w", err)

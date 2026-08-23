@@ -9,6 +9,7 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/healthz` | Process health |
+| `GET` | `/readyz` | Bounded dependency readiness |
 | `GET` | `/api/v1/contracts` | Build and supported contract discovery |
 | `GET` | `/api/v1/repositories` | Deterministic repository summaries |
 | `GET` | `/api/v1/repositories/{repositoryId}/bom` | Latest repository snapshot |
@@ -33,6 +34,14 @@ a new episode. Observation timestamps are copied only from snapshot
 `generatedAt`; missing source timestamps remain absent.
 
 The OpenAPI 3.1 source of truth is [`api/openapi.yaml`](../api/openapi.yaml).
+
+`/healthz` reports only that the process is alive. `/readyz` returns `200` only
+when every required component is ready and `503` while one is starting or
+degraded. Its component names are fixed to `database`, `ingestion`, and
+`github-auth`; optional components report `disabled`. The endpoint never emits
+repository identity, credential references, paths, provider responses, or
+error text, so both probe endpoints remain public behind authentication and
+authorization middleware.
 A Go conformance test ensures every implemented route remains
 documented under the same API contract version.
 

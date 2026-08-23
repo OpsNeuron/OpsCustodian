@@ -72,7 +72,7 @@ func (authorizer ScopeAuthorizer) Scopes() []string {
 
 func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/healthz" {
+		if request.URL.Path == "/healthz" || request.URL.Path == "/readyz" {
 			setRequestAuthorization(request, "public")
 			next.ServeHTTP(w, request)
 			return

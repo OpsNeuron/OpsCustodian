@@ -24,6 +24,7 @@ type API struct {
 	reader       store.Reader
 	writer       store.Writer
 	buildVersion string
+	readiness    ReadinessReader
 }
 
 type listResponse[T any] struct {
@@ -63,10 +64,18 @@ func NewAuthenticatedHandler(reader store.Reader, buildVersion string, authentic
 }
 
 func newHandler(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer) http.Handler {
+	return newHandlerWithReadiness(reader, buildVersion, authenticator, authorizer, readyReadiness{})
+}
+
+func newHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer, readiness ReadinessReader) http.Handler {
 	writer, _ := reader.(store.Writer)
-	api := &API{reader: reader, writer: writer, buildVersion: buildVersion}
+	if readiness == nil {
+		readiness = (*ReadinessTracker)(nil)
+	}
+	api := &API{reader: reader, writer: writer, buildVersion: buildVersion, readiness: readiness}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
+	mux.HandleFunc("GET /readyz", api.ready)
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
 	mux.HandleFunc("GET /api/v1/repositories", api.repositories)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
@@ -83,6 +92,15 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 		handler = authenticator.middleware(handler)
 	}
 	return securityHeaders(handler)
+}
+
+func (api *API) ready(w http.ResponseWriter, _ *http.Request) {
+	snapshot := api.readiness.Snapshot()
+	status := http.StatusOK
+	if snapshot.Status != ReadinessReady {
+		status = http.StatusServiceUnavailable
+	}
+	writeJSON(w, status, snapshot)
 }
 
 func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {

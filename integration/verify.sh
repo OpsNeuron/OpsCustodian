@@ -37,7 +37,7 @@ compose exec -T opscustodian opscustodian events --bom /work/agentbom.integratio
 compose run --rm opa
 
 attempt=0
-until compose logs collector | grep -q 'opscustodian.scan.completed'; do
+until compose logs collector | grep -q 'OpsCustodian repository scan completed'; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 30 ]; then
     echo "collector did not export the expected OpsCustodian event" >&2

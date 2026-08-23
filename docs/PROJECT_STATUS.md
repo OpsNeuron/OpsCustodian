@@ -32,10 +32,12 @@ for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, and release licensing. It is deliberately secret-free and does not
 claim network or runtime validation.
 
-A disposable, internal-network Compose harness now defines real PostgreSQL
-bootstrap/persistence, OPA policy, OTLP Collector, readiness, and cleanup
-checks. Only its static configuration contracts are currently validated; no
-container-backed result is claimed yet.
+A disposable, internal-network Compose harness has passed on Docker Desktop
+4.44.1 with Linux Engine 28.3.2: PostgreSQL 17.4 bootstrap and forward
+migrations, authenticated repository ingestion/readiness, OPA 1.7.1 policy
+tests, OTLP/HTTP export to OpenTelemetry Collector 0.123.0, and scoped cleanup
+were observed in one complete run. This does not cover PostgreSQL rollback/TLS,
+restart persistence, Kubernetes, GitHub providers, load, or failure injection.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,

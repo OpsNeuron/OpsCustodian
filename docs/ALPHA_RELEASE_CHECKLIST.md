@@ -19,6 +19,8 @@ does not satisfy a real-environment item.
 - [x] Apache License 2.0 text is included as the project `LICENSE`.
 - [ ] Confirm README, SECURITY, CONTRIBUTING, and repository links.
 - [ ] Confirm generated demo/report files remain ignored.
+- [x] Docker build context excludes local caches, binaries, reports, and
+  generated scan artifacts.
 - [ ] Protect `main` and require the CI workflow plus review.
 - [ ] Review dependency licenses and the generated CycloneDX SBOM.
 
@@ -47,12 +49,14 @@ git diff --exit-code
 Start Docker Desktop with the Linux engine and sufficient disposable resources.
 Use only the repository integration harness and preserve unrelated workloads.
 
-- [ ] PostgreSQL bootstrap and forward migrations pass.
+- [x] PostgreSQL 17.4 bootstrap and forward migrations pass in the disposable
+  Docker Desktop harness.
 - [ ] PostgreSQL rollback/reapply and persistence-after-restart pass.
 - [ ] PostgreSQL TLS certificate and hostname verification pass.
-- [ ] OPA formatting and built-in policy tests pass in the real runtime.
+- [x] OPA 1.7.1 executes the built-in policy suite successfully (`3/3`).
 - [ ] Control-plane policy requests succeed and fail closed as expected.
-- [ ] OTLP events reach a real OpenTelemetry Collector and test backend.
+- [x] OTLP/HTTP events reach OpenTelemetry Collector 0.123.0 and its debug
+  backend with resource, scope, body, severity, and OpsCustodian attributes.
 - [ ] Kubernetes manifests render, apply, become ready, and enforce network/TLS
   boundaries in the Docker Desktop cluster.
 - [ ] Single-replica server ingestion and restart recovery pass.

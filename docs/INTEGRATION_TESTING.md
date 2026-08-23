@@ -15,6 +15,18 @@ The harness covers:
 - real OTLP/HTTP export through an OpenTelemetry Collector;
 - secret-free generated Agent BOM and audit-event fixtures.
 
+## Verified environment
+
+On 2026-08-23 the complete harness passed on Docker Desktop 4.44.1 with Linux
+Engine 28.3.2. The observed services were PostgreSQL 17.4, OPA 1.7.1, and
+OpenTelemetry Collector 0.123.0. Both committed migrations were present,
+authenticated repository ingestion became ready, all three built-in OPA tests
+passed, the Collector rendered a 27-record OpsCustodian log batch, and cleanup
+removed only the Compose project's containers, internal network, and volumes.
+
+This is one environment-backed result, not a compatibility matrix or a
+production-readiness claim. Re-run it from the exact release candidate.
+
 It does not cover GitHub PAT/App provider behavior, Kubernetes API access,
 PostgreSQL TLS/CA compatibility, migration rollback, load, or failure injection.
 Those remain explicit final gates rather than implied by a passing harness.
@@ -54,4 +66,7 @@ its `postgres-data` and `integration-output` volumes. Volume deletion is not
 recoverable and must never be used against another Compose project.
 
 The committed image tags and the complete harness must be refreshed and tested
-in the final integration phase before any production-readiness claim.
+again from the final release candidate before any production-readiness claim. The
+Collector verification matches the exported log body because the Collector
+`debug` exporter does not render the OTLP `eventName` field in its text output;
+the Go OTLP contract tests separately verify that the wire payload contains it.

@@ -138,6 +138,7 @@ history across multiple repositories through an authenticated control plane.
 - Signed baselines and governed exceptions.
 - Retention, upgrade, migration, and compatibility policies.
 - Security review and performance benchmarks.
+- Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race and Windows compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, and tag validation implemented; LICENSE choice and live workflow validation pending)*
 
 Exit condition: the project can be operated as a dependable organization-wide
 control plane while preserving the offline CLI workflow.

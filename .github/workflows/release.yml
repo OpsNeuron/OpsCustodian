@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate release tag and legal files
+        shell: bash
+        run: |
+          [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          test -f LICENSE || { echo "LICENSE must be selected and committed before public release" >&2; exit 1; }
+      - name: Verify source
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test -count=1 ./...
+      - name: Run race detector
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -count=1 ./...
+
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, archive: tar.gz }
+          - { goos: linux, goarch: arm64, archive: tar.gz }
+          - { goos: darwin, goarch: amd64, archive: tar.gz }
+          - { goos: darwin, goarch: arm64, archive: tar.gz }
+          - { goos: windows, goarch: amd64, archive: zip }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build archive
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          ARCHIVE: ${{ matrix.archive }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          name="opscustodian_${version}_${GOOS}_${GOARCH}"
+          mkdir -p "dist/${name}"
+          binary="opscustodian"
+          if [[ "${GOOS}" == "windows" ]]; then binary="opscustodian.exe"; fi
+          CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${RELEASE_TAG}" -o "dist/${name}/${binary}" ./cmd/opscustodian
+          cp README.md SECURITY.md LICENSE "dist/${name}/"
+          if [[ "${ARCHIVE}" == "zip" ]]; then
+            (cd dist && zip -q -r "${name}.zip" "${name}")
+          else
+            tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          fi
+          rm -rf "dist/${name}"
+      - name: Upload archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  sbom:
+    name: Generate CycloneDX SBOM
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Generate module SBOM
+        env:
+          GOBIN: ${{ github.workspace }}/.tools
+        run: |
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.12.0
+          mkdir -p dist
+          ./.tools/cyclonedx-gomod mod -licenses -json -output dist/opscustodian.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-sbom
+          path: dist/opscustodian.cdx.json
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Attest and publish
+    needs: [build, sbom]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum * | sort -k2 > SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: dist/*
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          release_flags=()
+          if [[ "${RELEASE_TAG}" == v0.* ]]; then release_flags+=(--prerelease); fi
+          gh release create "${RELEASE_TAG}" dist/* --verify-tag --generate-notes "${release_flags[@]}"

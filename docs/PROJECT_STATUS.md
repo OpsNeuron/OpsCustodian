@@ -16,6 +16,11 @@ bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
 ingestion outcomes, and GitHub App authentication update fixed low-cardinality
 component states without exposing repository, credential, path, or error data.
 
+Release automation now defines SHA-pinned least-privilege CI, Linux race and
+Windows compatibility gates, cross-platform tagged builds, checksums,
+CycloneDX SBOM, provenance attestation, and dependency updates. Execution in
+GitHub Actions and all real-environment release gates remain unverified.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

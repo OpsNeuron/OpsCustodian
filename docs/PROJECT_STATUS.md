@@ -26,6 +26,11 @@ for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, and release licensing. It is deliberately secret-free and does not
 claim network or runtime validation.
 
+A disposable, internal-network Compose harness now defines real PostgreSQL
+bootstrap/persistence, OPA policy, OTLP Collector, readiness, and cleanup
+checks. Only its static configuration contracts are currently validated; no
+container-backed result is claimed yet.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

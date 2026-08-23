@@ -22,9 +22,20 @@ the product contract rather than broaden the platform list.
 
 ## Development workflow
 
-The concrete build, lint, and test commands will be added with the Go module in
-the implementation phase. Until then, proposed changes should include the
-relevant architecture or schema rationale.
+Before opening a pull request, run:
+
+```bash
+go fmt ./...
+go vet ./...
+go test ./...
+go build ./cmd/opscustodian
+```
+
+The disposable container-backed suite is intentionally separate; see
+[`docs/INTEGRATION_TESTING.md`](docs/INTEGRATION_TESTING.md). Do not describe
+static fixtures, fake-backed tests, or an unexecuted harness as live provider or
+production validation. Proposed contract changes should include their relevant
+architecture or schema rationale.
 
 ## Architecture decisions
 

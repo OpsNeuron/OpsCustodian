@@ -43,3 +43,8 @@ Before creating a public tag:
 The local deterministic suite does not satisfy these environment-backed gates.
 The workflow itself remains source-level implementation until it has completed
 successfully in GitHub Actions.
+
+The disposable starting point for PostgreSQL, OPA, and Collector validation is
+documented in [`INTEGRATION_TESTING.md`](INTEGRATION_TESTING.md). Its current
+source contract is tested, but its containers have deliberately not been run
+during the source-development phase.

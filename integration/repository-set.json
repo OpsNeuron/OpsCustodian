@@ -1,0 +1,21 @@
+{
+  "apiVersion": "opscustodian.dev/ingestion/v1alpha1",
+  "kind": "RepositorySet",
+  "schedule": {
+    "interval": "1m",
+    "maxJitter": "0s",
+    "maxConcurrency": 1,
+    "repositoryTimeout": "30s",
+    "retry": {
+      "maxAttempts": 1
+    }
+  },
+  "repositories": [
+    {
+      "source": "integration:scan-input",
+      "connector": "local",
+      "location": "/fixtures/scan-input",
+      "revision": "integration-fixture"
+    }
+  ]
+}

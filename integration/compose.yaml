@@ -1,0 +1,74 @@
+name: opscustodian-integration
+
+services:
+  postgres:
+    image: postgres:17.4-alpine
+    environment:
+      POSTGRES_DB: opscustodian
+      POSTGRES_USER: opscustodian
+      POSTGRES_PASSWORD: ${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD:?set an ephemeral integration database password}
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U opscustodian -d opscustodian]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [integration]
+
+  collector:
+    image: otel/opentelemetry-collector:0.123.0
+    command: [--config=/etc/otelcol/config.yaml]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    networks: [integration]
+
+  opscustodian:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    entrypoint: [/usr/local/bin/opscustodian]
+    command: [serve]
+    environment:
+      OPSCUSTODIAN_ORGANIZATION_ID: organization-0123456789abcdef
+      OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME: Integration Fixture
+      OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres:5432/opscustodian?sslmode=disable
+      OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
+      OPSCUSTODIAN_DATABASE_MIGRATE: "true"
+      OPSCUSTODIAN_API_TOKEN_ID: integration-operator
+      OPSCUSTODIAN_API_TOKEN: ${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}
+      OPSCUSTODIAN_API_SCOPES: control-plane:read,snapshots:write
+      OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      collector:
+        condition: service_started
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O - http://127.0.0.1:8080/healthz | grep -q '"status":"ok"']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - ./repository-set.json:/config/repository-set.json:ro
+      - ../examples/scan-input:/fixtures/scan-input:ro
+      - integration-output:/work
+    working_dir: /work
+    networks: [integration]
+
+  opa:
+    image: openpolicyagent/opa:1.7.1-static
+    profiles: [verify]
+    entrypoint: [/opa]
+    command: [test, /policies, -v]
+    volumes:
+      - ../policies/builtin:/policies:ro
+    networks: [integration]
+
+networks:
+  integration:
+    internal: true
+
+volumes:
+  postgres-data:
+  integration-output:

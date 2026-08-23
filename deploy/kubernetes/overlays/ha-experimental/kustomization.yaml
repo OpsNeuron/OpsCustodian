@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - path: deployment-ha.yaml
+labels:
+  - includeSelectors: false
+    pairs:
+      opscustodian.dev/deployment-profile: ha-experimental

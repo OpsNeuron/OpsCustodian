@@ -59,12 +59,19 @@ The PodDisruptionBudget uses `minAvailable: 1`; this improves voluntary-disrupti
 safety but can block node drains. Rolling updates use one surge Pod and no
 unavailable Pod, so database migration compatibility must remain backward-safe.
 
+An opt-in `deploy/kubernetes/overlays/ha-experimental` profile renders two
+replicas with preferred node anti-affinity, topology spreading, bounded rollout
+timing, a 45-second lease, and 15-second renewal. It exists to drive the final
+Docker Desktop/Kubernetes failure-injection plan in `docs/HA_TEST_PLAN.md`; do
+not treat its presence as validation or apply it to production.
+
 ## Render-only validation
 
 Rendering does not contact a cluster:
 
 ```bash
 kubectl kustomize deploy/kubernetes/base
+kubectl kustomize deploy/kubernetes/overlays/ha-experimental
 ```
 
 Final validation must add server-side dry-run, Pod Security admission,

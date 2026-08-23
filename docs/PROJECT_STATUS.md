@@ -36,6 +36,10 @@ loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
 resources, secret references, network policy, and disruption behavior. It is
 statically validated only and remains unapplied to a cluster.
 
+An opt-in two-replica `ha-experimental` overlay and evidence-oriented
+takeover/fencing test plan are statically defined. The single-replica base is
+unchanged and no HA runtime claim is made before Docker Desktop validation.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

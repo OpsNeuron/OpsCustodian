@@ -87,3 +87,39 @@ func TestKubernetesDeploymentContractIsRestrictedAndSecretReferenceOnly(t *testi
 		t.Fatalf("example Secret document count = %d", count)
 	}
 }
+
+func TestExperimentalHAOverlayIsExplicitBoundedAndNotPartOfBase(t *testing.T) {
+	root := filepath.Join("..", "..", "deploy", "kubernetes")
+	overlay := filepath.Join(root, "overlays", "ha-experimental")
+	kustomization, err := os.ReadFile(filepath.Join(overlay, "kustomization.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	patch, err := os.ReadFile(filepath.Join(overlay, "deployment-ha.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(kustomization) + "\n" + string(patch)
+	for _, required := range []string{
+		"../../base", "ha-experimental", "replicas: 2", "minReadySeconds: 10",
+		"terminationGracePeriodSeconds: 45", "podAntiAffinity:", "topologySpreadConstraints:",
+		"OPSCUSTODIAN_SCHEDULER_LEASE_TTL", "value: 45s",
+		"OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", "value: 15s",
+	} {
+		if !strings.Contains(text, required) {
+			t.Errorf("HA overlay lacks required contract %q", required)
+		}
+	}
+	for _, forbidden := range []string{"kind: Secret", "value: postgres://", "privileged: true", "hostNetwork: true"} {
+		if strings.Contains(text, forbidden) {
+			t.Errorf("HA overlay contains forbidden contract %q", forbidden)
+		}
+	}
+	base, err := os.ReadFile(filepath.Join(root, "base", "kustomization.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(base), "ha-experimental") {
+		t.Fatal("experimental HA overlay must not be included by the base")
+	}
+}

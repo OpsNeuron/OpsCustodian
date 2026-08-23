@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -12,6 +13,33 @@ import (
 	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
 )
+
+func TestScanUsesPortableMetadataOverrides(t *testing.T) {
+	root := t.TempDir()
+	output := filepath.Join(t.TempDir(), "agentbom.json")
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("# Demo agent\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Scan(context.Background(), ScanOptions{
+		Root: root, Source: "github:OpsNeuron/OpsCustodian", Revision: "demo", Output: output, Format: "json",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bom model.AgentBOM
+	if err := json.Unmarshal(content, &bom); err != nil {
+		t.Fatal(err)
+	}
+	if bom.Metadata.Source != "github:OpsNeuron/OpsCustodian" || bom.Metadata.Revision != "demo" {
+		t.Fatalf("portable scan metadata = %#v", bom.Metadata)
+	}
+	if strings.Contains(string(content), filepath.ToSlash(root)) || strings.Contains(string(content), root) {
+		t.Fatalf("portable Agent BOM leaked local root %q", root)
+	}
+}
 
 func TestDiffFailOnExitContractAndReportPersistence(t *testing.T) {
 	tempDir := t.TempDir()

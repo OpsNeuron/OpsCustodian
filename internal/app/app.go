@@ -28,9 +28,9 @@ import (
 )
 
 type ScanOptions struct {
-	Root, Output, Format string
-	MaxFileSize          int64
-	Boundaries           []string
+	Root, Source, Revision, Output, Format string
+	MaxFileSize                            int64
+	Boundaries                             []string
 }
 
 type DiffOptions struct {
@@ -76,8 +76,16 @@ func Scan(ctx context.Context, opts ScanOptions) error {
 	if err != nil {
 		return fmt.Errorf("resolve root: %w", err)
 	}
+	source := strings.TrimSpace(opts.Source)
+	if source == "" {
+		source = filepath.ToSlash(absRoot)
+	}
+	revision := strings.TrimSpace(opts.Revision)
+	if revision == "" {
+		revision = "working-tree"
+	}
 	bom, err := scanner.Scan(ctx, scanner.Options{
-		Root: absRoot, Source: filepath.ToSlash(absRoot), Revision: "working-tree",
+		Root: absRoot, Source: source, Revision: revision,
 		Generator: "opscustodian/dev", MaxFileSize: opts.MaxFileSize,
 		Boundaries: opts.Boundaries,
 		Parsers:    []parsers.Parser{githubactions.Parser{}, ghaw.Parser{}, mcp.Parser{}, agentmarkdown.Parser{}, kubernetes.Parser{}},

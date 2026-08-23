@@ -8,6 +8,18 @@ vendor-neutral Agent Bill of Materials (Agent BOM), detects semantic permission
 drift, and evaluates organizational policy before risky changes reach
 production.
 
+## See OpsCustodian in action
+
+OpsCustodian turns scattered agent, workflow, MCP, skill, and Kubernetes
+configuration into one evidence-backed inventory of operational access.
+
+![OpsCustodian inventory overview](docs/images/opscustodian-inventory-overview.png)
+
+It does more than list automation: it shows what each agent can actually do,
+which resources it can reach, and where that access came from.
+
+![OpsCustodian agent capabilities](docs/images/opscustodian-agent-capabilities.png)
+
 ## Product promise
 
 OpsCustodian answers one operational question:
@@ -23,7 +35,7 @@ offline and produces a self-contained HTML report.
 
 ```bash
 go build -o ./bin/opscustodian ./cmd/opscustodian
-./bin/opscustodian scan --output ./agentbom.demo.json ./examples/scan-input
+./bin/opscustodian scan --source github:OpsNeuron/OpsCustodian --revision demo --output ./agentbom.demo.json ./examples/scan-input
 ./bin/opscustodian report --bom ./agentbom.demo.json --output ./opscustodian-demo.html
 ```
 

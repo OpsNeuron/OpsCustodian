@@ -38,7 +38,11 @@ Before creating a public tag:
 8. validate GitHub PAT and GitHub App access against public/private test
    repositories, including provider rate limits;
 9. verify the release archives, `SHA256SUMS`, SBOM, and provenance from a
-   disposable consumer environment.
+disposable consumer environment.
+
+Kubernetes release validation must render and exercise the contract documented
+in [`KUBERNETES_DEPLOYMENT.md`](KUBERNETES_DEPLOYMENT.md); static YAML parsing
+does not satisfy admission, networking, TLS, disruption, or rollout gates.
 
 The local deterministic suite does not satisfy these environment-backed gates.
 The workflow itself remains source-level implementation until it has completed

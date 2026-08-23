@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opscustodian-envoy
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        - name: tls_listener
+          address:
+            socket_address: { address: 0.0.0.0, port_value: 8443 }
+          filter_chains:
+            - transport_socket:
+                name: envoy.transport_sockets.tls
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+                  common_tls_context:
+                    tls_params:
+                      tls_minimum_protocol_version: TLSv1_3
+                    tls_certificates:
+                      - certificate_chain: { filename: /etc/opscustodian/tls/tls.crt }
+                        private_key: { filename: /etc/opscustodian/tls/tls.key }
+              filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: opscustodian
+                    use_remote_address: true
+                    route_config:
+                      name: local_route
+                      virtual_hosts:
+                        - name: opscustodian
+                          domains: ["*"]
+                          routes:
+                            - match: { prefix: "/" }
+                              route:
+                                cluster: opscustodian_loopback
+                                timeout: 30s
+                    http_filters:
+                      - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+        - name: opscustodian_loopback
+          type: STATIC
+          connect_timeout: 2s
+          load_assignment:
+            cluster_name: opscustodian_loopback
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address: { address: 127.0.0.1, port_value: 8080 }

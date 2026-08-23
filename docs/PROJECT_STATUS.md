@@ -31,6 +31,11 @@ bootstrap/persistence, OPA policy, OTLP Collector, readiness, and cleanup
 checks. Only its static configuration contracts are currently validated; no
 container-backed result is claimed yet.
 
+A restricted Kubernetes/Kustomize deployment contract now preserves the
+loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
+resources, secret references, network policy, and disruption behavior. It is
+statically validated only and remains unapplied to a cluster.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

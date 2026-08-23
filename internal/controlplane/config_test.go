@@ -283,6 +283,32 @@ func TestConfigEnablesSecretSafeRepositorySet(t *testing.T) {
 	}
 }
 
+func TestConfigEnablesSecretSafeGitHubAppAuthentication(t *testing.T) {
+	privateKeyPath := filepath.Join(t.TempDir(), "github-app.pem")
+	values := map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID": "organization-0123456789abcdef", "OPSCUSTODIAN_DATABASE_DSN": "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true", "OPSCUSTODIAN_API_TOKEN": controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID": "bootstrap-reader", "OPSCUSTODIAN_API_SCOPES": "control-plane:read",
+		"OPSCUSTODIAN_GITHUB_APP_ID": "1234", "OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE": privateKeyPath,
+	}
+	config, err := ConfigFromEnvironment(environment(values))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, _ := json.Marshal(config.Safe())
+	if config.GitHubAppID != 1234 || config.GitHubAppPrivateKeyFile != privateKeyPath || !strings.Contains(string(content), `"githubAppConfigured":true`) || strings.Contains(string(content), privateKeyPath) {
+		t.Fatalf("safe GitHub App config = %s", content)
+	}
+	delete(values, "OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE")
+	if _, err := ConfigFromEnvironment(environment(values)); err == nil || !strings.Contains(err.Error(), "configured together") {
+		t.Fatalf("incomplete GitHub App error = %v", err)
+	}
+	values["OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE"] = "relative/app.pem"
+	if _, err := ConfigFromEnvironment(environment(values)); err == nil || !strings.Contains(err.Error(), "clean absolute") {
+		t.Fatalf("relative key error = %v", err)
+	}
+}
+
 func environment(values map[string]string) LookupEnv {
 	return func(name string) (string, bool) {
 		value, exists := values[name]

@@ -41,6 +41,22 @@ func TestParseRepositorySetAcceptsSecretReferenceOnlyGitHubRepository(t *testing
 	}
 }
 
+func TestParseRepositorySetAcceptsGitHubAppInstallationReference(t *testing.T) {
+	content := fmt.Sprintf(`{"apiVersion":"%s","kind":"%s","schedule":{"interval":"1m","maxConcurrency":1,"retry":{"maxAttempts":1}},"repositories":[{"source":"github:acme/platform","connector":"github","ref":"main","credentialReference":"github-app:installation:42"}]}`, RepositorySetAPIVersion, RepositorySetKind)
+	config, err := ParseRepositorySet([]byte(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Repositories[0].CredentialReference != "github-app:installation:42" {
+		t.Fatalf("credential reference = %q", config.Repositories[0].CredentialReference)
+	}
+	for _, invalid := range []string{"github-app:installation:0", "github-app:installation:01", "github-app:installation:-1"} {
+		if _, err := ParseRepositorySet([]byte(strings.Replace(content, "github-app:installation:42", invalid, 1))); err == nil {
+			t.Fatalf("credential reference %q unexpectedly accepted", invalid)
+		}
+	}
+}
+
 func TestParseRepositorySetRejectsUnknownSecretAndTrailingJSON(t *testing.T) {
 	root := filepath.Clean(t.TempDir())
 	for name, content := range map[string]string{

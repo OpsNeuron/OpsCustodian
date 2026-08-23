@@ -167,7 +167,7 @@ func validateRepositorySet(document RepositorySetDocument) (RepositorySet, error
 				return RepositorySet{}, fmt.Errorf("repositories[%d].ref: %w", index, err)
 			}
 			if repository.CredentialReference != "" {
-				if _, err := GitHubCredentialEnvironmentName(repository.CredentialReference); err != nil {
+				if err := ValidateGitHubCredentialReference(repository.CredentialReference); err != nil {
 					return RepositorySet{}, fmt.Errorf("repositories[%d].credentialReference: %w", index, err)
 				}
 			}

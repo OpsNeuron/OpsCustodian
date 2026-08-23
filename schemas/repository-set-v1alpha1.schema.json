@@ -56,7 +56,7 @@
               "source": { "type": "string", "pattern": "^github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "maxLength": 2048 },
               "connector": { "const": "github" },
               "ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
-              "credentialReference": { "type": "string", "pattern": "^env:OPSCUSTODIAN_GITHUB_TOKEN_[A-Z0-9_]+$", "maxLength": 132 },
+              "credentialReference": { "type": "string", "pattern": "^(env:OPSCUSTODIAN_GITHUB_TOKEN_[A-Z0-9_]+|github-app:installation:[1-9][0-9]{0,18})$", "maxLength": 132 },
               "boundaries": { "type": "array", "items": { "type": "string" } },
               "maxFileSize": { "type": "integer", "minimum": 0, "maximum": 104857600 }
             }

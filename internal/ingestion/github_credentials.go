@@ -55,3 +55,12 @@ func GitHubCredentialEnvironmentName(reference string) (string, error) {
 	}
 	return name, nil
 }
+
+func ValidateGitHubCredentialReference(reference string) error {
+	if strings.HasPrefix(reference, githubAppInstallationPrefix) {
+		_, err := ParseGitHubAppCredentialReference(reference)
+		return err
+	}
+	_, err := GitHubCredentialEnvironmentName(reference)
+	return err
+}

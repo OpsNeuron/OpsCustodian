@@ -49,6 +49,8 @@ type Config struct {
 	CredentialFile           string
 	CredentialReloadInterval time.Duration
 	RepositorySetFile        string
+	GitHubAppID              int64
+	GitHubAppPrivateKeyFile  string
 }
 
 type HTTPConfig struct {
@@ -80,6 +82,7 @@ type SafeConfig struct {
 	CredentialFileConfigured bool          `json:"credentialFileConfigured"`
 	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
 	RepositorySetConfigured  bool          `json:"repositorySetConfigured"`
+	GitHubAppConfigured      bool          `json:"githubAppConfigured"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -149,6 +152,20 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	config.RepositorySetFile = environmentValue(lookup, "OPSCUSTODIAN_REPOSITORY_SET_FILE")
 	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
 		return Config{}, fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
+	}
+	githubAppID := environmentValue(lookup, "OPSCUSTODIAN_GITHUB_APP_ID")
+	config.GitHubAppPrivateKeyFile = environmentValue(lookup, "OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE")
+	if githubAppID != "" || config.GitHubAppPrivateKeyFile != "" {
+		if githubAppID == "" || config.GitHubAppPrivateKeyFile == "" {
+			return Config{}, fmt.Errorf("OPSCUSTODIAN_GITHUB_APP_ID and OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE must be configured together")
+		}
+		config.GitHubAppID, err = strconv.ParseInt(githubAppID, 10, 64)
+		if err != nil || config.GitHubAppID <= 0 {
+			return Config{}, fmt.Errorf("OPSCUSTODIAN_GITHUB_APP_ID must be a positive integer")
+		}
+		if !filepath.IsAbs(config.GitHubAppPrivateKeyFile) || filepath.Clean(config.GitHubAppPrivateKeyFile) != config.GitHubAppPrivateKeyFile {
+			return Config{}, fmt.Errorf("OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE must be a clean absolute path")
+		}
 	}
 	if config.ApplyMigrations, err = environmentBool(lookup, "OPSCUSTODIAN_DATABASE_MIGRATE", config.ApplyMigrations); err != nil {
 		return Config{}, err
@@ -259,6 +276,12 @@ func (config Config) Validate() error {
 	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
 		return fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
 	}
+	if (config.GitHubAppID == 0) != (config.GitHubAppPrivateKeyFile == "") {
+		return fmt.Errorf("GitHub App ID and private key file must be configured together")
+	}
+	if config.GitHubAppID < 0 || (config.GitHubAppPrivateKeyFile != "" && (!filepath.IsAbs(config.GitHubAppPrivateKeyFile) || filepath.Clean(config.GitHubAppPrivateKeyFile) != config.GitHubAppPrivateKeyFile)) {
+		return fmt.Errorf("GitHub App configuration is invalid")
+	}
 	return nil
 }
 
@@ -278,6 +301,7 @@ func (config Config) Safe() SafeConfig {
 		CredentialFileConfigured: config.CredentialFile != "",
 		CredentialReloadInterval: config.CredentialReloadInterval,
 		RepositorySetConfigured:  config.RepositorySetFile != "",
+		GitHubAppConfigured:      config.GitHubAppID > 0,
 	}
 }
 

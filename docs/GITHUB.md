@@ -70,6 +70,30 @@ least 2048 bits, signs bounded RS256 JWTs, exchanges them through the GitHub API
 rejects redirects and oversized or invalid responses, and preserves transient
 rate-limit/server classification without returning response bodies.
 
-RepositorySet activation remains disabled until the App ID and private-key
-configuration boundary is complete. Private keys will be loaded from an
-external runtime reference and must never be embedded in RepositorySet.
+GitHub App authentication is activated with both environment settings below:
+
+```text
+OPSCUSTODIAN_GITHUB_APP_ID=1234
+OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE=/run/secrets/opscustodian/github-app.pem
+```
+
+The key path must be clean and absolute. The loader accepts only a bounded,
+regular non-symlink file and, on Unix, rejects group or other access. The key is
+parsed before ingestion starts and its temporary byte buffer is cleared. App
+configuration is represented only as `githubAppConfigured` in safe config.
+
+An App-backed repository selects its installation without embedding a token or
+private key:
+
+```json
+{
+  "source": "github:acme/platform",
+  "connector": "github",
+  "ref": "main",
+  "credentialReference": "github-app:installation:42"
+}
+```
+
+The control plane fails before database startup when a RepositorySet requires
+GitHub App authentication but the App configuration is absent. Static PAT and
+GitHub App references are routed explicitly without credential fallback.

@@ -160,6 +160,8 @@ timeout-bounded graceful shutdown when its context is cancelled.
 | `OPSCUSTODIAN_HTTP_IDLE_TIMEOUT` | `60s` | positive, at most 5 minutes |
 | `OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES` | `65536` | 8192 to 1048576 bytes |
 | `OPSCUSTODIAN_REPOSITORY_SET_FILE` | unset | clean absolute path to a strict versioned RepositorySet JSON file |
+| `OPSCUSTODIAN_GITHUB_APP_ID` | unset | positive integer; requires the private-key file setting |
+| `OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE` | unset | clean absolute path; requires the App ID setting |
 
 Unit tests verify both loopback families, rejection of exposure-prone binds,
 timeout/header bounds, cancellation, shutdown, and error propagation without
@@ -171,12 +173,13 @@ The control-plane process orchestrator now owns startup and cleanup order:
 
 1. validate configuration and process dependencies;
 2. load and validate the optional RepositorySet before external I/O;
-3. bootstrap PostgreSQL and optionally apply migrations;
-4. construct the authenticated HTTP server;
-5. acquire the loopback listener;
-6. run HTTP, optional credential reload, and optional ingestion scheduling under one cancellation scope;
-7. stop on serving, watcher, scheduler, or audit failure;
-8. close the listener and database exactly once.
+3. initialize required GitHub credential providers from bounded runtime references;
+4. bootstrap PostgreSQL and optionally apply migrations;
+5. construct the authenticated HTTP server;
+6. acquire the loopback listener;
+7. run HTTP, optional credential reload, and optional ingestion scheduling under one cancellation scope;
+8. stop on serving, watcher, scheduler, or audit failure;
+9. close the listener and database exactly once.
 
 Scheduled ingestion emits one bounded audit summary containing outcome,
 duration, and status counts. Repository paths, connector errors, BOM content,

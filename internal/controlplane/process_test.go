@@ -164,6 +164,47 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 	}
 }
 
+func TestRunProcessRequiresAndBuildsGitHubAppAuthenticationBeforeDatabaseIO(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	dependencies.LoadRepositorySet = func(string) (ingestion.RepositorySet, error) {
+		return ingestion.RepositorySet{
+			Repositories: []ingestion.Repository{{Source: "github:acme/platform", Connector: ingestion.GitHubConnectorName, Ref: "main", CredentialReference: "github-app:installation:42"}},
+			Interval:     time.Minute, MaxConcurrency: 1, RepositoryTimeout: time.Minute, Retry: ingestion.RetryPolicy{MaxAttempts: 1},
+		}, nil
+	}
+	config := validRuntimeConfig()
+	config.RepositorySetFile = filepath.Join(t.TempDir(), "repositories.json")
+	if err := RunProcess(context.Background(), config, "test", dependencies); err == nil || !strings.Contains(err.Error(), "not configured") || len(events) != 0 {
+		t.Fatalf("missing App configuration error = %v, events = %#v", err, events)
+	}
+
+	config.GitHubAppID = 1234
+	config.GitHubAppPrivateKeyFile = filepath.Join(t.TempDir(), "app.pem")
+	dependencies.LoadGitHubAppKey = func(path string) ([]byte, error) {
+		if path != config.GitHubAppPrivateKeyFile {
+			t.Fatalf("private key path = %q", path)
+		}
+		return []byte("private-key-material"), nil
+	}
+	dependencies.BuildGitHubAppProvider = func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
+		if options.AppID != 1234 || string(options.PrivateKeyPEM) != "private-key-material" {
+			t.Fatalf("provider options = %#v", options)
+		}
+		return processGitHubAppProvider{}, nil
+	}
+	dependencies.RunIngestionScheduler = func(context.Context, ingestion.Scheduler) error { return nil }
+	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type processGitHubAppProvider struct{}
+
+func (processGitHubAppProvider) InstallationToken(context.Context, int64) (ingestion.GitHubAppInstallationToken, error) {
+	return ingestion.GitHubAppInstallationToken{}, errors.New("not called")
+}
+
 func TestRunProcessRejectsIncompleteProcessDependenciesBeforeDatabaseIO(t *testing.T) {
 	opened := false
 	database := successfulDependencies()
@@ -178,7 +219,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -211,6 +252,10 @@ func processTestDependencies(events *[]string) ProcessDependencies {
 		LoadRepositorySet:     ingestion.LoadRepositorySet,
 		RunIngestionScheduler: func(ctx context.Context, scheduler ingestion.Scheduler) error { return scheduler.Run(ctx) },
 		CredentialEnvironment: func(string) (string, bool) { return "", false },
+		LoadGitHubAppKey:      ingestion.LoadGitHubAppPrivateKey,
+		BuildGitHubAppProvider: func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
+			return ingestion.NewGitHubAppProvider(options)
+		},
 	}
 }
 

@@ -15,14 +15,16 @@ import (
 )
 
 type ProcessDependencies struct {
-	Database              Dependencies
-	Listen                func(string, string) (net.Listener, error)
-	Serve                 func(context.Context, net.Listener, managedHTTPServer, Config) error
-	AuditSink             server.RequestAuditSink
-	WatchCredentials      func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error
-	LoadRepositorySet     func(string) (ingestion.RepositorySet, error)
-	RunIngestionScheduler func(context.Context, ingestion.Scheduler) error
-	CredentialEnvironment ingestion.EnvironmentLookup
+	Database               Dependencies
+	Listen                 func(string, string) (net.Listener, error)
+	Serve                  func(context.Context, net.Listener, managedHTTPServer, Config) error
+	AuditSink              server.RequestAuditSink
+	WatchCredentials       func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error
+	LoadRepositorySet      func(string) (ingestion.RepositorySet, error)
+	RunIngestionScheduler  func(context.Context, ingestion.Scheduler) error
+	CredentialEnvironment  ingestion.EnvironmentLookup
+	LoadGitHubAppKey       func(string) ([]byte, error)
+	BuildGitHubAppProvider func(ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error)
 }
 
 func DefaultProcessDependencies() (ProcessDependencies, error) {
@@ -45,11 +47,15 @@ func DefaultProcessDependencies() (ProcessDependencies, error) {
 		LoadRepositorySet:     ingestion.LoadRepositorySet,
 		RunIngestionScheduler: func(ctx context.Context, scheduler ingestion.Scheduler) error { return scheduler.Run(ctx) },
 		CredentialEnvironment: os.LookupEnv,
+		LoadGitHubAppKey:      ingestion.LoadGitHubAppPrivateKey,
+		BuildGitHubAppProvider: func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
+			return ingestion.NewGitHubAppProvider(options)
+		},
 	}, nil
 }
 
 func RunProcess(ctx context.Context, config Config, buildVersion string, dependencies ProcessDependencies) (resultErr error) {
-	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil {
+	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil {
 		return fmt.Errorf("complete control-plane process dependencies are required")
 	}
 	if err := config.Validate(); err != nil {
@@ -63,6 +69,36 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return fmt.Errorf("load ingestion repository set: %w", err)
 		}
 	}
+	var githubCredentials ingestion.CredentialResolver
+	if config.RepositorySetFile != "" {
+		environmentCredentials, err := ingestion.NewEnvironmentCredentialResolver(dependencies.CredentialEnvironment)
+		if err != nil {
+			return fmt.Errorf("initialize GitHub environment credential resolver: %w", err)
+		}
+		var appCredentials ingestion.CredentialResolver
+		if repositorySetUsesGitHubApp(repositorySet) {
+			if config.GitHubAppID == 0 || config.GitHubAppPrivateKeyFile == "" {
+				return fmt.Errorf("repository set requires GitHub App authentication but it is not configured")
+			}
+			privateKey, err := dependencies.LoadGitHubAppKey(config.GitHubAppPrivateKeyFile)
+			if err != nil {
+				return fmt.Errorf("load GitHub App private key: %w", err)
+			}
+			provider, err := dependencies.BuildGitHubAppProvider(ingestion.GitHubAppProviderOptions{AppID: config.GitHubAppID, PrivateKeyPEM: privateKey})
+			clear(privateKey)
+			if err != nil {
+				return fmt.Errorf("initialize GitHub App provider: %w", err)
+			}
+			appCredentials, err = ingestion.NewGitHubAppCredentialResolver(ingestion.GitHubAppCredentialOptions{Provider: provider})
+			if err != nil {
+				return fmt.Errorf("initialize GitHub App credential resolver: %w", err)
+			}
+		}
+		githubCredentials, err = ingestion.NewGitHubCredentialRouter(environmentCredentials, appCredentials)
+		if err != nil {
+			return fmt.Errorf("initialize GitHub credential router: %w", err)
+		}
+	}
 	runtime, err := Bootstrap(ctx, config, dependencies.Database)
 	if err != nil {
 		return err
@@ -74,15 +110,11 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	}()
 	var ingestionRunner ingestion.BatchRunner
 	if config.RepositorySetFile != "" {
-		credentials, err := ingestion.NewEnvironmentCredentialResolver(dependencies.CredentialEnvironment)
-		if err != nil {
-			return fmt.Errorf("initialize GitHub credential resolver: %w", err)
-		}
-		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: credentials})
+		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: githubCredentials})
 		if err != nil {
 			return fmt.Errorf("initialize GitHub revision client: %w", err)
 		}
-		archives, err := ingestion.NewGitHubArchiveClient(ingestion.GitHubArchiveHTTPOptions{Credentials: credentials})
+		archives, err := ingestion.NewGitHubArchiveClient(ingestion.GitHubArchiveHTTPOptions{Credentials: githubCredentials})
 		if err != nil {
 			return fmt.Errorf("initialize GitHub archive client: %w", err)
 		}
@@ -181,6 +213,15 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		}
 		return nil
 	}
+}
+
+func repositorySetUsesGitHubApp(repositorySet ingestion.RepositorySet) bool {
+	for _, repository := range repositorySet.Repositories {
+		if _, err := ingestion.ParseGitHubAppCredentialReference(repository.CredentialReference); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func ingestionScheduleAuditEvent(organizationID string, observation ingestion.ScheduleObservation) audit.Event {

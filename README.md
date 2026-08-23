@@ -102,6 +102,10 @@ go mod download
 go build -o ./bin/opscustodian ./cmd/opscustodian
 ```
 
+For source builds, release archives, checksum verification, and container usage,
+see [Installation](docs/INSTALLATION.md). The offline demo does not require
+Docker.
+
 Example:
 
 ```bash
@@ -161,6 +165,8 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Relationship graph](docs/RELATIONSHIP_GRAPH.md)
 - [GitHub Agentic Workflows coverage](docs/GH_AW.md)
 - [Current project status](docs/PROJECT_STATUS.md)
+- [Installation](docs/INSTALLATION.md)
+- [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
 - [Ownership resolution](docs/OWNERSHIP.md)
 - [Explainable risk model](docs/RISK_MODEL.md)
 - [Canonical normalization](docs/NORMALIZATION.md)
@@ -194,5 +200,4 @@ production-ready. See [current project status](docs/PROJECT_STATUS.md).
 
 ## License
 
-The intended license for the open-source core is Apache-2.0. The complete
-license text will be added before the first public release.
+OpsCustodian is licensed under the [Apache License 2.0](LICENSE).

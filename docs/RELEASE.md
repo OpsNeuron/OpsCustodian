@@ -1,7 +1,10 @@
 # Release process
 
 OpsCustodian release automation is intentionally tag-driven and fail-closed.
-Only tags matching a semantic `vMAJOR.MINOR.PATCH` form enter the workflow.
+Only tags matching semantic `vMAJOR.MINOR.PATCH` or prerelease
+`vMAJOR.MINOR.PATCH-SUFFIX` forms enter the workflow. The first public alpha is
+planned as `v0.5.0-alpha`; its evidence gate is the
+[`v0.5.0-alpha` checklist](ALPHA_RELEASE_CHECKLIST.md).
 The workflow independently repeats formatting, vet, unit/contract tests, and
 the Linux race detector before building artifacts.
 
@@ -28,8 +31,7 @@ Before creating a public tag:
 
 1. run `opscustodian doctor --profile release --format json` and retain the
    secret-free result with the release evidence;
-2. select and commit the project `LICENSE`; release automation intentionally
-   fails while this legal decision is unresolved;
+2. verify the committed Apache-2.0 `LICENSE` is included in every archive;
 3. require the CI workflow and review on the protected `main` branch;
 4. run the deferred real PostgreSQL migration/rollback and container tests;
 5. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;

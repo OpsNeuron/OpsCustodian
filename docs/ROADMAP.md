@@ -3,6 +3,18 @@
 The roadmap is outcome-based. Dates will be assigned only after the foundation
 is reviewed and implementation capacity is known.
 
+## Current delivery focus — alpha adoption
+
+Before expanding organization-server or HA scope, OpsCustodian prioritizes a
+short, reproducible first-user journey: build one binary, scan an offline demo,
+open one self-contained report, and observe one explainable critical drift.
+Documentation, representative fixtures, release packaging, and final
+integration evidence take precedence over new distributed-system features.
+
+The two-replica deployment remains an explicitly experimental artifact. The
+default deployment stays single-replica until product adoption demonstrates a
+need for HA and the Docker Desktop failure-injection plan has been executed.
+
 ## Foundation — current
 
 - Define mission, users, product boundaries, and differentiator.

@@ -15,6 +15,36 @@ OpsCustodian answers one operational question:
 > Which agent, using which identity, can access which tool, credential,
 > repository, and environment—and did that access become more dangerous?
 
+## See the value in five minutes
+
+You do not need an AI model, Kubernetes cluster, database, or cloud account for
+the first run. The demo scans intentionally risky repository fixtures entirely
+offline and produces a self-contained HTML report.
+
+```bash
+go build -o ./bin/opscustodian ./cmd/opscustodian
+./bin/opscustodian scan --output ./agentbom.demo.json ./examples/scan-input
+./bin/opscustodian report --bom ./agentbom.demo.json --output ./opscustodian-demo.html
+```
+
+On Windows Command Prompt, use `bin\opscustodian.exe` and backslashes instead.
+Open `opscustodian-demo.html` in a browser to explore discovered agents,
+workflows, MCP servers, credentials, effective access paths, and diagnostics.
+The generated files are ignored by Git.
+
+Then see a dangerous permission change detected semantically:
+
+```bash
+./bin/opscustodian diff \
+  ./examples/scope-expansion/agentbom.before.json \
+  ./examples/scope-expansion/agentbom.after.json
+```
+
+Expected result: a `critical` finding explains that deployment access expanded
+from one production workload with `write` access to all production workloads
+with `admin` access. Start with the complete [Quick Start](docs/QUICKSTART.md)
+for Windows, Linux, and macOS commands and an explanation of the output.
+
 Agent BOM inventories typed `assets`: agents, workflows, MCP servers, skills,
 and instruction sets. Different ecosystem objects remain distinct while still
 participating in one evidence and access graph.
@@ -157,8 +187,10 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 
 ## Status
 
-Pre-alpha (`v0.1` under active development). File formats and APIs may change
-until the first compatibility guarantee is published.
+Alpha candidate under active development. The offline CLI is ready for local
+evaluation; file formats and server APIs may still change. Organization-server,
+HA, and real-provider operation are experimental and must not be treated as
+production-ready. See [current project status](docs/PROJECT_STATUS.md).
 
 ## License
 

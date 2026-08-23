@@ -6,6 +6,12 @@ until its build, automated tests, fixtures, and integration gates pass.
 
 ## Current position
 
+The immediate delivery phase is **alpha productization and developer
+experience**. The success gate is that a new user can clone the repository,
+run the offline demo, open a meaningful report, and understand the permission
+drift result in under ten minutes. The Quick Start and representative fixtures
+are therefore the current priority ahead of additional control-plane features.
+
 OpsCustodian has completed the offline/core implementation scope of the `v0.4`
 effective-access milestone. The milestone remains pending final integration,
 upstream compatibility, browser, OPA-runtime, and real-environment validation;
@@ -39,6 +45,9 @@ statically validated only and remains unapplied to a cluster.
 An opt-in two-replica `ha-experimental` overlay and evidence-oriented
 takeover/fencing test plan are statically defined. The single-replica base is
 unchanged and no HA runtime claim is made before Docker Desktop validation.
+HA development is frozen for the alpha introduction: the overlay is retained
+only as experimental future work, while the supported evaluation path remains
+the offline CLI and a single control-plane replica.
 
 ### Foundation — implemented, pending repository validation
 
@@ -153,6 +162,7 @@ Missing exit items:
 - Tenant-scoped PostgreSQL scheduler lease schema and adapter with server-time TTLs, atomic takeover, monotonic fencing tokens preserved across release, stale-holder-safe renewal/release, and deterministic driver-neutral tests; real contention tests remain pending.
 - Lease-coordinated ingestion runtime with cryptographic per-process holder identity, healthy standby cycles, renewal during active batches, cancellation after lease loss, and transactionally fenced snapshot writes that lock and verify the active lease generation before mutation; real PostgreSQL contention tests remain pending.
 - Bounded scheduler coordination configuration and secret-free operational visibility with `leader`, `standby`, and `lease-lost` roles shared by readiness and ingestion audit summaries without exposing holder identities or fencing tokens.
+- Persistent scheduler leadership retained and renewed across batch intervals, with bounded standby acquisition retries and deterministic proof that multiple cycles use one lease generation rather than releasing ownership after every scan.
 - Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, idempotent re-ingestion, immutable revision-conflict rejection, and Finding projection.
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.

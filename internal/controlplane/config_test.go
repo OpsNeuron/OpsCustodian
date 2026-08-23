@@ -30,6 +30,9 @@ func TestConfigFromEnvironmentUsesBoundedOperationalDefaults(t *testing.T) {
 	if config.MaxOpenConns != 20 || config.MaxIdleConns != 5 || config.ConnMaxLifetime != 30*time.Minute {
 		t.Fatalf("unexpected pool defaults: %#v", config.Safe())
 	}
+	if config.SchedulerLeaseTTL != time.Minute || config.SchedulerRenewInterval != 20*time.Second {
+		t.Fatalf("unexpected scheduler defaults: %#v", config.Safe())
+	}
 }
 
 func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing.T) {
@@ -48,6 +51,8 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS":    "40",
 		"OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS":    "10",
 		"OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME": "2h",
+		"OPSCUSTODIAN_SCHEDULER_LEASE_TTL":        "90s",
+		"OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL":   "30s",
 		"OPSCUSTODIAN_HTTP_LISTEN_ADDRESS":        "[::1]:9090",
 		"OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT":   "4s",
 		"OPSCUSTODIAN_HTTP_READ_TIMEOUT":          "12s",
@@ -64,6 +69,9 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 	if config.HTTP.ListenAddress != "[::1]:9090" || config.HTTP.ReadTimeout != 12*time.Second || config.HTTP.MaxHeaderBytes != 32768 {
 		t.Fatalf("explicit HTTP settings were not preserved: %#v", config.Safe())
 	}
+	if config.SchedulerLeaseTTL != 90*time.Second || config.SchedulerRenewInterval != 30*time.Second {
+		t.Fatalf("explicit scheduler settings were not preserved: %#v", config.Safe())
+	}
 }
 
 func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
@@ -76,6 +84,8 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 		{"unbounded migration", "OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT", "16m", "between"},
 		{"unbounded pool", "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", "1001", "between"},
 		{"idle exceeds open", "OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS", "21", "max open"},
+		{"short scheduler lease", "OPSCUSTODIAN_SCHEDULER_LEASE_TTL", "10s", "between"},
+		{"slow scheduler renewal", "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", "1m", "less than"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

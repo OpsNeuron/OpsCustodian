@@ -142,7 +142,7 @@ func (scheduler Scheduler) runBatch(ctx context.Context, repositories []Reposito
 	}
 	lease, acquired, err := scheduler.LeaseStore.AcquireSchedulerLease(ctx, scheduler.LeaseName, scheduler.HolderID, scheduler.LeaseTTL)
 	if err != nil {
-		return nil, fmt.Errorf("acquire ingestion scheduler lease: %w", err), false, false
+		return nil, fmt.Errorf("acquire ingestion scheduler lease: %w", err), false, true
 	}
 	if !acquired {
 		return nil, nil, true, false
@@ -163,7 +163,7 @@ func (scheduler Scheduler) runBatch(ctx context.Context, repositories []Reposito
 	} else if !released && renewErr == nil && ctx.Err() == nil {
 		releaseErr = fmt.Errorf("release ingestion scheduler lease: ownership was lost")
 	}
-	leaseLost := errors.Is(renewErr, errSchedulerLeaseLost) || (!released && ctx.Err() == nil)
+	leaseLost := renewErr != nil || releaseErr != nil || (!released && ctx.Err() == nil)
 	return results, errors.Join(runErr, renewErr, releaseErr), false, leaseLost
 }
 

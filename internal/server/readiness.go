@@ -6,14 +6,18 @@ import (
 )
 
 const (
-	ReadinessDatabase   = "database"
-	ReadinessIngestion  = "ingestion"
-	ReadinessGitHubAuth = "github-auth"
+	ReadinessDatabase      = "database"
+	ReadinessIngestion     = "ingestion"
+	ReadinessGitHubAuth    = "github-auth"
+	ReadinessSchedulerRole = "scheduler-role"
 
-	ReadinessStarting = "starting"
-	ReadinessReady    = "ready"
-	ReadinessDegraded = "degraded"
-	ReadinessDisabled = "disabled"
+	ReadinessStarting      = "starting"
+	ReadinessReady         = "ready"
+	ReadinessDegraded      = "degraded"
+	ReadinessDisabled      = "disabled"
+	SchedulerRoleLeader    = "leader"
+	SchedulerRoleStandby   = "standby"
+	SchedulerRoleLeaseLost = "lease-lost"
 )
 
 type ReadinessSnapshot struct {
@@ -39,8 +43,12 @@ func NewReadinessTracker(ingestionConfigured, githubAuthConfigured bool) *Readin
 	if githubAuthConfigured {
 		githubStatus = ReadinessStarting
 	}
+	schedulerRole := ReadinessDisabled
+	if ingestionConfigured {
+		schedulerRole = ReadinessStarting
+	}
 	return &ReadinessTracker{components: map[string]string{
-		ReadinessDatabase: ReadinessStarting, ReadinessIngestion: ingestionStatus, ReadinessGitHubAuth: githubStatus,
+		ReadinessDatabase: ReadinessStarting, ReadinessIngestion: ingestionStatus, ReadinessGitHubAuth: githubStatus, ReadinessSchedulerRole: schedulerRole,
 	}}
 }
 
@@ -48,10 +56,12 @@ func (tracker *ReadinessTracker) Update(component, status string) error {
 	if tracker == nil {
 		return fmt.Errorf("readiness tracker is required")
 	}
-	if component != ReadinessDatabase && component != ReadinessIngestion && component != ReadinessGitHubAuth {
+	if component != ReadinessDatabase && component != ReadinessIngestion && component != ReadinessGitHubAuth && component != ReadinessSchedulerRole {
 		return fmt.Errorf("readiness component is invalid")
 	}
-	if status != ReadinessStarting && status != ReadinessReady && status != ReadinessDegraded && status != ReadinessDisabled {
+	validStatus := status == ReadinessStarting || status == ReadinessReady || status == ReadinessDegraded || status == ReadinessDisabled
+	validRole := status == SchedulerRoleLeader || status == SchedulerRoleStandby || status == SchedulerRoleLeaseLost
+	if (component == ReadinessSchedulerRole && !validRole && status != ReadinessStarting && status != ReadinessDisabled) || (component != ReadinessSchedulerRole && !validStatus) {
 		return fmt.Errorf("readiness status is invalid")
 	}
 	tracker.mu.Lock()
@@ -62,7 +72,7 @@ func (tracker *ReadinessTracker) Update(component, status string) error {
 
 func (tracker *ReadinessTracker) Snapshot() ReadinessSnapshot {
 	components := map[string]string{
-		ReadinessDatabase: ReadinessDegraded, ReadinessIngestion: ReadinessDegraded, ReadinessGitHubAuth: ReadinessDegraded,
+		ReadinessDatabase: ReadinessDegraded, ReadinessIngestion: ReadinessDegraded, ReadinessGitHubAuth: ReadinessDegraded, ReadinessSchedulerRole: SchedulerRoleLeaseLost,
 	}
 	if tracker != nil {
 		tracker.mu.RLock()
@@ -73,7 +83,7 @@ func (tracker *ReadinessTracker) Snapshot() ReadinessSnapshot {
 	}
 	status := ReadinessReady
 	for _, component := range components {
-		if component == ReadinessStarting || component == ReadinessDegraded {
+		if component == ReadinessStarting || component == ReadinessDegraded || component == SchedulerRoleLeaseLost {
 			status = "not-ready"
 			break
 		}
@@ -85,6 +95,6 @@ type readyReadiness struct{}
 
 func (readyReadiness) Snapshot() ReadinessSnapshot {
 	return ReadinessSnapshot{Status: ReadinessReady, Components: map[string]string{
-		ReadinessDatabase: ReadinessReady, ReadinessIngestion: ReadinessDisabled, ReadinessGitHubAuth: ReadinessDisabled,
+		ReadinessDatabase: ReadinessReady, ReadinessIngestion: ReadinessDisabled, ReadinessGitHubAuth: ReadinessDisabled, ReadinessSchedulerRole: ReadinessDisabled,
 	}}
 }

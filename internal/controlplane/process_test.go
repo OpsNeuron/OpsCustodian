@@ -159,7 +159,7 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 		}
 		response := httptest.NewRecorder()
 		(<-httpServers).Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/readyz", nil))
-		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"ingestion":"ready"`) {
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"ingestion":"ready"`) || !strings.Contains(response.Body.String(), `"scheduler-role":"leader"`) {
 			t.Fatalf("readiness response = %d %s", response.Code, response.Body.String())
 		}
 		return nil
@@ -169,7 +169,7 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
 		t.Fatal(err)
 	}
-	if len(sink.events) != 2 || sink.events[0].EventName != "opscustodian.ingestion.schedule.completed" || sink.events[0].Attributes["opscustodian.ingestion.persisted.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.unchanged.count"] != 1 {
+	if len(sink.events) != 2 || sink.events[0].EventName != "opscustodian.ingestion.schedule.completed" || sink.events[0].Attributes["opscustodian.ingestion.persisted.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.unchanged.count"] != 1 || sink.events[0].Attributes["opscustodian.ingestion.scheduler.role"] != "leader" {
 		t.Fatalf("ingestion audit events = %#v", sink.events)
 	}
 }

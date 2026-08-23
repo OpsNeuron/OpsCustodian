@@ -129,6 +129,8 @@ currently recognizes:
 | `OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS` | `20` | 1 to 1000 |
 | `OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS` | `5` | 0 to max open connections |
 | `OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME` | `30m` | positive, at most 24 hours |
+| `OPSCUSTODIAN_SCHEDULER_LEASE_TTL` | `1m` | 15 seconds to 24 hours |
+| `OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL` | `20s` | positive and shorter than lease TTL |
 
 Configuration parsing is side-effect free and does not open a database. A
 separate safe projection exposes only operational metadata and a boolean

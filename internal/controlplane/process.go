@@ -215,8 +215,17 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 				Runner: ingestionRunner, Repositories: repositorySet.Repositories,
 				Interval: repositorySet.Interval, MaxJitter: repositorySet.MaxJitter,
 				LeaseStore: runtime.Store, LeaseName: "repository-ingestion", HolderID: holderID,
-				LeaseTTL: time.Minute, RenewInterval: 20 * time.Second,
+				LeaseTTL: config.SchedulerLeaseTTL, RenewInterval: config.SchedulerRenewInterval,
 				Observer: func(observation ingestion.ScheduleObservation) error {
+					role := server.SchedulerRoleLeader
+					if observation.Standby {
+						role = server.SchedulerRoleStandby
+					} else if observation.LeaseLost {
+						role = server.SchedulerRoleLeaseLost
+					}
+					if err := readiness.Update(server.ReadinessSchedulerRole, role); err != nil {
+						return err
+					}
 					ingestionStatus := server.ReadinessReady
 					for _, result := range observation.Results {
 						if result.Status == ingestion.StatusFailed || result.Status == ingestion.StatusConflict || result.Status == ingestion.StatusCancelled {
@@ -288,12 +297,19 @@ func ingestionScheduleAuditEvent(organizationID string, observation ingestion.Sc
 	for _, result := range observation.Results {
 		counts[result.Status]++
 	}
+	role := server.SchedulerRoleLeader
+	if observation.Standby {
+		role = server.SchedulerRoleStandby
+	} else if observation.LeaseLost {
+		role = server.SchedulerRoleLeaseLost
+	}
 	return audit.FromIngestionSchedule(audit.IngestionScheduleObservation{
 		OccurredAt: observation.FinishedAt, OrganizationID: organizationID,
 		DurationMillis:  max(observation.FinishedAt.Sub(observation.StartedAt).Milliseconds(), 0),
 		RepositoryCount: len(observation.Results), PersistedCount: counts[ingestion.StatusPersisted],
 		UnchangedCount: counts[ingestion.StatusUnchanged], ConflictCount: counts[ingestion.StatusConflict],
 		FailedCount: counts[ingestion.StatusFailed], CancelledCount: counts[ingestion.StatusCancelled], Succeeded: observation.Err == nil,
+		SchedulerRole: role,
 	})
 }
 

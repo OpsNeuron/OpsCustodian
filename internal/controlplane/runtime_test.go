@@ -166,6 +166,7 @@ func validRuntimeConfig() Config {
 		ConnectTimeout: 5 * time.Second, ShutdownTimeout: 10 * time.Second,
 		MigrationTimeout: 2 * time.Minute,
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
+		SchedulerLeaseTTL: time.Minute, SchedulerRenewInterval: 20 * time.Second,
 		HTTP:          defaultHTTPConfig(),
 		Authenticator: authenticator,
 		CredentialID:  authenticator.CredentialID(),

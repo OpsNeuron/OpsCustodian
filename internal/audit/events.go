@@ -69,6 +69,7 @@ type IngestionScheduleObservation struct {
 	FailedCount     int
 	CancelledCount  int
 	Succeeded       bool
+	SchedulerRole   string
 }
 
 type GitHubAuthenticationObservation struct {
@@ -114,6 +115,7 @@ func FromIngestionSchedule(observation IngestionScheduleObservation) Event {
 		"opscustodian.ingestion.failed.count":     observation.FailedCount,
 		"opscustodian.ingestion.cancelled.count":  observation.CancelledCount,
 		"opscustodian.ingestion.duration_ms":      max(observation.DurationMillis, 0),
+		"opscustodian.ingestion.scheduler.role":   observation.SchedulerRole,
 	})
 }
 

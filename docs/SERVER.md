@@ -145,6 +145,20 @@ bounded from 1 second to 1 hour. Safe configuration exposes only whether a file
 is configured and its interval, never its path. Each attempt emits a minimized
 credential reload audit event; an audit sink failure remains process-fatal.
 
+### Scheduler coordination
+
+Scheduled ingestion uses a PostgreSQL lease and transaction-level fencing.
+`OPSCUSTODIAN_SCHEDULER_LEASE_TTL` defaults to `1m` and must be between `15s`
+and `24h`. `OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL` defaults to `20s` and must
+be positive and shorter than the TTL. Both values are durations, contain no
+credentials, and are included in `serve --print-config` output.
+
+Dependency readiness exposes only the bounded `scheduler-role` values
+`starting`, `leader`, `standby`, `lease-lost`, or `disabled`; it never exposes
+the process holder ID or fencing token. A standby process remains ready, while
+`lease-lost` makes readiness fail until a later schedule cycle reacquires or
+observes the lease. Ingestion audit summaries carry the same bounded role.
+
 The production composition constructor validates the complete configuration,
 requires a Store `Reader`, installs the authenticated API handler, and only then
 constructs the bounded HTTP server. This keeps the unauthenticated test

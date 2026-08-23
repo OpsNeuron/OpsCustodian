@@ -71,9 +71,9 @@ func TestFromCredentialReloadMinimizesFailureEvent(t *testing.T) {
 func TestFromIngestionScheduleEmitsOnlyBoundedSummary(t *testing.T) {
 	event := FromIngestionSchedule(IngestionScheduleObservation{
 		OccurredAt: time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef",
-		DurationMillis: 25, RepositoryCount: 3, PersistedCount: 1, UnchangedCount: 1, FailedCount: 1, Succeeded: true,
+		DurationMillis: 25, RepositoryCount: 3, PersistedCount: 1, UnchangedCount: 1, FailedCount: 1, Succeeded: true, SchedulerRole: "leader",
 	})
-	if event.EventName != "opscustodian.ingestion.schedule.completed" || event.SeverityNumber != 13 || event.Attributes["opscustodian.ingestion.failed.count"] != 1 || len(event.Attributes) != 9 {
+	if event.EventName != "opscustodian.ingestion.schedule.completed" || event.SeverityNumber != 13 || event.Attributes["opscustodian.ingestion.failed.count"] != 1 || event.Attributes["opscustodian.ingestion.scheduler.role"] != "leader" || len(event.Attributes) != 10 {
 		t.Fatalf("ingestion schedule event = %#v", event)
 	}
 }

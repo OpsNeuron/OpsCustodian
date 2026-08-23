@@ -24,6 +24,8 @@ const (
 	defaultWriteTimeout      = 30 * time.Second
 	defaultIdleTimeout       = 60 * time.Second
 	defaultMaxHeaderBytes    = 64 << 10
+	defaultSchedulerLeaseTTL = time.Minute
+	defaultSchedulerRenewal  = 20 * time.Second
 )
 
 type LookupEnv func(string) (string, bool)
@@ -51,6 +53,8 @@ type Config struct {
 	RepositorySetFile        string
 	GitHubAppID              int64
 	GitHubAppPrivateKeyFile  string
+	SchedulerLeaseTTL        time.Duration
+	SchedulerRenewInterval   time.Duration
 }
 
 type HTTPConfig struct {
@@ -83,6 +87,8 @@ type SafeConfig struct {
 	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
 	RepositorySetConfigured  bool          `json:"repositorySetConfigured"`
 	GitHubAppConfigured      bool          `json:"githubAppConfigured"`
+	SchedulerLeaseTTL        time.Duration `json:"schedulerLeaseTtl"`
+	SchedulerRenewInterval   time.Duration `json:"schedulerRenewInterval"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -100,6 +106,8 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		MaxOpenConns:            defaultMaxOpenConns,
 		MaxIdleConns:            defaultMaxIdleConns,
 		ConnMaxLifetime:         defaultConnMaxLifetime,
+		SchedulerLeaseTTL:       defaultSchedulerLeaseTTL,
+		SchedulerRenewInterval:  defaultSchedulerRenewal,
 		HTTP:                    defaultHTTPConfig(),
 	}
 	var err error
@@ -185,6 +193,12 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.ConnMaxLifetime, err = environmentDuration(lookup, "OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME", config.ConnMaxLifetime); err != nil {
 		return Config{}, err
 	}
+	if config.SchedulerLeaseTTL, err = environmentDuration(lookup, "OPSCUSTODIAN_SCHEDULER_LEASE_TTL", config.SchedulerLeaseTTL); err != nil {
+		return Config{}, err
+	}
+	if config.SchedulerRenewInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", config.SchedulerRenewInterval); err != nil {
+		return Config{}, err
+	}
 	if config.MaxOpenConns, err = environmentInt(lookup, "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", config.MaxOpenConns); err != nil {
 		return Config{}, err
 	}
@@ -252,6 +266,12 @@ func (config Config) Validate() error {
 	if config.MaxIdleConns < 0 || config.MaxIdleConns > config.MaxOpenConns {
 		return fmt.Errorf("OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS must be between 0 and max open connections")
 	}
+	if config.SchedulerLeaseTTL < store.MinimumLeaseTTL || config.SchedulerLeaseTTL > store.MaximumLeaseTTL {
+		return fmt.Errorf("OPSCUSTODIAN_SCHEDULER_LEASE_TTL must be between 15s and 24h")
+	}
+	if config.SchedulerRenewInterval <= 0 || config.SchedulerRenewInterval >= config.SchedulerLeaseTTL {
+		return fmt.Errorf("OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL must be positive and less than OPSCUSTODIAN_SCHEDULER_LEASE_TTL")
+	}
 	if err := config.HTTP.Validate(); err != nil {
 		return err
 	}
@@ -302,6 +322,8 @@ func (config Config) Safe() SafeConfig {
 		CredentialReloadInterval: config.CredentialReloadInterval,
 		RepositorySetConfigured:  config.RepositorySetFile != "",
 		GitHubAppConfigured:      config.GitHubAppID > 0,
+		SchedulerLeaseTTL:        config.SchedulerLeaseTTL,
+		SchedulerRenewInterval:   config.SchedulerRenewInterval,
 	}
 }
 

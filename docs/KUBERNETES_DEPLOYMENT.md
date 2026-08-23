@@ -50,11 +50,11 @@ gateway. IPv6 and cluster-specific DNS labels also require an overlay.
 
 ## Availability boundary
 
-The base deliberately runs one replica. Runtime lease coordination now prevents
-multiple schedulers from intentionally starting the same batch, but snapshot
-writes do not yet enforce the lease fencing token at commit time. Do not scale
-above one until that stale-writer boundary and real PostgreSQL contention tests
-are complete.
+The base deliberately runs one replica. Runtime lease coordination and
+transactional snapshot fencing now prevent stale scheduler generations from
+committing after takeover. Do not scale above one until this behavior passes
+real PostgreSQL contention and failure-injection tests in the final integration
+lab; the static contract alone is not a production HA claim.
 The PodDisruptionBudget uses `minAvailable: 1`; this improves voluntary-disruption
 safety but can block node drains. Rolling updates use one surge Pod and no
 unavailable Pod, so database migration compatibility must remain backward-safe.

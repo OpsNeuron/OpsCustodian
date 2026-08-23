@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("snapshot not found")
-	ErrConflict = errors.New("immutable snapshot conflict")
+	ErrNotFound  = errors.New("snapshot not found")
+	ErrConflict  = errors.New("immutable snapshot conflict")
+	ErrLeaseLost = errors.New("scheduler lease lost")
 )
 
 type RepositorySummary struct {
@@ -114,6 +115,10 @@ type Reader interface {
 
 type Writer interface {
 	PutSnapshot(context.Context, model.AgentBOM) (Snapshot, error)
+}
+
+type FencedWriter interface {
+	PutSnapshotWithLease(context.Context, model.AgentBOM, SchedulerLease) (Snapshot, error)
 }
 
 type Memory struct {

@@ -62,12 +62,14 @@ type executedStatement struct {
 }
 
 type fakePostgresTransaction struct {
-	statements []executedStatement
-	accepted   bool
-	rowErr     error
-	execErrAt  int
-	committed  bool
-	rolledBack bool
+	statements  []executedStatement
+	accepted    bool
+	rowAccepted []bool
+	rowCalls    int
+	rowErr      error
+	execErrAt   int
+	committed   bool
+	rolledBack  bool
 }
 
 func (transaction *fakePostgresTransaction) ExecContext(_ context.Context, query string, args ...any) (sql.Result, error) {
@@ -79,7 +81,12 @@ func (transaction *fakePostgresTransaction) ExecContext(_ context.Context, query
 }
 func (transaction *fakePostgresTransaction) QueryRowContext(_ context.Context, query string, args ...any) postgresRow {
 	transaction.statements = append(transaction.statements, executedStatement{query: query, args: args})
-	return fakePostgresRow{accepted: transaction.accepted, err: transaction.rowErr}
+	accepted := transaction.accepted
+	if transaction.rowCalls < len(transaction.rowAccepted) {
+		accepted = transaction.rowAccepted[transaction.rowCalls]
+	}
+	transaction.rowCalls++
+	return fakePostgresRow{accepted: accepted, err: transaction.rowErr}
 }
 func (transaction *fakePostgresTransaction) Commit() error { transaction.committed = true; return nil }
 func (transaction *fakePostgresTransaction) Rollback() error {
@@ -191,6 +198,38 @@ func TestPostgresWriterRejectsImmutableRevisionConflict(t *testing.T) {
 	}
 	if transaction.committed || !transaction.rolledBack {
 		t.Fatalf("conflicting snapshot transaction was not rolled back: %#v", transaction)
+	}
+}
+
+func TestPostgresWriterFencesSnapshotInsideTransaction(t *testing.T) {
+	lease := SchedulerLease{Name: "repository-ingestion", HolderID: "instance-a", FencingToken: 9}
+	transaction := &fakePostgresTransaction{rowAccepted: []bool{true, true}}
+	writer, err := newPostgresWriter(&fakePostgresDatabase{transaction: transaction}, "organization-0123456789abcdef", "Acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writer.PutSnapshotWithLease(context.Background(), postgresTestBOM(), lease); err != nil {
+		t.Fatalf("PutSnapshotWithLease(): %v", err)
+	}
+	if !transaction.committed || len(transaction.statements) != 5 {
+		t.Fatalf("fenced transaction = %#v", transaction)
+	}
+	check := transaction.statements[1]
+	if !strings.Contains(check.query, "FOR UPDATE") || !strings.Contains(check.query, "expires_at > now()") || check.args[3] != int64(9) {
+		t.Fatalf("lease check is not locked and fenced: %#v", check)
+	}
+}
+
+func TestPostgresWriterRejectsLostLeaseBeforeSnapshotWrite(t *testing.T) {
+	transaction := &fakePostgresTransaction{rowAccepted: []bool{false}}
+	writer, err := newPostgresWriter(&fakePostgresDatabase{transaction: transaction}, "organization-0123456789abcdef", "Acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lease := SchedulerLease{Name: "repository-ingestion", HolderID: "instance-a", FencingToken: 4}
+	_, err = writer.PutSnapshotWithLease(context.Background(), postgresTestBOM(), lease)
+	if !errors.Is(err, ErrLeaseLost) || transaction.committed || !transaction.rolledBack || len(transaction.statements) != 2 {
+		t.Fatalf("lost lease result = %v, transaction = %#v", err, transaction)
 	}
 }
 

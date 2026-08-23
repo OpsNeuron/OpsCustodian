@@ -71,8 +71,11 @@ application host clock for ownership decisions.
 
 Deterministic driver-neutral tests verify tenant arguments, fencing-token use,
 contention behavior, validation, and fail-closed expiry predicates. A fencing
-token is not yet attached to snapshot writes; full stale-writer exclusion is
-therefore not claimed until commit-time ownership checks are implemented.
+Scheduled ingestion passes its fencing token into the PostgreSQL snapshot
+writer. The writer verifies the tenant, lease name, holder, token, and server-
+time expiry under a row lock in the same transaction as the snapshot write.
+Takeover therefore cannot overtake an in-flight authorized commit, while a
+stale generation fails before repository or snapshot mutation.
 
 ## Snapshot writer
 

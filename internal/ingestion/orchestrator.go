@@ -86,6 +86,20 @@ type Orchestrator struct {
 }
 
 func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Repository) ([]Result, error) {
+	return orchestrator.run(ctx, repositories, nil)
+}
+
+func (orchestrator Orchestrator) RunWithLease(ctx context.Context, repositories []Repository, lease store.SchedulerLease) ([]Result, error) {
+	if lease.FencingToken <= 0 {
+		return nil, fmt.Errorf("ingestion scheduler lease fencing token must be positive")
+	}
+	if _, ok := orchestrator.Writer.(store.FencedWriter); !ok {
+		return nil, fmt.Errorf("ingestion writer does not support commit-time fencing")
+	}
+	return orchestrator.run(ctx, repositories, &lease)
+}
+
+func (orchestrator Orchestrator) run(ctx context.Context, repositories []Repository, lease *store.SchedulerLease) ([]Result, error) {
 	if orchestrator.Reader == nil || orchestrator.Writer == nil || orchestrator.Fetcher == nil {
 		return nil, fmt.Errorf("ingestion reader, writer, and fetcher are required")
 	}
@@ -131,7 +145,7 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 				results[index].Err = ctx.Err()
 				return
 			}
-			results[index] = orchestrator.ingest(ctx, repository)
+			results[index] = orchestrator.ingest(ctx, repository, lease)
 		}(index, repository)
 	}
 	workers.Wait()
@@ -141,7 +155,7 @@ func (orchestrator Orchestrator) Run(ctx context.Context, repositories []Reposit
 	return results, nil
 }
 
-func (orchestrator Orchestrator) ingest(ctx context.Context, repository Repository) Result {
+func (orchestrator Orchestrator) ingest(ctx context.Context, repository Repository, lease *store.SchedulerLease) Result {
 	result := Result{Source: repository.Source, Status: StatusFailed}
 	if orchestrator.RepositoryTimeout > 0 {
 		var cancel context.CancelFunc
@@ -188,13 +202,22 @@ func (orchestrator Orchestrator) ingest(ctx context.Context, repository Reposito
 		result.Err = fmt.Errorf("fetched Agent BOM source does not match configured repository")
 		return result
 	}
-	snapshot, err := orchestrator.Writer.PutSnapshot(ctx, fetched.BOM)
+	var snapshot store.Snapshot
+	if lease == nil {
+		snapshot, err = orchestrator.Writer.PutSnapshot(ctx, fetched.BOM)
+	} else {
+		snapshot, err = orchestrator.Writer.(store.FencedWriter).PutSnapshotWithLease(ctx, fetched.BOM, *lease)
+	}
 	if errors.Is(err, store.ErrConflict) {
 		result.Status = StatusConflict
 		result.Err = err
 		return result
 	}
 	if err != nil {
+		if errors.Is(err, store.ErrLeaseLost) {
+			result.Status = StatusCancelled
+			result.FailureClass = "lease-lost"
+		}
 		result.Err = fmt.Errorf("persist snapshot: %w", err)
 		return result
 	}

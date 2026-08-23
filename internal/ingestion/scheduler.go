@@ -20,6 +20,10 @@ type BatchRunner interface {
 	Run(context.Context, []Repository) ([]Result, error)
 }
 
+type LeaseAwareBatchRunner interface {
+	RunWithLease(context.Context, []Repository, store.SchedulerLease) ([]Result, error)
+}
+
 type ScheduleObservation struct {
 	StartedAt  time.Time
 	FinishedAt time.Time
@@ -119,6 +123,9 @@ func (scheduler Scheduler) validateLeaseConfiguration() error {
 	if scheduler.LeaseStore == nil || scheduler.LeaseName == "" || scheduler.HolderID == "" {
 		return fmt.Errorf("complete ingestion scheduler lease dependencies are required")
 	}
+	if _, ok := scheduler.Runner.(LeaseAwareBatchRunner); !ok {
+		return fmt.Errorf("ingestion batch runner does not support commit-time fencing")
+	}
 	if scheduler.LeaseTTL < store.MinimumLeaseTTL || scheduler.LeaseTTL > store.MaximumLeaseTTL {
 		return fmt.Errorf("ingestion scheduler lease TTL must be between %s and %s", store.MinimumLeaseTTL, store.MaximumLeaseTTL)
 	}
@@ -147,7 +154,7 @@ func (scheduler Scheduler) runBatch(ctx context.Context, repositories []Reposito
 	go func() {
 		renewal <- scheduler.maintainLease(runContext, cancel, lease)
 	}()
-	results, runErr := scheduler.Runner.Run(runContext, repositories)
+	results, runErr := scheduler.Runner.(LeaseAwareBatchRunner).RunWithLease(runContext, repositories, lease)
 	cancel()
 	renewErr := <-renewal
 	released, releaseErr := scheduler.LeaseStore.ReleaseSchedulerLease(context.WithoutCancel(ctx), lease)

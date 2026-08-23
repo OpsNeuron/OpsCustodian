@@ -34,6 +34,12 @@ SELECT EXISTS (SELECT 1 FROM inserted) OR EXISTS (
     (organization_id, repository_id, snapshot_id, finding_id, finding_type, severity, asset_id, remediation_id, finding)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 ON CONFLICT (organization_id, repository_id, snapshot_id, finding_id) DO NOTHING`
+	verifySchedulerLeaseSQL = `SELECT EXISTS (
+    SELECT 1 FROM scheduler_leases
+    WHERE organization_id = $1 AND name = $2 AND holder_id = $3 AND fencing_token = $4
+      AND expires_at > now()
+    FOR UPDATE
+)`
 )
 
 type postgresDatabase interface {
@@ -115,6 +121,22 @@ func newPostgresWriter(database postgresDatabase, organizationID, displayName st
 }
 
 func (writer *Postgres) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snapshot, error) {
+	return writer.putSnapshot(ctx, bom, nil)
+}
+
+func (writer *Postgres) PutSnapshotWithLease(ctx context.Context, bom model.AgentBOM, lease SchedulerLease) (Snapshot, error) {
+	if lease.FencingToken <= 0 {
+		return Snapshot{}, fmt.Errorf("scheduler lease fencing token must be positive")
+	}
+	if err := validateSchedulerLeaseIdentity(ctx, lease.Name, lease.HolderID); err != nil {
+		return Snapshot{}, err
+	}
+	return writer.putSnapshot(ctx, bom, &lease)
+}
+
+var _ FencedWriter = (*Postgres)(nil)
+
+func (writer *Postgres) putSnapshot(ctx context.Context, bom model.AgentBOM, lease *SchedulerLease) (Snapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return Snapshot{}, err
 	}
@@ -134,6 +156,17 @@ func (writer *Postgres) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Sn
 	defer transaction.Rollback()
 	if _, err := transaction.ExecContext(ctx, upsertOrganizationSQL, writer.organizationID, writer.organizationDisplayName); err != nil {
 		return Snapshot{}, fmt.Errorf("ensure organization: %w", err)
+	}
+	if lease != nil {
+		var owned bool
+		if err := transaction.QueryRowContext(ctx, verifySchedulerLeaseSQL,
+			writer.organizationID, lease.Name, lease.HolderID, lease.FencingToken,
+		).Scan(&owned); err != nil {
+			return Snapshot{}, fmt.Errorf("verify scheduler lease: %w", err)
+		}
+		if !owned {
+			return Snapshot{}, fmt.Errorf("%w: snapshot transaction is not owned by the active scheduler", ErrLeaseLost)
+		}
 	}
 	if _, err := transaction.ExecContext(ctx, upsertRepositorySQL, writer.organizationID, repositoryID, bom.Metadata.Source); err != nil {
 		return Snapshot{}, fmt.Errorf("ensure repository: %w", err)

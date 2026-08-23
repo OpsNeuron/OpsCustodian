@@ -152,9 +152,53 @@ func TestOrchestratorTimesOutOneRepositoryWithoutFailingBatch(t *testing.T) {
 	}
 }
 
+func TestOrchestratorUsesFencedWriterAndClassifiesLeaseLoss(t *testing.T) {
+	memory := store.NewMemory()
+	writer := &recordingFencedWriter{err: store.ErrLeaseLost}
+	source := "github:acme/fenced"
+	orchestrator := Orchestrator{
+		Reader: memory, Writer: writer,
+		Fetcher: &recordingFetcher{result: FetchResult{BOM: ingestionTestBOM(source, "revision-1")}}, MaxConcurrency: 1,
+	}
+	lease := store.SchedulerLease{Name: "repository-ingestion", HolderID: "instance-a", FencingToken: 12}
+	results, err := orchestrator.RunWithLease(context.Background(), []Repository{{Source: source}}, lease)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if writer.unfencedCalls != 0 || writer.fencedCalls != 1 || writer.lease != lease {
+		t.Fatalf("writer calls = unfenced %d, fenced %d, lease %#v", writer.unfencedCalls, writer.fencedCalls, writer.lease)
+	}
+	if results[0].Status != StatusCancelled || results[0].FailureClass != "lease-lost" || !errors.Is(results[0].Err, store.ErrLeaseLost) {
+		t.Fatalf("lease-loss result = %#v", results[0])
+	}
+
+	unsupported := Orchestrator{Reader: memory, Writer: memory, Fetcher: orchestrator.Fetcher, MaxConcurrency: 1}
+	if _, err := unsupported.RunWithLease(context.Background(), []Repository{{Source: source}}, lease); err == nil {
+		t.Fatal("lease-aware run accepted an unfenced writer")
+	}
+}
+
 type recordingFetcher struct {
 	result   FetchResult
 	requests []FetchRequest
+}
+
+type recordingFencedWriter struct {
+	unfencedCalls int
+	fencedCalls   int
+	lease         store.SchedulerLease
+	err           error
+}
+
+func (writer *recordingFencedWriter) PutSnapshot(context.Context, model.AgentBOM) (store.Snapshot, error) {
+	writer.unfencedCalls++
+	return store.Snapshot{}, writer.err
+}
+
+func (writer *recordingFencedWriter) PutSnapshotWithLease(_ context.Context, _ model.AgentBOM, lease store.SchedulerLease) (store.Snapshot, error) {
+	writer.fencedCalls++
+	writer.lease = lease
+	return store.Snapshot{}, writer.err
 }
 
 func (fetcher *recordingFetcher) Fetch(_ context.Context, request FetchRequest) (FetchResult, error) {

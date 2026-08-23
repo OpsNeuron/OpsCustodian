@@ -216,6 +216,10 @@ func (runner *cancellableSchedulerRunner) Run(ctx context.Context, _ []Repositor
 	return nil, ctx.Err()
 }
 
+func (runner *cancellableSchedulerRunner) RunWithLease(ctx context.Context, repositories []Repository, _ store.SchedulerLease) ([]Result, error) {
+	return runner.Run(ctx, repositories)
+}
+
 func (runner *schedulerRunner) Run(_ context.Context, repositories []Repository) ([]Result, error) {
 	runner.calls++
 	runner.active++
@@ -227,4 +231,8 @@ func (runner *schedulerRunner) Run(_ context.Context, repositories []Repository)
 		return nil, errors.New("batch failed")
 	}
 	return []Result{{Source: repositories[0].Source, Status: StatusUnchanged}}, nil
+}
+
+func (runner *schedulerRunner) RunWithLease(ctx context.Context, repositories []Repository, _ store.SchedulerLease) ([]Result, error) {
+	return runner.Run(ctx, repositories)
 }

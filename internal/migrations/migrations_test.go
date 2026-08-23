@@ -11,16 +11,49 @@ func TestCatalogIsContiguousPairedAndChecksumLocked(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Catalog(): %v", err)
 	}
-	if len(catalog) != 1 {
-		t.Fatalf("migration count = %d, want 1", len(catalog))
+	if len(catalog) != 2 {
+		t.Fatalf("migration count = %d, want 2", len(catalog))
 	}
-	migration := catalog[0]
-	if migration.Version != 1 || migration.Name != "control_plane" || migration.Down == "" {
-		t.Fatalf("unexpected migration: %#v", migration)
+	for _, migration := range catalog {
+		if migration.Down == "" {
+			t.Fatalf("migration has no rollback: %#v", migration)
+		}
 	}
-	const checksum = "sha256:e1868d5f92ff2d917de4fa5cc15e1c8b9296bf3d52e9e02f1fd8521dd80f591a"
-	if migration.Checksum != checksum {
-		t.Fatalf("migration checksum changed: got %s; intentional SQL changes require a new migration", migration.Checksum)
+	expected := []struct {
+		version  int64
+		name     string
+		checksum string
+	}{
+		{1, "control_plane", "sha256:e1868d5f92ff2d917de4fa5cc15e1c8b9296bf3d52e9e02f1fd8521dd80f591a"},
+		{2, "scheduler_leases", "sha256:328cc77fc86f492ed9721b3439a259f3289a2d18ff8d7455253586bd0f973f62"},
+	}
+	for index, value := range expected {
+		migration := catalog[index]
+		if migration.Version != value.version || migration.Name != value.name || migration.Checksum != value.checksum {
+			t.Fatalf("migration %d changed: %#v; published SQL requires a new migration", index+1, migration)
+		}
+	}
+}
+
+func TestSchedulerLeaseSchemaEnforcesTenantFencingAndExpiry(t *testing.T) {
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	up := catalog[1].Up
+	for _, required := range []string{
+		"CREATE TABLE scheduler_leases",
+		"PRIMARY KEY (organization_id, name)",
+		"fencing_token bigint NOT NULL CHECK (fencing_token > 0)",
+		"REFERENCES organizations (id) ON DELETE CASCADE",
+		"scheduler_leases_expiry_idx",
+	} {
+		if !strings.Contains(up, required) {
+			t.Errorf("scheduler lease schema missing invariant %q", required)
+		}
+	}
+	if !strings.Contains(catalog[1].Down, "DROP TABLE IF EXISTS scheduler_leases") {
+		t.Fatal("scheduler lease migration has no rollback")
 	}
 }
 
@@ -68,7 +101,7 @@ func TestValidateAppliedFailsClosedForTamperingAndNewerDatabases(t *testing.T) {
 	}{
 		{name: "valid", applied: map[int64]string{1: catalog[0].Checksum}},
 		{name: "tampered", applied: map[int64]string{1: "sha256:changed"}, contains: "checksum mismatch"},
-		{name: "newer database", applied: map[int64]string{1: catalog[0].Checksum, 2: "sha256:future"}, contains: "compatible newer"},
+		{name: "newer database", applied: map[int64]string{1: catalog[0].Checksum, 2: catalog[1].Checksum, 3: "sha256:future"}, contains: "compatible newer"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -14,6 +14,13 @@ The first migration creates:
 - `snapshot_findings`: immutable, queryable Finding projections; and
 - `schema_migrations`: runner-owned version and checksum ledger.
 
+The second migration adds `scheduler_leases`, a tenant-scoped coordination
+primitive for active/standby ingestion schedulers. Acquisition and renewal use
+PostgreSQL server time, lease takeover increments a monotonic fencing token,
+and stale holders cannot renew or release a newer lease generation. This is the
+persistence foundation only: the scheduler renewal/cancellation loop is wired
+in a separate increment, so Kubernetes remains intentionally single-replica.
+
 Repository and snapshot foreign keys include `organization_id`; this prevents a
 record from referencing another organization's parent even if IDs collide.
 Agent BOM JSONB is retained as the canonical artifact, while selected Finding
@@ -45,9 +52,25 @@ restricted by foreign keys and will require an explicit governed workflow.
 ## Validation status
 
 Catalog parsing, ordering, checksums, multi-tenant key structure, immutability
-triggers, indexes, rollback presence, and newer-database rejection are covered
-by deterministic tests. Applying and rolling back against a real PostgreSQL
-instance is intentionally deferred to the final integration test phase.
+triggers, scheduler lease fencing/expiry structure, indexes, rollback presence,
+and newer-database rejection are covered by deterministic tests. Applying and
+rolling back against a real PostgreSQL instance, including concurrent lease
+contention, is intentionally deferred to the final integration test phase.
+
+## Scheduler lease adapter
+
+The PostgreSQL adapter exposes bounded acquire, renew, and release operations.
+Lease names and opaque process holder IDs are validated before database access;
+TTLs must be between 15 seconds and 24 hours. A contended acquire, expired
+renewal, or stale release is a normal `false` result rather than an operational
+error. SQL uses one tenant-scoped statement per transition and never trusts the
+application host clock for ownership decisions.
+
+Deterministic driver-neutral tests verify tenant arguments, fencing-token use,
+contention behavior, validation, and fail-closed expiry predicates. A fencing
+token is not yet attached to snapshot writes; full stale-writer exclusion is
+therefore not claimed until scheduler integration and commit-time ownership
+checks are implemented.
 
 ## Snapshot writer
 

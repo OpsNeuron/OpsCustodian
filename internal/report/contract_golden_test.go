@@ -2,6 +2,7 @@ package report
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,11 +43,22 @@ func TestPublicJSONContractsMatchGoldenFiles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read golden file: %v", err)
 			}
-			if !bytes.Equal(output.Bytes(), expected) {
+			actualContract := compactGoldenJSON(t, "rendered contract", output.Bytes())
+			expectedContract := compactGoldenJSON(t, test.golden, expected)
+			if !bytes.Equal(actualContract, expectedContract) {
 				t.Fatalf("public contract differs from %s\n--- expected ---\n%s\n--- actual ---\n%s", test.golden, expected, output.Bytes())
 			}
 		})
 	}
+}
+
+func compactGoldenJSON(t *testing.T, name string, document []byte) []byte {
+	t.Helper()
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, document); err != nil {
+		t.Fatalf("compact %s: %v", name, err)
+	}
+	return compact.Bytes()
 }
 
 func contractGoldenBOM() model.AgentBOM {

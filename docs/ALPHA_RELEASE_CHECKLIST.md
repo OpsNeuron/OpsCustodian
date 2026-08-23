@@ -10,6 +10,7 @@ does not satisfy a real-environment item.
 - [x] Demo fixtures produce a self-contained HTML inventory.
 - [x] Scope-expansion demo produces an explainable critical semantic drift.
 - [x] Installation paths distinguish source, release archive, and Action image.
+- [x] Reviewed `v0.5.0-alpha` release notes are wired into tag publication.
 - [ ] Capture one current HTML report screenshot for the README.
 - [ ] Record a short terminal-to-report demo for the GitHub release.
 

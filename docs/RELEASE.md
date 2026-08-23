@@ -5,6 +5,11 @@ Only tags matching semantic `vMAJOR.MINOR.PATCH` or prerelease
 `vMAJOR.MINOR.PATCH-SUFFIX` forms enter the workflow. The first public alpha is
 planned as `v0.5.0-alpha`; its evidence gate is the
 [`v0.5.0-alpha` checklist](ALPHA_RELEASE_CHECKLIST.md).
+
+Release notes may be committed as `docs/releases/<tag>.md`. The publish job
+uses that reviewed file when present and otherwise falls back to GitHub's
+generated notes. The first alpha notes are
+[`docs/releases/v0.5.0-alpha.md`](releases/v0.5.0-alpha.md).
 The workflow independently repeats formatting, vet, unit/contract tests, and
 the Linux race detector before building artifacts.
 

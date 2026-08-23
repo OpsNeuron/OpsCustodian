@@ -60,3 +60,11 @@ Example:
 
 The referenced environment variable contains the token at runtime. The token
 must not be placed directly in RepositorySet or committed to source control.
+
+The GitHub App authentication boundary is defined separately from static token
+resolution. It validates `github-app:installation:<id>` references, caches only
+short-lived installation tokens, refreshes them before expiry, coalesces
+concurrent refreshes per installation, honors caller cancellation, and replaces
+provider failures with secret-safe errors. RepositorySet activation remains
+disabled until the signed-JWT installation-token provider and its operational
+configuration are complete.

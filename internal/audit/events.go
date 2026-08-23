@@ -71,6 +71,34 @@ type IngestionScheduleObservation struct {
 	Succeeded       bool
 }
 
+type GitHubAuthenticationObservation struct {
+	OccurredAt     time.Time
+	OrganizationID string
+	Operation      string
+	Result         string
+	Transient      bool
+	HTTPStatus     int
+	DurationMillis int64
+}
+
+func FromGitHubAuthentication(observation GitHubAuthenticationObservation) Event {
+	severity := 9
+	if observation.Result != "hit" && observation.Result != "refreshed" && observation.Result != "succeeded" {
+		severity = 13
+	}
+	attributes := map[string]any{
+		"opscustodian.organization.id":                   observation.OrganizationID,
+		"opscustodian.github.authentication.operation":   observation.Operation,
+		"opscustodian.github.authentication.result":      observation.Result,
+		"opscustodian.github.authentication.transient":   observation.Transient,
+		"opscustodian.github.authentication.duration_ms": max(observation.DurationMillis, 0),
+	}
+	if observation.HTTPStatus > 0 {
+		attributes["http.response.status_code"] = observation.HTTPStatus
+	}
+	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.github.authentication.completed", severity, "OpsCustodian GitHub authentication operation completed", attributes)
+}
+
 func FromIngestionSchedule(observation IngestionScheduleObservation) Event {
 	severity, outcome := 9, "succeeded"
 	if !observation.Succeeded || observation.FailedCount > 0 || observation.ConflictCount > 0 {

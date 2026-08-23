@@ -69,6 +69,23 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return fmt.Errorf("load ingestion repository set: %w", err)
 		}
 	}
+	auditFailures := make(chan error, 1)
+	githubAuthObserver := func(observationContext context.Context, observation ingestion.GitHubAuthObservation) error {
+		event := audit.FromGitHubAuthentication(audit.GitHubAuthenticationObservation{
+			OccurredAt: observation.OccurredAt, OrganizationID: config.OrganizationID,
+			Operation: observation.Operation, Result: observation.Result, Transient: observation.Transient,
+			HTTPStatus: observation.HTTPStatus, DurationMillis: observation.DurationMillis,
+		})
+		if err := dependencies.AuditSink.Record(observationContext, event); err != nil {
+			auditErr := fmt.Errorf("record GitHub authentication audit: %w", err)
+			select {
+			case auditFailures <- auditErr:
+			default:
+			}
+			return auditErr
+		}
+		return nil
+	}
 	var githubCredentials ingestion.CredentialResolver
 	if config.RepositorySetFile != "" {
 		environmentCredentials, err := ingestion.NewEnvironmentCredentialResolver(dependencies.CredentialEnvironment)
@@ -84,12 +101,12 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			if err != nil {
 				return fmt.Errorf("load GitHub App private key: %w", err)
 			}
-			provider, err := dependencies.BuildGitHubAppProvider(ingestion.GitHubAppProviderOptions{AppID: config.GitHubAppID, PrivateKeyPEM: privateKey})
+			provider, err := dependencies.BuildGitHubAppProvider(ingestion.GitHubAppProviderOptions{AppID: config.GitHubAppID, PrivateKeyPEM: privateKey, Observer: githubAuthObserver})
 			clear(privateKey)
 			if err != nil {
 				return fmt.Errorf("initialize GitHub App provider: %w", err)
 			}
-			appCredentials, err = ingestion.NewGitHubAppCredentialResolver(ingestion.GitHubAppCredentialOptions{Provider: provider})
+			appCredentials, err = ingestion.NewGitHubAppCredentialResolver(ingestion.GitHubAppCredentialOptions{Provider: provider, Observer: githubAuthObserver})
 			if err != nil {
 				return fmt.Errorf("initialize GitHub App credential resolver: %w", err)
 			}
@@ -132,7 +149,6 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		}
 	}
 
-	auditFailures := make(chan error, 1)
 	httpServer, err := NewControlPlaneHTTPServer(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
 		select {
 		case auditFailures <- err:

@@ -52,7 +52,14 @@ func (provider *fakeGitHubAppTokenProvider) callCount() int {
 func TestGitHubAppCredentialResolverCachesAndRefreshesBeforeExpiry(t *testing.T) {
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	provider := &fakeGitHubAppTokenProvider{token: GitHubAppInstallationToken{Value: "installation-token-one", ExpiresAt: now.Add(time.Hour)}}
-	resolver, err := NewGitHubAppCredentialResolver(GitHubAppCredentialOptions{Provider: provider, Now: func() time.Time { return now }})
+	var observations []GitHubAuthObservation
+	resolver, err := NewGitHubAppCredentialResolver(GitHubAppCredentialOptions{
+		Provider: provider, Now: func() time.Time { return now },
+		Observer: func(_ context.Context, observation GitHubAuthObservation) error {
+			observations = append(observations, observation)
+			return nil
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +79,9 @@ func TestGitHubAppCredentialResolverCachesAndRefreshesBeforeExpiry(t *testing.T)
 	}
 	if provider.callCount() != 2 {
 		t.Fatalf("provider calls = %d, expected 2", provider.callCount())
+	}
+	if len(observations) != 3 || observations[0].Result != GitHubAuthResultRefreshed || observations[1].Result != GitHubAuthResultHit || observations[2].Result != GitHubAuthResultRefreshed {
+		t.Fatalf("cache observations = %#v", observations)
 	}
 }
 
@@ -150,5 +160,18 @@ func TestGitHubAppCredentialResolverRejectsExcessiveTokenLifetime(t *testing.T) 
 	resolver, _ := NewGitHubAppCredentialResolver(GitHubAppCredentialOptions{Provider: provider, Now: func() time.Time { return now }})
 	if _, err := resolver.Resolve(context.Background(), "github-app:installation:42"); err == nil {
 		t.Fatal("Resolve() unexpectedly accepted a long-lived installation token")
+	}
+}
+
+func TestGitHubAppCredentialResolverFailsClosedWhenObservationFails(t *testing.T) {
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	provider := &fakeGitHubAppTokenProvider{token: GitHubAppInstallationToken{Value: "installation-token", ExpiresAt: now.Add(time.Hour)}}
+	resolver, _ := NewGitHubAppCredentialResolver(GitHubAppCredentialOptions{
+		Provider: provider, Now: func() time.Time { return now },
+		Observer: func(context.Context, GitHubAuthObservation) error { return errors.New("audit backend secret detail") },
+	})
+	token, err := resolver.Resolve(context.Background(), "github-app:installation:42")
+	if err == nil || token != "" || strings.Contains(err.Error(), "backend secret") {
+		t.Fatalf("Resolve() = %q, %v", token, err)
 	}
 }

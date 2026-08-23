@@ -97,3 +97,11 @@ private key:
 The control plane fails before database startup when a RepositorySet requires
 GitHub App authentication but the App configuration is absent. Static PAT and
 GitHub App references are routed explicitly without credential fallback.
+
+Authentication operations emit the bounded audit event
+`opscustodian.github.authentication.completed`. It distinguishes cache hits,
+refreshes, successful exchanges, rate limits, rejections, transient failures,
+and cancellation without recording installation IDs, repository identity,
+credentials, provider bodies, or error text. Audit failure prevents the token
+from being returned and stops the control-plane process through its existing
+fail-closed audit channel.

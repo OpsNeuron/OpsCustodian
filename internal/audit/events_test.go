@@ -78,6 +78,25 @@ func TestFromIngestionScheduleEmitsOnlyBoundedSummary(t *testing.T) {
 	}
 }
 
+func TestFromGitHubAuthenticationEmitsOnlyBoundedOperationalFields(t *testing.T) {
+	event := FromGitHubAuthentication(GitHubAuthenticationObservation{
+		OccurredAt: time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef",
+		Operation: "installation-token-exchange", Result: "rate-limited", Transient: true, HTTPStatus: 429, DurationMillis: 12,
+	})
+	content, err := json.Marshal(event)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event.EventName != "opscustodian.github.authentication.completed" || event.SeverityNumber != 13 || event.Attributes["http.response.status_code"] != 429 || len(event.Attributes) != 6 {
+		t.Fatalf("GitHub authentication event = %#v", event)
+	}
+	for _, forbidden := range []string{"installation:42", "Bearer ", "private-key", "response-body", "repository"} {
+		if strings.Contains(string(content), forbidden) {
+			t.Fatalf("GitHub authentication event contains %q: %s", forbidden, content)
+		}
+	}
+}
+
 func TestFromDriftEmitsFindingAndSummaryWithoutSensitiveDiffValues(t *testing.T) {
 	report := drift.Report{BeforeRevision: "baseline", AfterRevision: "proposed", Changes: []drift.Change{{
 		ID: "finding-123", Type: "mcp-runtime-pin-weakened", Severity: "critical", AgentID: "mcp:server", Subject: "server",

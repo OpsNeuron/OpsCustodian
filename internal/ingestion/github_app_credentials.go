@@ -29,6 +29,7 @@ type GitHubAppCredentialOptions struct {
 	Provider    GitHubAppTokenProvider
 	RefreshLead time.Duration
 	Now         func() time.Time
+	Observer    GitHubAuthObserver
 }
 
 type githubAppCacheEntry struct {
@@ -44,6 +45,7 @@ type GitHubAppCredentialResolver struct {
 	provider    GitHubAppTokenProvider
 	refreshLead time.Duration
 	now         func() time.Time
+	observer    GitHubAuthObserver
 
 	mu       sync.Mutex
 	cache    map[int64]githubAppCacheEntry
@@ -66,7 +68,7 @@ func NewGitHubAppCredentialResolver(options GitHubAppCredentialOptions) (*GitHub
 		now = time.Now
 	}
 	return &GitHubAppCredentialResolver{
-		provider: options.Provider, refreshLead: refreshLead, now: now,
+		provider: options.Provider, refreshLead: refreshLead, now: now, observer: options.Observer,
 		cache: make(map[int64]githubAppCacheEntry), inFlight: make(map[int64]*githubAppTokenFlight),
 	}, nil
 }
@@ -87,6 +89,9 @@ func (resolver *GitHubAppCredentialResolver) Resolve(ctx context.Context, refere
 		resolver.mu.Lock()
 		if entry, ok := resolver.cache[installationID]; ok && entry.expiresAt.After(now.Add(resolver.refreshLead)) {
 			resolver.mu.Unlock()
+			if err := resolver.observe(ctx, GitHubAuthResultHit, now); err != nil {
+				return "", err
+			}
 			return entry.token, nil
 		}
 		if flight, ok := resolver.inFlight[installationID]; ok {
@@ -123,8 +128,24 @@ func (resolver *GitHubAppCredentialResolver) Resolve(ctx context.Context, refere
 			}
 			return "", errors.New("GitHub App installation token acquisition failed")
 		}
+		if err := resolver.observe(ctx, GitHubAuthResultRefreshed, now); err != nil {
+			return "", err
+		}
 		return token.Value, nil
 	}
+}
+
+func (resolver *GitHubAppCredentialResolver) observe(ctx context.Context, result string, startedAt time.Time) error {
+	if resolver.observer == nil {
+		return nil
+	}
+	if err := resolver.observer(ctx, GitHubAuthObservation{
+		OccurredAt: startedAt, Operation: GitHubAuthOperationCache, Result: result,
+		DurationMillis: max(resolver.now().Sub(startedAt).Milliseconds(), 0),
+	}); err != nil {
+		return errors.New("GitHub authentication observation failed")
+	}
+	return nil
 }
 
 func ParseGitHubAppCredentialReference(reference string) (int64, error) {

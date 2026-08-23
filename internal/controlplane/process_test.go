@@ -188,7 +188,7 @@ func TestRunProcessRequiresAndBuildsGitHubAppAuthenticationBeforeDatabaseIO(t *t
 		return []byte("private-key-material"), nil
 	}
 	dependencies.BuildGitHubAppProvider = func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
-		if options.AppID != 1234 || string(options.PrivateKeyPEM) != "private-key-material" {
+		if options.AppID != 1234 || string(options.PrivateKeyPEM) != "private-key-material" || options.Observer == nil {
 			t.Fatalf("provider options = %#v", options)
 		}
 		return processGitHubAppProvider{}, nil

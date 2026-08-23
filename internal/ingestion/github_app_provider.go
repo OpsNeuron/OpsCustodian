@@ -31,6 +31,7 @@ type GitHubAppProviderOptions struct {
 	Timeout       time.Duration
 	Client        *http.Client
 	Now           func() time.Time
+	Observer      GitHubAuthObserver
 }
 
 type GitHubAppProvider struct {
@@ -39,6 +40,7 @@ type GitHubAppProvider struct {
 	endpoint   *url.URL
 	client     http.Client
 	now        func() time.Time
+	observer   GitHubAuthObserver
 }
 
 func NewGitHubAppProvider(options GitHubAppProviderOptions) (*GitHubAppProvider, error) {
@@ -78,13 +80,24 @@ func NewGitHubAppProvider(options GitHubAppProviderOptions) (*GitHubAppProvider,
 	if now == nil {
 		now = time.Now
 	}
-	return &GitHubAppProvider{appID: options.AppID, privateKey: privateKey, endpoint: parsed, client: client, now: now}, nil
+	return &GitHubAppProvider{appID: options.AppID, privateKey: privateKey, endpoint: parsed, client: client, now: now, observer: options.Observer}, nil
 }
 
-func (provider *GitHubAppProvider) InstallationToken(ctx context.Context, installationID int64) (GitHubAppInstallationToken, error) {
+func (provider *GitHubAppProvider) InstallationToken(ctx context.Context, installationID int64) (result GitHubAppInstallationToken, resultErr error) {
 	if provider == nil || provider.privateKey == nil || provider.endpoint == nil || provider.now == nil {
 		return GitHubAppInstallationToken{}, errors.New("GitHub App provider is not initialized")
 	}
+	startedAt := provider.now()
+	observation := GitHubAuthObservation{OccurredAt: startedAt, Operation: GitHubAuthOperationTokenExchange, Result: GitHubAuthResultFailed}
+	defer func() {
+		observation.DurationMillis = max(provider.now().Sub(startedAt).Milliseconds(), 0)
+		if provider.observer != nil {
+			if err := provider.observer(ctx, observation); err != nil {
+				result = GitHubAppInstallationToken{}
+				resultErr = errors.New("GitHub authentication observation failed")
+			}
+		}
+	}()
 	if installationID <= 0 {
 		return GitHubAppInstallationToken{}, errors.New("GitHub App installation ID must be positive")
 	}
@@ -107,16 +120,24 @@ func (provider *GitHubAppProvider) InstallationToken(ctx context.Context, instal
 	response, err := provider.client.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
+			observation.Result = GitHubAuthResultCancelled
 			return GitHubAppInstallationToken{}, ctx.Err()
 		}
+		observation.Transient = true
 		return GitHubAppInstallationToken{}, Transient(errors.New("GitHub App token request failed"))
 	}
 	defer response.Body.Close()
+	observation.HTTPStatus = response.StatusCode
 	if response.StatusCode != http.StatusCreated {
 		err := fmt.Errorf("GitHub App token request returned status %d", response.StatusCode)
 		if githubStatusTransient(response) {
+			observation.Transient = true
+			if response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusForbidden {
+				observation.Result = GitHubAuthResultRateLimited
+			}
 			return GitHubAppInstallationToken{}, Transient(err)
 		}
+		observation.Result = GitHubAuthResultRejected
 		return GitHubAppInstallationToken{}, err
 	}
 	content, err := io.ReadAll(io.LimitReader(response.Body, maximumGitHubResponseBytes+1))
@@ -145,6 +166,7 @@ func (provider *GitHubAppProvider) InstallationToken(ctx context.Context, instal
 	if err := validateGitHubAppInstallationToken(token, provider.now(), 0); err != nil {
 		return GitHubAppInstallationToken{}, errors.New("GitHub App token response is invalid")
 	}
+	observation.Result = GitHubAuthResultSucceeded
 	return token, nil
 }
 

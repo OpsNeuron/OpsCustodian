@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -102,6 +103,48 @@ func TestGitHubAppProviderRejectsUnsafeConfigurationAndResponses(t *testing.T) {
 	provider, _ := NewGitHubAppProvider(GitHubAppProviderOptions{AppID: 1, PrivateKeyPEM: privateKeyPEM, Endpoint: server.URL, AllowInsecure: true, Client: server.Client(), Now: func() time.Time { return now }})
 	if _, err := provider.InstallationToken(context.Background(), 42); err == nil {
 		t.Fatal("long-lived token response unexpectedly accepted")
+	}
+}
+
+func TestGitHubAppProviderObservesBoundedRateLimitOutcome(t *testing.T) {
+	_, privateKeyPEM := testGitHubAppPrivateKey(t)
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprint(writer, "sensitive-provider-response")
+	}))
+	defer server.Close()
+	var observed GitHubAuthObservation
+	provider, err := NewGitHubAppProvider(GitHubAppProviderOptions{
+		AppID: 1234, PrivateKeyPEM: privateKeyPEM, Endpoint: server.URL, AllowInsecure: true, Client: server.Client(), Now: func() time.Time { return now },
+		Observer: func(_ context.Context, observation GitHubAuthObservation) error { observed = observation; return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.InstallationToken(context.Background(), 42); err == nil {
+		t.Fatal("rate-limited request unexpectedly succeeded")
+	}
+	if observed.Operation != GitHubAuthOperationTokenExchange || observed.Result != GitHubAuthResultRateLimited || !observed.Transient || observed.HTTPStatus != http.StatusTooManyRequests {
+		t.Fatalf("observation = %#v", observed)
+	}
+}
+
+func TestGitHubAppProviderFailsClosedWhenObservationFails(t *testing.T) {
+	_, privateKeyPEM := testGitHubAppPrivateKey(t)
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusCreated)
+		fmt.Fprintf(writer, `{"token":"installation-token","expires_at":%q}`, now.Add(time.Hour).Format(time.RFC3339))
+	}))
+	defer server.Close()
+	provider, _ := NewGitHubAppProvider(GitHubAppProviderOptions{
+		AppID: 1234, PrivateKeyPEM: privateKeyPEM, Endpoint: server.URL, AllowInsecure: true, Client: server.Client(), Now: func() time.Time { return now },
+		Observer: func(context.Context, GitHubAuthObservation) error { return errors.New("audit backend secret detail") },
+	})
+	token, err := provider.InstallationToken(context.Background(), 42)
+	if err == nil || token.Value != "" || strings.Contains(err.Error(), "backend secret") {
+		t.Fatalf("InstallationToken() = %#v, %v", token, err)
 	}
 }
 

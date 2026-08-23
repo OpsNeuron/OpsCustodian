@@ -25,6 +25,8 @@ exporter can map the envelope to OTLP.
   observation emitted by the server audit middleware.
 - `opscustodian.credential.reload.completed`: one secret-free success or failure
   outcome for an operational credential-file reload attempt.
+- `opscustodian.github.authentication.completed`: one bounded GitHub App cache
+  or token-exchange outcome.
 
 Event names contain no asset IDs, revisions, finding IDs, or other dynamic
 values. Those values are flat `opscustodian.*` attributes so backends can
@@ -79,6 +81,14 @@ Credential reload events contain only organization ID and the outcome
 `succeeded` or `failed`. File paths, parser errors, credential IDs, scopes,
 tokens, and digests are excluded so a malformed secret file cannot become an
 audit-data exfiltration channel.
+
+GitHub authentication events contain only organization ID, a bounded operation
+and result, transient classification, non-negative duration, and the HTTP status
+when an exchange reached the provider. Installation IDs, repository identity,
+refs, JWTs, tokens, private-key paths, response bodies, and backend error text
+are excluded. Cache hits and refreshes are observable without making credential
+material or dynamic identifiers part of telemetry. Observer failure is
+fail-closed and is forwarded to the process audit-failure channel.
 
 ## OTLP/HTTP export
 

@@ -45,6 +45,24 @@ from one production workload with `write` access to all production workloads
 with `admin` access. Start with the complete [Quick Start](docs/QUICKSTART.md)
 for Windows, Linux, and macOS commands and an explanation of the output.
 
+## What OpsCustodian finds
+
+OpsCustodian turns scattered automation declarations into evidence-backed
+answers that a platform or security team can review:
+
+| Question | Example signal |
+| --- | --- |
+| What automation exists? | Agents, workflows, skills, MCP servers, Kubernetes workloads |
+| What can it do? | Repository writes, shell execution, production deployment, tool invocation |
+| Which identity grants access? | GitHub token, secret reference, Kubernetes ServiceAccount and RBAC binding |
+| How does access reach the agent? | Explainable relationship and effective-access paths |
+| Did access become more dangerous? | Scope wildcard, effect escalation, credential or control change |
+| Can CI enforce the result? | Stable findings, severity thresholds, JSON, SARIF, and OPA decisions |
+
+Every inference retains source evidence. OpsCustodian records credential
+references—not secret values—and does not execute the automation it analyzes.
+For a short live walkthrough, use the [two-minute demo script](docs/DEMO.md).
+
 Agent BOM inventories typed `assets`: agents, workflows, MCP servers, skills,
 and instruction sets. Different ecosystem objects remain distinct while still
 participating in one evidence and access graph.
@@ -167,6 +185,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Current project status](docs/PROJECT_STATUS.md)
 - [Installation](docs/INSTALLATION.md)
 - [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
+- [Two-minute demo](docs/DEMO.md)
 - [Ownership resolution](docs/OWNERSHIP.md)
 - [Explainable risk model](docs/RISK_MODEL.md)
 - [Canonical normalization](docs/NORMALIZATION.md)

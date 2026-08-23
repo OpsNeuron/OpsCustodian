@@ -19,6 +19,8 @@ cluster, planned on Docker Desktop.
    processes not-ready without exposing DSNs, holder IDs, tokens, or errors.
 7. Rolling updates maintain at least one ready API replica and never run two
    authorized ingestion commits concurrently.
+8. A leader retains one fencing generation across multiple schedule intervals;
+   a standby retries at the renewal cadence and does not run a duplicate cycle.
 
 ## Evidence to retain
 

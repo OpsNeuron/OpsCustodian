@@ -21,6 +21,10 @@ and stale holders cannot renew or release a newer lease generation. Released
 leases are expired rather than deleted so fencing generations never reset. The
 runtime scheduler now acquires this lease, renews it during a batch, treats
 contention as healthy standby operation, and cancels work after ownership loss.
+The active process retains and renews its lease across the complete scheduling
+cadence rather than releasing it after each batch. Standby processes retry at
+the bounded renewal interval, avoiding duplicate cycles while permitting prompt
+takeover after expiry.
 Kubernetes remains intentionally single-replica until snapshot commits enforce
 the same fencing generation.
 

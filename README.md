@@ -40,6 +40,9 @@ opscustodian check --baseline baseline.json --bom proposed.json --policy ./polic
 opscustodian explain --report drift.json <finding-id>
 opscustodian report --bom agentbom.json --output opscustodian-report.html
 opscustodian serve --print-config
+
+# Offline, secret-free release prerequisite report (does not contact dependencies)
+opscustodian doctor --profile release --format json
 ```
 
 For monorepositories, assign assets to explicit component boundaries:

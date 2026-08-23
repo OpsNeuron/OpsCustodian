@@ -26,16 +26,18 @@ Dependabot tracks Go modules and Actions pins.
 
 Before creating a public tag:
 
-1. select and commit the project `LICENSE`; release automation intentionally
+1. run `opscustodian doctor --profile release --format json` and retain the
+   secret-free result with the release evidence;
+2. select and commit the project `LICENSE`; release automation intentionally
    fails while this legal decision is unresolved;
-2. require the CI workflow and review on the protected `main` branch;
-3. run the deferred real PostgreSQL migration/rollback and container tests;
-4. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;
-5. validate a real OpenTelemetry Collector/backend path;
-6. validate real Kubernetes ingestion and readiness behavior;
-7. validate GitHub PAT and GitHub App access against public/private test
+3. require the CI workflow and review on the protected `main` branch;
+4. run the deferred real PostgreSQL migration/rollback and container tests;
+5. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;
+6. validate a real OpenTelemetry Collector/backend path;
+7. validate real Kubernetes ingestion and readiness behavior;
+8. validate GitHub PAT and GitHub App access against public/private test
    repositories, including provider rate limits;
-8. verify the release archives, `SHA256SUMS`, SBOM, and provenance from a
+9. verify the release archives, `SHA256SUMS`, SBOM, and provenance from a
    disposable consumer environment.
 
 The local deterministic suite does not satisfy these environment-backed gates.

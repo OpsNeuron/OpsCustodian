@@ -16,6 +16,7 @@ import (
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/controlplane"
+	"github.com/opscustodian/opscustodian/internal/preflight"
 )
 
 var version = "dev"
@@ -160,6 +161,28 @@ func run(ctx context.Context, args []string) error {
 	case "serve":
 		return serveCommand(ctx, args[1:], os.LookupEnv, os.Stdout, controlplane.DefaultProcessDependencies, controlplane.RunProcess, version)
 
+	case "doctor":
+		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+		profile := fs.String("profile", "release", "preflight profile: server, policy, or release")
+		format := fs.String("format", "terminal", "output format: terminal or json")
+		root := fs.String("root", ".", "repository root for release checks")
+		opa := fs.String("opa", "opa", "path or name of the OPA executable")
+		policyPath := fs.String("policy", "policies/builtin", "Rego file or policy directory")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() != 0 {
+			return fmt.Errorf("usage: opscustodian doctor [--profile server|policy|release] [flags]")
+		}
+		report := preflight.Evaluate(preflight.Options{Profile: *profile, Root: *root, OPAPath: *opa, PolicyPath: *policyPath, LookupEnv: os.LookupEnv})
+		if err := preflight.Write(os.Stdout, report, *format); err != nil {
+			return err
+		}
+		if !report.Ready {
+			return &app.ExitError{Code: 2, Err: errors.New("preflight checks failed")}
+		}
+		return nil
+
 	case "version", "--version", "-version":
 		fs := flag.NewFlagSet("version", flag.ContinueOnError)
 		format := fs.String("format", "terminal", "output format: terminal or json")
@@ -237,6 +260,7 @@ Usage:
   opscustodian report --bom <agentbom> [--output report.html]
   opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
   opscustodian serve [--print-config]
+  opscustodian doctor [--profile server|policy|release] [--format terminal|json]
   opscustodian version [--format terminal|json]
 
 Commands:
@@ -248,6 +272,7 @@ Commands:
   report   render a local read-only HTML inventory report
   events   convert scan or drift results into OpenTelemetry-compatible JSONL events
   serve    run the authenticated loopback organization control plane
+  doctor   validate offline integration and release prerequisites without network I/O
   version  print build and supported contract versions
 `)
 }

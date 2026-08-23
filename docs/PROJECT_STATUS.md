@@ -21,6 +21,11 @@ Windows compatibility gates, cross-platform tagged builds, checksums,
 CycloneDX SBOM, provenance attestation, and dependency updates. Execution in
 GitHub Actions and all real-environment release gates remain unverified.
 
+The `doctor` command provides versioned terminal/JSON offline preflight profiles
+for server configuration, RepositorySet/GitHub App consistency, OPA/policy
+presence, and release licensing. It is deliberately secret-free and does not
+claim network or runtime validation.
+
 ### Foundation — implemented, pending repository validation
 
 - Product vision and boundaries.

@@ -185,6 +185,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Current project status](docs/PROJECT_STATUS.md)
 - [Installation](docs/INSTALLATION.md)
 - [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
+- [Public launch checklist](docs/PUBLIC_LAUNCH_CHECKLIST.md)
 - [Two-minute demo](docs/DEMO.md)
 - [Ownership resolution](docs/OWNERSHIP.md)
 - [Explainable risk model](docs/RISK_MODEL.md)

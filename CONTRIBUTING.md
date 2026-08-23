@@ -1,15 +1,16 @@
 # Contributing
 
-OpsCustodian is in its foundation phase. Early contributions should strengthen
-the product contract rather than broaden the platform list.
+OpsCustodian is in public-alpha preparation. Early contributions should improve
+the offline first-user journey, accuracy, evidence, compatibility, and security
+rather than broadly adding platform names.
 
 ## Priorities
 
-1. Deterministic GitHub-first discovery.
-2. Accurate, evidence-backed normalization.
-3. Semantic permission drift.
-4. Safe handling of credential references.
-5. Clear CLI and CI explanations.
+1. Reproducible offline inventory and permission-drift demos.
+2. Accurate, evidence-backed normalization and effective access.
+3. Safe handling of untrusted input and credential references.
+4. Parser compatibility fixtures from real, sanitized configurations.
+5. Clear CLI, HTML, SARIF, policy, and remediation explanations.
 
 ## Design expectations
 

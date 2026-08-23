@@ -2,9 +2,9 @@
 
 ## Project status
 
-OpsCustodian is pre-alpha and is not yet suitable as a sole production security
-control. Findings should be reviewed by a human until a stable release and its
-threat model are published.
+OpsCustodian is alpha software and is not suitable as a sole production
+security control. Findings should be reviewed by a human until a stable release
+and its threat model are published.
 
 ## Sensitive-data guarantees
 
@@ -18,10 +18,14 @@ value or reproduction data.
 
 ## Reporting vulnerabilities
 
-A private reporting channel will be configured before the first public release.
-Until then, repository maintainers should be contacted privately. Do not include
-real credentials, customer data, private repository content, or exploit payloads
-in public reports.
+Use the repository's GitHub **Security > Advisories > Report a vulnerability**
+flow for private reports. Repository administrators must enable GitHub private
+vulnerability reporting before making the repository public. If that flow is
+not available, do not open a public issue containing vulnerability details;
+contact the maintainers through a previously established private channel.
+
+Do not include real credentials, customer data, private repository content, or
+unnecessary exploit payloads in any report.
 
 ## Threat-model scope
 

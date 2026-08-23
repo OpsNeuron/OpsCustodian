@@ -22,6 +22,7 @@ type ProcessDependencies struct {
 	WatchCredentials      func(context.Context, *server.CredentialRegistry, string, time.Duration, server.CredentialReloadObserver) error
 	LoadRepositorySet     func(string) (ingestion.RepositorySet, error)
 	RunIngestionScheduler func(context.Context, ingestion.Scheduler) error
+	CredentialEnvironment ingestion.EnvironmentLookup
 }
 
 func DefaultProcessDependencies() (ProcessDependencies, error) {
@@ -43,11 +44,12 @@ func DefaultProcessDependencies() (ProcessDependencies, error) {
 		WatchCredentials:      server.WatchCredentialFile,
 		LoadRepositorySet:     ingestion.LoadRepositorySet,
 		RunIngestionScheduler: func(ctx context.Context, scheduler ingestion.Scheduler) error { return scheduler.Run(ctx) },
+		CredentialEnvironment: os.LookupEnv,
 	}, nil
 }
 
 func RunProcess(ctx context.Context, config Config, buildVersion string, dependencies ProcessDependencies) (resultErr error) {
-	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil {
+	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil {
 		return fmt.Errorf("complete control-plane process dependencies are required")
 	}
 	if err := config.Validate(); err != nil {
@@ -70,6 +72,33 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			resultErr = errors.Join(resultErr, fmt.Errorf("close PostgreSQL database: %w", err))
 		}
 	}()
+	var ingestionRunner ingestion.BatchRunner
+	if config.RepositorySetFile != "" {
+		credentials, err := ingestion.NewEnvironmentCredentialResolver(dependencies.CredentialEnvironment)
+		if err != nil {
+			return fmt.Errorf("initialize GitHub credential resolver: %w", err)
+		}
+		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: credentials})
+		if err != nil {
+			return fmt.Errorf("initialize GitHub revision client: %w", err)
+		}
+		archives, err := ingestion.NewGitHubArchiveClient(ingestion.GitHubArchiveHTTPOptions{Credentials: credentials})
+		if err != nil {
+			return fmt.Errorf("initialize GitHub archive client: %w", err)
+		}
+		githubConnector, err := ingestion.NewGitHubConnector(revisions, archives)
+		if err != nil {
+			return fmt.Errorf("initialize GitHub connector: %w", err)
+		}
+		registry, err := ingestion.NewConnectorRegistry(ingestion.NewLocalConnector(), githubConnector)
+		if err != nil {
+			return fmt.Errorf("initialize ingestion connectors: %w", err)
+		}
+		ingestionRunner = ingestion.Orchestrator{
+			Reader: runtime.Store, Writer: runtime.Store, Fetcher: registry,
+			MaxConcurrency: repositorySet.MaxConcurrency, RepositoryTimeout: repositorySet.RepositoryTimeout, Retry: repositorySet.Retry,
+		}
+	}
 
 	auditFailures := make(chan error, 1)
 	httpServer, err := NewControlPlaneHTTPServer(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
@@ -111,19 +140,11 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	}
 	var ingestionResult <-chan error
 	if config.RepositorySetFile != "" {
-		registry, err := ingestion.NewConnectorRegistry(ingestion.NewLocalConnector())
-		if err != nil {
-			return fmt.Errorf("initialize ingestion connectors: %w", err)
-		}
-		orchestrator := ingestion.Orchestrator{
-			Reader: runtime.Store, Writer: runtime.Store, Fetcher: registry,
-			MaxConcurrency: repositorySet.MaxConcurrency, RepositoryTimeout: repositorySet.RepositoryTimeout, Retry: repositorySet.Retry,
-		}
 		results := make(chan error, 1)
 		ingestionResult = results
 		go func() {
 			results <- dependencies.RunIngestionScheduler(serveContext, ingestion.Scheduler{
-				Runner: orchestrator, Repositories: repositorySet.Repositories,
+				Runner: ingestionRunner, Repositories: repositorySet.Repositories,
 				Interval: repositorySet.Interval, MaxJitter: repositorySet.MaxJitter,
 				Observer: func(observation ingestion.ScheduleObservation) error {
 					event := ingestionScheduleAuditEvent(config.OrganizationID, observation)

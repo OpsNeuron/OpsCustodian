@@ -178,7 +178,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -210,6 +210,7 @@ func processTestDependencies(events *[]string) ProcessDependencies {
 		},
 		LoadRepositorySet:     ingestion.LoadRepositorySet,
 		RunIngestionScheduler: func(ctx context.Context, scheduler ingestion.Scheduler) error { return scheduler.Run(ctx) },
+		CredentialEnvironment: func(string) (string, bool) { return "", false },
 	}
 }
 

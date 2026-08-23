@@ -16,9 +16,8 @@ server failures are classified as transient for the existing bounded retry
 policy; authentication, authorization, missing repository, and malformed
 responses fail permanently.
 
-Current tests use local HTTP fakes. Archive acquisition, safe extraction,
-checkout scanning, GitHub App authentication, and real GitHub rate-limit tests
-remain subsequent work.
+Current tests use local HTTP fakes. GitHub App authentication and real GitHub
+provider and rate-limit tests remain subsequent work.
 
 The archive materialization boundary accepts a streamed ZIP only into an
 OpsCustodian-owned temporary workspace. It enforces compressed size, extracted
@@ -40,3 +39,24 @@ controlled archive acquisition, hardened materialization, the production parser
 pipeline, and deterministic Agent BOM generation. Temporary checkout cleanup is
 mandatory and cleanup failure invalidates the fetch rather than silently
 leaking workspace state.
+
+Operational RepositorySet entries support `connector: github`, a mutable `ref`,
+and an optional environment credential reference. References are constrained to
+`env:OPSCUSTODIAN_GITHUB_TOKEN_*`; arbitrary environment variables cannot be
+selected, preventing repository configuration from exfiltrating unrelated
+database or platform secrets. The control-plane process registers local and
+GitHub connectors behind the same orchestrator.
+
+Example:
+
+```json
+{
+  "source": "github:acme/platform",
+  "connector": "github",
+  "ref": "main",
+  "credentialReference": "env:OPSCUSTODIAN_GITHUB_TOKEN_PLATFORM"
+}
+```
+
+The referenced environment variable contains the token at runtime. The token
+must not be placed directly in RepositorySet or committed to source control.

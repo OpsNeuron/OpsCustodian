@@ -24,6 +24,23 @@ func TestParseRepositorySetBuildsRuntimeConfiguration(t *testing.T) {
 	}
 }
 
+func TestParseRepositorySetAcceptsSecretReferenceOnlyGitHubRepository(t *testing.T) {
+	content := fmt.Sprintf(`{"apiVersion":"%s","kind":"%s","schedule":{"interval":"1m","maxConcurrency":1,"retry":{"maxAttempts":1}},"repositories":[{"source":"github:acme/platform","connector":"github","ref":"main","credentialReference":"env:OPSCUSTODIAN_GITHUB_TOKEN_PLATFORM"}]}`, RepositorySetAPIVersion, RepositorySetKind)
+	config, err := ParseRepositorySet([]byte(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Repositories[0].Connector != GitHubConnectorName || config.Repositories[0].Location != "" || config.Repositories[0].CredentialReference == "" {
+		t.Fatalf("GitHub repository = %#v", config.Repositories[0])
+	}
+	for _, reference := range []string{"env:OPSCUSTODIAN_DATABASE_DSN", "env:PATH", "literal-secret"} {
+		unsafe := strings.Replace(content, "env:OPSCUSTODIAN_GITHUB_TOKEN_PLATFORM", reference, 1)
+		if _, err := ParseRepositorySet([]byte(unsafe)); err == nil {
+			t.Fatalf("unsafe credential reference %q was accepted", reference)
+		}
+	}
+}
+
 func TestParseRepositorySetRejectsUnknownSecretAndTrailingJSON(t *testing.T) {
 	root := filepath.Clean(t.TempDir())
 	for name, content := range map[string]string{

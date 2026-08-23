@@ -139,23 +139,40 @@ func validateRepositorySet(document RepositorySetDocument) (RepositorySet, error
 			return RepositorySet{}, fmt.Errorf("duplicate repository source %q", repository.Source)
 		}
 		seen[repository.Source] = struct{}{}
-		if repository.Connector != LocalConnectorName {
-			return RepositorySet{}, fmt.Errorf("repositories[%d].connector %q is unsupported", index, repository.Connector)
-		}
-		if repository.Ref != "" || repository.CredentialReference != "" {
-			return RepositorySet{}, fmt.Errorf("repositories[%d] local connector does not accept ref or credentialReference", index)
-		}
-		if err := validateSafeString(repository.Revision, 512); err != nil {
-			return RepositorySet{}, fmt.Errorf("repositories[%d].revision is invalid", index)
-		}
-		if !filepath.IsAbs(repository.Location) || filepath.Clean(repository.Location) != repository.Location {
-			return RepositorySet{}, fmt.Errorf("repositories[%d].location must be a clean absolute path", index)
-		}
 		if repository.MaxFileSize < 0 || repository.MaxFileSize > maximumRepositoryFileSize {
 			return RepositorySet{}, fmt.Errorf("repositories[%d].maxFileSize must be between zero and %d", index, maximumRepositoryFileSize)
 		}
 		if _, err := boundary.Parse(repository.Boundaries); err != nil {
 			return RepositorySet{}, fmt.Errorf("repositories[%d].boundaries: %w", index, err)
+		}
+		switch repository.Connector {
+		case LocalConnectorName:
+			if repository.Ref != "" || repository.CredentialReference != "" {
+				return RepositorySet{}, fmt.Errorf("repositories[%d] local connector does not accept ref or credentialReference", index)
+			}
+			if err := validateSafeString(repository.Revision, 512); err != nil {
+				return RepositorySet{}, fmt.Errorf("repositories[%d].revision is invalid", index)
+			}
+			if !filepath.IsAbs(repository.Location) || filepath.Clean(repository.Location) != repository.Location {
+				return RepositorySet{}, fmt.Errorf("repositories[%d].location must be a clean absolute path", index)
+			}
+		case GitHubConnectorName:
+			if _, _, err := ParseGitHubSource(repository.Source); err != nil {
+				return RepositorySet{}, fmt.Errorf("repositories[%d].source: %w", index, err)
+			}
+			if repository.Location != "" || repository.Revision != "" {
+				return RepositorySet{}, fmt.Errorf("repositories[%d] GitHub connector does not accept location or revision", index)
+			}
+			if err := validateGitHubRef(repository.Ref); err != nil {
+				return RepositorySet{}, fmt.Errorf("repositories[%d].ref: %w", index, err)
+			}
+			if repository.CredentialReference != "" {
+				if _, err := GitHubCredentialEnvironmentName(repository.CredentialReference); err != nil {
+					return RepositorySet{}, fmt.Errorf("repositories[%d].credentialReference: %w", index, err)
+				}
+			}
+		default:
+			return RepositorySet{}, fmt.Errorf("repositories[%d].connector %q is unsupported", index, repository.Connector)
 		}
 	}
 	return RepositorySet{

@@ -34,17 +34,34 @@
       "minItems": 1,
       "maxItems": 10000,
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["source", "connector", "location", "revision"],
-        "properties": {
-          "source": { "type": "string", "minLength": 1, "maxLength": 2048 },
-          "connector": { "const": "local" },
-          "location": { "type": "string", "minLength": 1 },
-          "revision": { "type": "string", "minLength": 1, "maxLength": 512 },
-          "boundaries": { "type": "array", "items": { "type": "string" } },
-          "maxFileSize": { "type": "integer", "minimum": 0, "maximum": 104857600 }
-        }
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "connector", "location", "revision"],
+            "properties": {
+              "source": { "type": "string", "minLength": 1, "maxLength": 2048 },
+              "connector": { "const": "local" },
+              "location": { "type": "string", "minLength": 1 },
+              "revision": { "type": "string", "minLength": 1, "maxLength": 512 },
+              "boundaries": { "type": "array", "items": { "type": "string" } },
+              "maxFileSize": { "type": "integer", "minimum": 0, "maximum": 104857600 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "connector", "ref"],
+            "properties": {
+              "source": { "type": "string", "pattern": "^github:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$", "maxLength": 2048 },
+              "connector": { "const": "github" },
+              "ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+              "credentialReference": { "type": "string", "pattern": "^env:OPSCUSTODIAN_GITHUB_TOKEN_[A-Z0-9_]+$", "maxLength": 132 },
+              "boundaries": { "type": "array", "items": { "type": "string" } },
+              "maxFileSize": { "type": "integer", "minimum": 0, "maximum": 104857600 }
+            }
+          }
+        ]
       }
     }
   }

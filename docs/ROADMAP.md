@@ -87,7 +87,7 @@ a representative repository without manually assembling an inventory.
 - HTML reporter tests. *(self-contained output, escaping, filter, encoding, and escalation coverage implemented, pending validation)*
 - Scanner integration test. *(temporary-repository full-pipeline invariants and deterministic repeat scan implemented, pending validation)*
 - Risk calibration tests. *(capability, escalation, credential, control, relationship, and asset scoring implemented, pending validation)*
-- Optional GitHub API enrichment. *(revision discovery, credential resolution, controlled archive acquisition, hardened scanning, RepositorySet schema, and process integration implemented; GitHub App authentication pending)*
+- Optional GitHub API enrichment. *(revision discovery, credential resolution, controlled archive acquisition, hardened scanning, RepositorySet/process integration, and GitHub App JWT/token core implemented; App operational configuration pending)*
 - Local GitHub reusable-workflow composition and delegation access paths. *(implemented offline with permission ceilings, secret propagation, and bounded cycle analysis)*
 - Declared-versus-effective access findings. *(versioned contract, initial Kubernetes producer, terminal/JSON/SARIF/HTML consumers, and CI threshold implemented)*
 - OpenTelemetry audit events. *(versioned offline JSONL event envelope, CLI conversion, and guarded OTLP/HTTP JSON exporter implemented)*
@@ -108,7 +108,7 @@ runtime authorization system.
 - Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; real PostgreSQL driver and integration validation pending)*
 - Official pgx PostgreSQL driver wiring. *(pinned and registered; live connection and compatibility matrix deferred to final integration)*
 - PostgreSQL transport-security guard. *(verified TLS enforced across effective pgx primary/fallback configuration; certificate-chain integration deferred)*
-- Multi-repository ingestion and historical Finding lifecycle. *(endpoint, immutable persistence, orchestration/scheduler, connector registry, local connector, RepositorySet loader, process wiring, and audit summary implemented; production Git provider connector pending)*
+- Multi-repository ingestion and historical Finding lifecycle. *(endpoint, immutable persistence, orchestration/scheduler, connector registry, local and GitHub connectors, RepositorySet loader, process wiring, and audit summary implemented; real-provider validation pending)*
 - Authentication, authorization, tenant isolation, pagination, and audit middleware.
 - Safe loopback-first server command and operational configuration. *(experimental authenticated `serve` and secret-free `--print-config` implemented)*
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*

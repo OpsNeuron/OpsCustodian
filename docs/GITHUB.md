@@ -16,8 +16,8 @@ server failures are classified as transient for the existing bounded retry
 policy; authentication, authorization, missing repository, and malformed
 responses fail permanently.
 
-Current tests use local HTTP fakes. GitHub App authentication and real GitHub
-provider and rate-limit tests remain subsequent work.
+Current tests use local HTTP fakes. Real GitHub provider, authentication, and
+rate-limit tests remain subsequent work.
 
 The archive materialization boundary accepts a streamed ZIP only into an
 OpsCustodian-owned temporary workspace. It enforces compressed size, extracted
@@ -65,6 +65,11 @@ The GitHub App authentication boundary is defined separately from static token
 resolution. It validates `github-app:installation:<id>` references, caches only
 short-lived installation tokens, refreshes them before expiry, coalesces
 concurrent refreshes per installation, honors caller cancellation, and replaces
-provider failures with secret-safe errors. RepositorySet activation remains
-disabled until the signed-JWT installation-token provider and its operational
-configuration are complete.
+provider failures with secret-safe errors. The provider parses RSA keys of at
+least 2048 bits, signs bounded RS256 JWTs, exchanges them through the GitHub API,
+rejects redirects and oversized or invalid responses, and preserves transient
+rate-limit/server classification without returning response bodies.
+
+RepositorySet activation remains disabled until the App ID and private-key
+configuration boundary is complete. Private keys will be loaded from an
+external runtime reference and must never be embedded in RepositorySet.

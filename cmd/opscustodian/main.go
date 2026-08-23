@@ -50,6 +50,8 @@ func run(ctx context.Context, args []string) error {
 		fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 		output := fs.String("output", "-", "output file, or - for stdout")
 		format := fs.String("format", "json", "output format: json or yaml")
+		source := fs.String("source", "", "portable repository source identifier (for example github:owner/repository)")
+		revision := fs.String("revision", "working-tree", "repository revision identifier")
 		maxFileSize := fs.Int64("max-file-size", 2<<20, "maximum artifact size in bytes")
 		var boundaries stringListFlag
 		fs.Var(&boundaries, "boundary", "monorepo boundary path or path=component; repeatable")
@@ -61,7 +63,7 @@ func run(ctx context.Context, args []string) error {
 			root = fs.Arg(0)
 		}
 		return app.Scan(ctx, app.ScanOptions{
-			Root: root, Output: *output, Format: *format, MaxFileSize: *maxFileSize, Boundaries: boundaries,
+			Root: root, Source: *source, Revision: *revision, Output: *output, Format: *format, MaxFileSize: *maxFileSize, Boundaries: boundaries,
 		})
 
 	case "diff":

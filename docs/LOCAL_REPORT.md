@@ -3,8 +3,13 @@
 The `report` command renders an Agent BOM as a single self-contained HTML file:
 
 ```bash
+opscustodian scan --source github:OpsNeuron/OpsCustodian --revision demo --output agentbom.json examples/scan-input
 opscustodian report --bom agentbom.json --output opscustodian-report.html
 ```
+
+Use `--source` before publishing or sharing a report. Without it, a local scan
+records the absolute scanned path as its source, which is useful for local
+traceability but can expose workstation directory names in screenshots.
 
 It is intended for local review, CI artifacts, and sharing a point-in-time
 inventory before the organization server and authenticated UI exist.

@@ -46,7 +46,8 @@ func TestPostgresSchedulerLeaseLifecycleIsTenantScopedAndFenced(t *testing.T) {
 	}
 	if !strings.Contains(acquireSchedulerLeaseSQL, "expires_at <= now()") ||
 		!strings.Contains(acquireSchedulerLeaseSQL, "fencing_token + 1") ||
-		!strings.Contains(renewSchedulerLeaseSQL, "expires_at > now()") {
+		!strings.Contains(renewSchedulerLeaseSQL, "expires_at > now()") ||
+		!strings.Contains(releaseSchedulerLeaseSQL, "SET expires_at = now()") {
 		t.Fatal("lease SQL does not fail closed on ownership transition or expiry")
 	}
 }

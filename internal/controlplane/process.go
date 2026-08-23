@@ -2,6 +2,8 @@ package controlplane
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -25,6 +27,7 @@ type ProcessDependencies struct {
 	CredentialEnvironment  ingestion.EnvironmentLookup
 	LoadGitHubAppKey       func(string) ([]byte, error)
 	BuildGitHubAppProvider func(ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error)
+	NewSchedulerHolderID   func() (string, error)
 }
 
 func DefaultProcessDependencies() (ProcessDependencies, error) {
@@ -51,11 +54,12 @@ func DefaultProcessDependencies() (ProcessDependencies, error) {
 		BuildGitHubAppProvider: func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
 			return ingestion.NewGitHubAppProvider(options)
 		},
+		NewSchedulerHolderID: randomSchedulerHolderID,
 	}, nil
 }
 
 func RunProcess(ctx context.Context, config Config, buildVersion string, dependencies ProcessDependencies) (resultErr error) {
-	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil {
+	if dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil || dependencies.NewSchedulerHolderID == nil {
 		return fmt.Errorf("complete control-plane process dependencies are required")
 	}
 	if err := config.Validate(); err != nil {
@@ -200,12 +204,18 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	}
 	var ingestionResult <-chan error
 	if config.RepositorySetFile != "" {
+		holderID, err := dependencies.NewSchedulerHolderID()
+		if err != nil {
+			return fmt.Errorf("generate ingestion scheduler holder ID: %w", err)
+		}
 		results := make(chan error, 1)
 		ingestionResult = results
 		go func() {
 			results <- dependencies.RunIngestionScheduler(serveContext, ingestion.Scheduler{
 				Runner: ingestionRunner, Repositories: repositorySet.Repositories,
 				Interval: repositorySet.Interval, MaxJitter: repositorySet.MaxJitter,
+				LeaseStore: runtime.Store, LeaseName: "repository-ingestion", HolderID: holderID,
+				LeaseTTL: time.Minute, RenewInterval: 20 * time.Second,
 				Observer: func(observation ingestion.ScheduleObservation) error {
 					ingestionStatus := server.ReadinessReady
 					for _, result := range observation.Results {
@@ -254,6 +264,14 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		}
 		return nil
 	}
+}
+
+func randomSchedulerHolderID() (string, error) {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		return "", fmt.Errorf("read cryptographic entropy: %w", err)
+	}
+	return "process-" + hex.EncodeToString(value), nil
 }
 
 func repositorySetUsesGitHubApp(repositorySet ingestion.RepositorySet) bool {

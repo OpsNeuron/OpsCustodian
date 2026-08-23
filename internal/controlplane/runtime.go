@@ -14,6 +14,7 @@ import (
 type SnapshotStore interface {
 	store.Reader
 	store.Writer
+	store.SchedulerLeaseStore
 }
 
 type Dependencies struct {

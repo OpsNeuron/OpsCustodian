@@ -147,7 +147,7 @@ func TestRunProcessWiresRepositorySetSchedulerAndAuditsSummary(t *testing.T) {
 		}, nil
 	}
 	dependencies.RunIngestionScheduler = func(_ context.Context, scheduler ingestion.Scheduler) error {
-		if len(scheduler.Repositories) != 1 || scheduler.Interval != time.Minute || scheduler.MaxJitter != time.Second {
+		if len(scheduler.Repositories) != 1 || scheduler.Interval != time.Minute || scheduler.MaxJitter != time.Second || scheduler.LeaseStore == nil || scheduler.HolderID != "process-test" || scheduler.LeaseName != "repository-ingestion" || scheduler.LeaseTTL != time.Minute || scheduler.RenewInterval != 20*time.Second {
 			t.Fatalf("scheduler = %#v", scheduler)
 		}
 		if err := scheduler.Observer(ingestion.ScheduleObservation{
@@ -229,7 +229,7 @@ func TestDefaultProcessDependenciesAreCompleteWithoutStartingIO(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil {
+	if err := validateDependencies(dependencies.Database); err != nil || dependencies.Listen == nil || dependencies.Serve == nil || dependencies.AuditSink == nil || dependencies.WatchCredentials == nil || dependencies.LoadRepositorySet == nil || dependencies.RunIngestionScheduler == nil || dependencies.CredentialEnvironment == nil || dependencies.LoadGitHubAppKey == nil || dependencies.BuildGitHubAppProvider == nil || dependencies.NewSchedulerHolderID == nil {
 		t.Fatalf("default process dependencies are incomplete: %v", err)
 	}
 }
@@ -266,6 +266,7 @@ func processTestDependencies(events *[]string) ProcessDependencies {
 		BuildGitHubAppProvider: func(options ingestion.GitHubAppProviderOptions) (ingestion.GitHubAppTokenProvider, error) {
 			return ingestion.NewGitHubAppProvider(options)
 		},
+		NewSchedulerHolderID: func() (string, error) { return "process-test", nil },
 	}
 }
 

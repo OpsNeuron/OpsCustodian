@@ -146,7 +146,8 @@ Missing exit items:
 - Opaque keyset pagination, immutable snapshot-history endpoints, safe snapshot identifiers, and an OpenAPI 3.1 route-conformance test.
 - Episode-aware Finding lifecycle projection with introduced, persisting, resolved, and reintroduced semantics plus source-derived observation timestamps.
 - Embedded PostgreSQL migration catalog and transactional runner with tenant-scoped schema, immutable snapshot/Finding storage, checksums, advisory locking, rollback, and newer-database rejection.
-- Tenant-scoped PostgreSQL scheduler lease schema and adapter with server-time TTLs, atomic takeover, monotonic fencing tokens, stale-holder-safe renewal/release, and deterministic driver-neutral tests; scheduler wiring and real contention tests remain pending.
+- Tenant-scoped PostgreSQL scheduler lease schema and adapter with server-time TTLs, atomic takeover, monotonic fencing tokens preserved across release, stale-holder-safe renewal/release, and deterministic driver-neutral tests; real contention tests remain pending.
+- Lease-coordinated ingestion runtime with cryptographic per-process holder identity, healthy standby cycles, renewal during active batches, and cancellation plus degraded observation after lease loss; commit-time snapshot fencing remains pending.
 - Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, idempotent re-ingestion, immutable revision-conflict rejection, and Finding projection.
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.

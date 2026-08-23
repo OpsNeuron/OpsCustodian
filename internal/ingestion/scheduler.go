@@ -3,9 +3,12 @@ package ingestion
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
+
+	"github.com/opscustodian/opscustodian/internal/store"
 )
 
 const (
@@ -22,20 +25,28 @@ type ScheduleObservation struct {
 	FinishedAt time.Time
 	Results    []Result
 	Err        error
+	Standby    bool
+	LeaseLost  bool
 }
 
 type ScheduleObserver func(ScheduleObservation) error
 
 type Scheduler struct {
-	Runner       BatchRunner
-	Repositories []Repository
-	Interval     time.Duration
-	MaxJitter    time.Duration
-	Observer     ScheduleObserver
+	Runner        BatchRunner
+	Repositories  []Repository
+	Interval      time.Duration
+	MaxJitter     time.Duration
+	Observer      ScheduleObserver
+	LeaseStore    store.SchedulerLeaseStore
+	LeaseName     string
+	HolderID      string
+	LeaseTTL      time.Duration
+	RenewInterval time.Duration
 
-	now    func() time.Time
-	wait   func(context.Context, time.Duration) error
-	jitter func(time.Duration) (time.Duration, error)
+	now       func() time.Time
+	wait      func(context.Context, time.Duration) error
+	leaseWait func(context.Context, time.Duration) error
+	jitter    func(time.Duration) (time.Duration, error)
 }
 
 // Run executes one batch immediately and schedules the next delay only after
@@ -50,6 +61,9 @@ func (scheduler Scheduler) Run(ctx context.Context) error {
 	}
 	if scheduler.MaxJitter < 0 || scheduler.MaxJitter > scheduler.Interval {
 		return fmt.Errorf("ingestion jitter must be between zero and the schedule interval")
+	}
+	if err := scheduler.validateLeaseConfiguration(); err != nil {
+		return err
 	}
 	now := scheduler.now
 	if now == nil {
@@ -70,9 +84,10 @@ func (scheduler Scheduler) Run(ctx context.Context) error {
 			return nil
 		}
 		started := now().UTC()
-		results, runErr := scheduler.Runner.Run(ctx, cloneRepositories(repositories))
+		results, runErr, standby, leaseLost := scheduler.runBatch(ctx, cloneRepositories(repositories))
 		observation := ScheduleObservation{
 			StartedAt: started, FinishedAt: now().UTC(), Results: append([]Result(nil), results...), Err: runErr,
+			Standby: standby, LeaseLost: leaseLost,
 		}
 		if err := scheduler.Observer(observation); err != nil {
 			return fmt.Errorf("observe ingestion schedule: %w", err)
@@ -93,6 +108,83 @@ func (scheduler Scheduler) Run(ctx context.Context) error {
 			}
 			return fmt.Errorf("wait for ingestion schedule: %w", err)
 		}
+	}
+}
+
+func (scheduler Scheduler) validateLeaseConfiguration() error {
+	configured := scheduler.LeaseStore != nil || scheduler.LeaseName != "" || scheduler.HolderID != "" || scheduler.LeaseTTL != 0 || scheduler.RenewInterval != 0
+	if !configured {
+		return nil
+	}
+	if scheduler.LeaseStore == nil || scheduler.LeaseName == "" || scheduler.HolderID == "" {
+		return fmt.Errorf("complete ingestion scheduler lease dependencies are required")
+	}
+	if scheduler.LeaseTTL < store.MinimumLeaseTTL || scheduler.LeaseTTL > store.MaximumLeaseTTL {
+		return fmt.Errorf("ingestion scheduler lease TTL must be between %s and %s", store.MinimumLeaseTTL, store.MaximumLeaseTTL)
+	}
+	if scheduler.RenewInterval <= 0 || scheduler.RenewInterval >= scheduler.LeaseTTL {
+		return fmt.Errorf("ingestion scheduler lease renewal interval must be positive and less than the lease TTL")
+	}
+	return nil
+}
+
+func (scheduler Scheduler) runBatch(ctx context.Context, repositories []Repository) ([]Result, error, bool, bool) {
+	if scheduler.LeaseStore == nil {
+		results, err := scheduler.Runner.Run(ctx, repositories)
+		return results, err, false, false
+	}
+	lease, acquired, err := scheduler.LeaseStore.AcquireSchedulerLease(ctx, scheduler.LeaseName, scheduler.HolderID, scheduler.LeaseTTL)
+	if err != nil {
+		return nil, fmt.Errorf("acquire ingestion scheduler lease: %w", err), false, false
+	}
+	if !acquired {
+		return nil, nil, true, false
+	}
+
+	runContext, cancel := context.WithCancel(ctx)
+	defer cancel()
+	renewal := make(chan error, 1)
+	go func() {
+		renewal <- scheduler.maintainLease(runContext, cancel, lease)
+	}()
+	results, runErr := scheduler.Runner.Run(runContext, repositories)
+	cancel()
+	renewErr := <-renewal
+	released, releaseErr := scheduler.LeaseStore.ReleaseSchedulerLease(context.WithoutCancel(ctx), lease)
+	if releaseErr != nil {
+		releaseErr = fmt.Errorf("release ingestion scheduler lease: %w", releaseErr)
+	} else if !released && renewErr == nil && ctx.Err() == nil {
+		releaseErr = fmt.Errorf("release ingestion scheduler lease: ownership was lost")
+	}
+	leaseLost := errors.Is(renewErr, errSchedulerLeaseLost) || (!released && ctx.Err() == nil)
+	return results, errors.Join(runErr, renewErr, releaseErr), false, leaseLost
+}
+
+var errSchedulerLeaseLost = errors.New("ingestion scheduler lease lost")
+
+func (scheduler Scheduler) maintainLease(ctx context.Context, cancel context.CancelFunc, lease store.SchedulerLease) error {
+	wait := scheduler.leaseWait
+	if wait == nil {
+		wait = waitForSchedule
+	}
+	for {
+		if err := wait(ctx, scheduler.RenewInterval); err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			cancel()
+			return fmt.Errorf("wait to renew ingestion scheduler lease: %w", err)
+		}
+		renewed, ok, err := scheduler.LeaseStore.RenewSchedulerLease(ctx, lease, scheduler.LeaseTTL)
+		if err != nil {
+			cancel()
+			return fmt.Errorf("renew ingestion scheduler lease: %w", err)
+		}
+		if !ok {
+			cancel()
+			return errSchedulerLeaseLost
+		}
+		lease = renewed
 	}
 }
 

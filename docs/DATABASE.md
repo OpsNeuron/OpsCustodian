@@ -17,9 +17,12 @@ The first migration creates:
 The second migration adds `scheduler_leases`, a tenant-scoped coordination
 primitive for active/standby ingestion schedulers. Acquisition and renewal use
 PostgreSQL server time, lease takeover increments a monotonic fencing token,
-and stale holders cannot renew or release a newer lease generation. This is the
-persistence foundation only: the scheduler renewal/cancellation loop is wired
-in a separate increment, so Kubernetes remains intentionally single-replica.
+and stale holders cannot renew or release a newer lease generation. Released
+leases are expired rather than deleted so fencing generations never reset. The
+runtime scheduler now acquires this lease, renews it during a batch, treats
+contention as healthy standby operation, and cancels work after ownership loss.
+Kubernetes remains intentionally single-replica until snapshot commits enforce
+the same fencing generation.
 
 Repository and snapshot foreign keys include `organization_id`; this prevents a
 record from referencing another organization's parent even if IDs collide.
@@ -69,8 +72,7 @@ application host clock for ownership decisions.
 Deterministic driver-neutral tests verify tenant arguments, fencing-token use,
 contention behavior, validation, and fail-closed expiry predicates. A fencing
 token is not yet attached to snapshot writes; full stale-writer exclusion is
-therefore not claimed until scheduler integration and commit-time ownership
-checks are implemented.
+therefore not claimed until commit-time ownership checks are implemented.
 
 ## Snapshot writer
 

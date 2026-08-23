@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/validation"
@@ -118,6 +119,8 @@ type Writer interface {
 type Memory struct {
 	mu           sync.RWMutex
 	repositories map[string]*memoryRepository
+	leases       map[string]SchedulerLease
+	nextFence    map[string]int64
 }
 
 type memoryRepository struct {
@@ -133,7 +136,67 @@ type memorySnapshot struct {
 }
 
 func NewMemory() *Memory {
-	return &Memory{repositories: map[string]*memoryRepository{}}
+	return &Memory{repositories: map[string]*memoryRepository{}, leases: map[string]SchedulerLease{}, nextFence: map[string]int64{}}
+}
+
+var _ SchedulerLeaseStore = (*Memory)(nil)
+
+func (memory *Memory) AcquireSchedulerLease(ctx context.Context, name, holderID string, ttl time.Duration) (SchedulerLease, bool, error) {
+	if err := validateSchedulerLeaseInput(ctx, name, holderID, ttl); err != nil {
+		return SchedulerLease{}, false, err
+	}
+	now := time.Now().UTC()
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
+	current, exists := memory.leases[name]
+	if exists && current.ExpiresAt.After(now) && current.HolderID != holderID {
+		return SchedulerLease{}, false, nil
+	}
+	token := current.FencingToken
+	if !exists || current.HolderID != holderID || !current.ExpiresAt.After(now) {
+		memory.nextFence[name]++
+		token = memory.nextFence[name]
+	}
+	lease := SchedulerLease{Name: name, HolderID: holderID, FencingToken: token, ExpiresAt: now.Add(ttl)}
+	memory.leases[name] = lease
+	return lease, true, nil
+}
+
+func (memory *Memory) RenewSchedulerLease(ctx context.Context, lease SchedulerLease, ttl time.Duration) (SchedulerLease, bool, error) {
+	if lease.FencingToken <= 0 {
+		return SchedulerLease{}, false, fmt.Errorf("scheduler lease fencing token must be positive")
+	}
+	if err := validateSchedulerLeaseInput(ctx, lease.Name, lease.HolderID, ttl); err != nil {
+		return SchedulerLease{}, false, err
+	}
+	now := time.Now().UTC()
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
+	current, exists := memory.leases[lease.Name]
+	if !exists || current.HolderID != lease.HolderID || current.FencingToken != lease.FencingToken || !current.ExpiresAt.After(now) {
+		return SchedulerLease{}, false, nil
+	}
+	current.ExpiresAt = now.Add(ttl)
+	memory.leases[lease.Name] = current
+	return current, true, nil
+}
+
+func (memory *Memory) ReleaseSchedulerLease(ctx context.Context, lease SchedulerLease) (bool, error) {
+	if lease.FencingToken <= 0 {
+		return false, fmt.Errorf("scheduler lease fencing token must be positive")
+	}
+	if err := validateSchedulerLeaseIdentity(ctx, lease.Name, lease.HolderID); err != nil {
+		return false, err
+	}
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
+	current, exists := memory.leases[lease.Name]
+	if !exists || current.HolderID != lease.HolderID || current.FencingToken != lease.FencingToken {
+		return false, nil
+	}
+	current.ExpiresAt = time.Now().UTC()
+	memory.leases[lease.Name] = current
+	return true, nil
 }
 
 func RepositoryID(source string) string {

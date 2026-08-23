@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/opscustodian/opscustodian/internal/store"
 )
 
 func TestSchedulerRunsImmediatelyWithoutOverlapAndAppliesJitter(t *testing.T) {
@@ -89,11 +91,129 @@ func TestSchedulerFailsClosedOnObserverOrJitterFailure(t *testing.T) {
 	}
 }
 
+func TestSchedulerLeaseLeaderRunsAndReleasesWhileStandbyDoesNotRun(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		acquired    bool
+		wantCalls   int
+		wantStandby bool
+	}{
+		{name: "leader", acquired: true, wantCalls: 1},
+		{name: "standby", acquired: false, wantStandby: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			runner := &schedulerRunner{}
+			leases := &schedulerLeaseStore{acquired: test.acquired, released: true}
+			var observed ScheduleObservation
+			scheduler := Scheduler{
+				Runner: runner, Repositories: []Repository{{Source: "github:acme/platform"}}, Interval: time.Minute,
+				Observer:   func(value ScheduleObservation) error { observed = value; return nil },
+				LeaseStore: leases, LeaseName: "repository-ingestion", HolderID: "instance-a",
+				LeaseTTL: time.Minute, RenewInterval: 20 * time.Second,
+				wait: func(context.Context, time.Duration) error { cancel(); return context.Canceled },
+			}
+			if err := scheduler.Run(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if runner.calls != test.wantCalls || observed.Standby != test.wantStandby || observed.Err != nil {
+				t.Fatalf("runner calls = %d, observation = %#v", runner.calls, observed)
+			}
+			if test.acquired && leases.releaseCalls != 1 {
+				t.Fatalf("leader release calls = %d", leases.releaseCalls)
+			}
+			if !test.acquired && leases.releaseCalls != 0 {
+				t.Fatalf("standby release calls = %d", leases.releaseCalls)
+			}
+		})
+	}
+}
+
+func TestSchedulerCancelsBatchAndReportsLostLease(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	leases := &schedulerLeaseStore{acquired: true, released: false, loseOnRenew: true}
+	runner := &cancellableSchedulerRunner{started: make(chan struct{})}
+	var observed ScheduleObservation
+	scheduler := Scheduler{
+		Runner: runner, Repositories: []Repository{{Source: "github:acme/platform"}}, Interval: time.Minute,
+		Observer:   func(value ScheduleObservation) error { observed = value; cancel(); return nil },
+		LeaseStore: leases, LeaseName: "repository-ingestion", HolderID: "instance-a",
+		LeaseTTL: time.Minute, RenewInterval: 20 * time.Second,
+		leaseWait: func(ctx context.Context, _ time.Duration) error {
+			select {
+			case <-runner.started:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+	}
+	if err := scheduler.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !runner.cancelled || !observed.LeaseLost || !errors.Is(observed.Err, errSchedulerLeaseLost) {
+		t.Fatalf("cancelled = %v, observation = %#v", runner.cancelled, observed)
+	}
+	if leases.renewCalls != 1 || leases.releaseCalls != 1 {
+		t.Fatalf("lease calls = renew %d, release %d", leases.renewCalls, leases.releaseCalls)
+	}
+}
+
+func TestSchedulerRejectsPartialOrUnsafeLeaseConfiguration(t *testing.T) {
+	base := Scheduler{
+		Runner: &schedulerRunner{}, Repositories: []Repository{{Source: "github:acme/platform"}}, Interval: time.Minute,
+		Observer: func(ScheduleObservation) error { return nil },
+	}
+	base.LeaseStore = &schedulerLeaseStore{}
+	if err := base.Run(context.Background()); err == nil || !strings.Contains(err.Error(), "complete ingestion scheduler lease") {
+		t.Fatalf("partial lease configuration error = %v", err)
+	}
+	base.LeaseName, base.HolderID, base.LeaseTTL, base.RenewInterval = "repository-ingestion", "instance-a", time.Minute, time.Minute
+	if err := base.Run(context.Background()); err == nil || !strings.Contains(err.Error(), "less than") {
+		t.Fatalf("unsafe renewal configuration error = %v", err)
+	}
+}
+
 type schedulerRunner struct {
 	calls    int
 	active   int
 	peak     int
 	failures int
+}
+
+type schedulerLeaseStore struct {
+	acquired     bool
+	released     bool
+	loseOnRenew  bool
+	renewCalls   int
+	releaseCalls int
+}
+
+func (value *schedulerLeaseStore) AcquireSchedulerLease(context.Context, string, string, time.Duration) (store.SchedulerLease, bool, error) {
+	return store.SchedulerLease{Name: "repository-ingestion", HolderID: "instance-a", FencingToken: 1}, value.acquired, nil
+}
+
+func (value *schedulerLeaseStore) RenewSchedulerLease(_ context.Context, lease store.SchedulerLease, _ time.Duration) (store.SchedulerLease, bool, error) {
+	value.renewCalls++
+	return lease, !value.loseOnRenew, nil
+}
+
+func (value *schedulerLeaseStore) ReleaseSchedulerLease(context.Context, store.SchedulerLease) (bool, error) {
+	value.releaseCalls++
+	return value.released, nil
+}
+
+type cancellableSchedulerRunner struct {
+	started   chan struct{}
+	cancelled bool
+}
+
+func (runner *cancellableSchedulerRunner) Run(ctx context.Context, _ []Repository) ([]Result, error) {
+	close(runner.started)
+	<-ctx.Done()
+	runner.cancelled = true
+	return nil, ctx.Err()
 }
 
 func (runner *schedulerRunner) Run(_ context.Context, repositories []Repository) ([]Result, error) {

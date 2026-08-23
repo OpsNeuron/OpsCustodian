@@ -28,7 +28,8 @@ SELECT id, $3, $4, 1, now() + $5::interval FROM ensured_organization
 ON CONFLICT (organization_id, name) DO UPDATE SET
     holder_id = EXCLUDED.holder_id,
     fencing_token = CASE
-        WHEN scheduler_leases.holder_id = EXCLUDED.holder_id THEN scheduler_leases.fencing_token
+        WHEN scheduler_leases.holder_id = EXCLUDED.holder_id AND scheduler_leases.expires_at > now()
+            THEN scheduler_leases.fencing_token
         ELSE scheduler_leases.fencing_token + 1
     END,
     expires_at = now() + $5::interval,
@@ -43,7 +44,7 @@ WHERE organization_id = $1 AND name = $2 AND holder_id = $3 AND fencing_token = 
   AND expires_at > now()
 RETURNING holder_id, fencing_token, expires_at`
 
-const releaseSchedulerLeaseSQL = `DELETE FROM scheduler_leases
+const releaseSchedulerLeaseSQL = `UPDATE scheduler_leases SET expires_at = now(), updated_at = now()
 WHERE organization_id = $1 AND name = $2 AND holder_id = $3 AND fencing_token = $4
 RETURNING true`
 
@@ -53,6 +54,14 @@ type SchedulerLease struct {
 	FencingToken int64
 	ExpiresAt    time.Time
 }
+
+type SchedulerLeaseStore interface {
+	AcquireSchedulerLease(context.Context, string, string, time.Duration) (SchedulerLease, bool, error)
+	RenewSchedulerLease(context.Context, SchedulerLease, time.Duration) (SchedulerLease, bool, error)
+	ReleaseSchedulerLease(context.Context, SchedulerLease) (bool, error)
+}
+
+var _ SchedulerLeaseStore = (*Postgres)(nil)
 
 func (writer *Postgres) AcquireSchedulerLease(ctx context.Context, name, holderID string, ttl time.Duration) (SchedulerLease, bool, error) {
 	if err := validateSchedulerLeaseInput(ctx, name, holderID, ttl); err != nil {

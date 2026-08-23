@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/opscustodian/opscustodian/internal/model"
 )
@@ -178,6 +179,25 @@ func testBOM(source, revision, severity string) model.AgentBOM {
 			Title: "Test finding", Reason: "Test risk.", RemediationID: "test.fix", Remediation: "Fix it.",
 			Evidence: []model.FindingEvidence{{AssetID: asset.ID, EvidenceID: "evidence"}},
 		}},
+	}
+}
+
+func TestMemorySchedulerLeasePreservesFencingAcrossRelease(t *testing.T) {
+	memory := NewMemory()
+	ctx := context.Background()
+	first, ok, err := memory.AcquireSchedulerLease(ctx, "repository-ingestion", "instance-a", time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("first acquire = %#v, %v, %v", first, ok, err)
+	}
+	if released, err := memory.ReleaseSchedulerLease(ctx, first); err != nil || !released {
+		t.Fatalf("release = %v, %v", released, err)
+	}
+	second, ok, err := memory.AcquireSchedulerLease(ctx, "repository-ingestion", "instance-b", time.Minute)
+	if err != nil || !ok || second.FencingToken <= first.FencingToken {
+		t.Fatalf("second acquire = %#v, %v, %v; first = %#v", second, ok, err, first)
+	}
+	if _, ok, err := memory.RenewSchedulerLease(ctx, first, time.Minute); err != nil || ok {
+		t.Fatalf("stale renewal = %v, %v", ok, err)
 	}
 }
 

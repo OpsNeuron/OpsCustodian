@@ -16,8 +16,8 @@ import (
 const listRepositoriesSQL = `
 SELECT r.id, r.source, latest.revision,
        (SELECT count(*) FROM snapshots history WHERE history.organization_id = r.organization_id AND history.repository_id = r.id),
-       COALESCE(jsonb_array_length(latest.bom -> 'assets'), 0),
-       COALESCE(jsonb_array_length(latest.bom -> 'findings'), 0)
+       CASE WHEN jsonb_typeof(latest.bom -> 'assets') = 'array' THEN jsonb_array_length(latest.bom -> 'assets') ELSE 0 END,
+       CASE WHEN jsonb_typeof(latest.bom -> 'findings') = 'array' THEN jsonb_array_length(latest.bom -> 'findings') ELSE 0 END
 FROM repositories r
 JOIN LATERAL (
     SELECT revision, bom FROM snapshots
@@ -40,8 +40,8 @@ const snapshotSQL = `SELECT id, bom FROM snapshots
 WHERE organization_id = $1 AND repository_id = $2 AND id = $3`
 
 const listSnapshotsSQL = `SELECT id, revision, generated_at,
-       COALESCE(jsonb_array_length(bom -> 'assets'), 0),
-       COALESCE(jsonb_array_length(bom -> 'findings'), 0)
+       CASE WHEN jsonb_typeof(bom -> 'assets') = 'array' THEN jsonb_array_length(bom -> 'assets') ELSE 0 END,
+       CASE WHEN jsonb_typeof(bom -> 'findings') = 'array' THEN jsonb_array_length(bom -> 'findings') ELSE 0 END
 FROM snapshots
 WHERE organization_id = $1 AND repository_id = $2
   AND (COALESCE(generated_at, '-infinity'::timestamptz), id) >

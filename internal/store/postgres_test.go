@@ -310,6 +310,22 @@ func TestPostgresReaderDecodesAndPaginatesTenantScopedData(t *testing.T) {
 	}
 }
 
+func TestPostgresInventoryQueriesHandleNullOrMissingCollections(t *testing.T) {
+	for name, query := range map[string]string{
+		"repositories": listRepositoriesSQL,
+		"snapshots":    listSnapshotsSQL,
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, collection := range []string{"assets", "findings"} {
+				guard := "jsonb_typeof("
+				if !strings.Contains(query, guard) || !strings.Contains(query, "'"+collection+"'") {
+					t.Fatalf("query does not guard %s before measuring its JSON array length", collection)
+				}
+			}
+		})
+	}
+}
+
 func TestPostgresReaderRejectsMissingAndInvalidStoredSnapshots(t *testing.T) {
 	bom := postgresTestBOM()
 	bom.APIVersion = "unsupported/v2"

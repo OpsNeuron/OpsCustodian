@@ -21,3 +21,16 @@ func TestDockerEntrypointReadsGitHubHyphenatedInputNames(t *testing.T) {
 		t.Fatal("entrypoint must not use eval to resolve action inputs")
 	}
 }
+
+func TestExampleWorkflowGrantsSARIFUploaderReadAccess(t *testing.T) {
+	content, err := os.ReadFile("../examples/github-actions/opscustodian.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := string(content)
+	for _, expected := range []string{"actions: read", "contents: read", "security-events: write", "github/codeql-action/upload-sarif@v4"} {
+		if !strings.Contains(workflow, expected) {
+			t.Fatalf("example workflow is missing %q", expected)
+		}
+	}
+}

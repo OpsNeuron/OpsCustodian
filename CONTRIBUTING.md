@@ -1,8 +1,12 @@
 # Contributing
 
-OpsCustodian is in public-alpha preparation. Early contributions should improve
+OpsCustodian is a public alpha. Early contributions should improve
 the offline first-user journey, accuracy, evidence, compatibility, and security
 rather than broadly adding platform names.
+
+Use the repository issue forms for reproducible bugs, sanitized parser
+compatibility examples, and first-user feedback. Never attach credentials,
+private repository contents, customer data, or unredacted generated reports.
 
 ## Priorities
 

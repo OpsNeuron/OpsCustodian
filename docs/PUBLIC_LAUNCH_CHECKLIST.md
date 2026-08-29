@@ -11,14 +11,15 @@ keep the offline evidence workflow separate from production-runtime claims.
 - [x] SECURITY and CONTRIBUTING define safe reporting and contribution rules.
 - [x] Deterministic Go checks and the disposable PostgreSQL/OPA/OTLP integration
   harness have passed locally.
-- [ ] Remove generated root Agent BOM and HTML artifacts from Git tracking while
+- [x] Remove generated root Agent BOM and HTML artifacts from Git tracking while
   retaining the deliberate `examples/**` and `internal/**/testdata/**` fixtures.
-- [ ] Push the current clean commit and observe Linux, race, and Windows CI pass.
+- [x] Push the current clean commit and observe Linux, race, and Windows CI pass.
 - [ ] Enable GitHub private vulnerability reporting before changing visibility.
 - [ ] Confirm no real secret, private repository data, personal identifier, or
   internal organization reference exists in Git history or the public tree.
 - [ ] Configure repository description, topics, website/documentation link, and
-  default branch protection.
+  default branch protection. Description, topics, and the active `main` ruleset
+  are verified; the repository homepage remains unset.
 
 ## Blockers before the first social announcement
 

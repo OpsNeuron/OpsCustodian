@@ -24,7 +24,11 @@ keep the offline evidence workflow separate from production-runtime claims.
 
 - [ ] Complete all public-repository blockers above.
 - [x] Capture current, synthetic screenshots of the self-contained HTML report.
-- [ ] Run the Quick Start from a fresh clone and retain the terminal output.
+- [x] Run the Windows Quick Start from a fresh, depth-one clone of tag
+  `v0.5.0-alpha` at commit `20e32b56f4e46802f32002d9d259e62640f355fd`.
+  The source build, scan, self-contained HTML report, and semantic diff passed;
+  the expected critical `capability-escalated` finding scored `100/100`
+  (verified with Go 1.26.5 on 2026-08-29).
 - [x] Decide whether the announcement links to `main` or a tested
   `v0.5.0-alpha` prerelease. Prefer the prerelease when CI and release assets
   have completed successfully. The announcement links to the tested prerelease.

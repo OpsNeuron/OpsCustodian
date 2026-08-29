@@ -111,11 +111,12 @@ For monorepositories, assign assets to explicit component boundaries:
 opscustodian scan --boundary services/payments=payments --output agentbom.json .
 ```
 
-The first pre-alpha implementation now includes offline artifact discovery,
+The first public alpha includes offline artifact discovery,
 GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
 parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
 severity thresholds, finding explanations, and OPA/Rego policy evaluation.
-Hosted CI integration remains planned for the next milestones.
+The release also includes a GitHub Action contract with SARIF output; review the
+[alpha limitations](docs/releases/v0.5.0-alpha.md#alpha-limitations) before use.
 
 The experimental organization control-plane server is configured exclusively
 through environment variables and binds only to loopback. Validate its
@@ -198,6 +199,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Installation](docs/INSTALLATION.md)
 - [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
 - [Public launch checklist](docs/PUBLIC_LAUNCH_CHECKLIST.md)
+- [Public alpha launch kit](docs/LAUNCH_KIT.md)
 - [Two-minute demo](docs/DEMO.md)
 - [Ownership resolution](docs/OWNERSHIP.md)
 - [Explainable risk model](docs/RISK_MODEL.md)
@@ -225,7 +227,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 
 ## Status
 
-Alpha candidate under active development. The offline CLI is ready for local
+Public alpha under active development. The offline CLI is ready for local
 evaluation; file formats and server APIs may still change. Organization-server,
 HA, and real-provider operation are experimental and must not be treated as
 production-ready. See [current project status](docs/PROJECT_STATUS.md).

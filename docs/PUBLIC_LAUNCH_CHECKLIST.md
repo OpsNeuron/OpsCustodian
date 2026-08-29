@@ -23,13 +23,14 @@ keep the offline evidence workflow separate from production-runtime claims.
 ## Blockers before the first social announcement
 
 - [ ] Complete all public-repository blockers above.
-- [ ] Capture a current screenshot of the self-contained HTML report.
+- [x] Capture current, synthetic screenshots of the self-contained HTML report.
 - [ ] Run the Quick Start from a fresh clone and retain the terminal output.
-- [ ] Decide whether the announcement links to `main` or a tested
+- [x] Decide whether the announcement links to `main` or a tested
   `v0.5.0-alpha` prerelease. Prefer the prerelease when CI and release assets
-  have completed successfully.
-- [ ] Prepare one concise problem statement, one screenshot, one critical-drift
-  example, alpha limitations, and one feedback request.
+  have completed successfully. The announcement links to the tested prerelease.
+- [x] Prepare one concise problem statement, screenshots, one critical-drift
+  example, alpha limitations, and one feedback request in the
+  [public alpha launch kit](LAUNCH_KIT.md).
 - [ ] Verify every public link in an anonymous/private browser session.
 
 ## Not blockers for the public alpha

@@ -21,8 +21,8 @@ does not satisfy a real-environment item.
 - [x] Confirm generated demo/report files remain ignored.
 - [x] Docker build context excludes local caches, binaries, reports, and
   generated scan artifacts.
-- [ ] Protect `main` and require the CI workflow plus review.
-- [ ] Review dependency licenses and the generated CycloneDX SBOM.
+- [x] Protect `main` and require the CI workflow plus review.
+- [x] Review dependency licenses and the generated CycloneDX SBOM.
 
 ## 3. Deterministic source gate
 
@@ -38,11 +38,11 @@ go build -trimpath -o ./bin/opscustodian ./cmd/opscustodian
 git diff --exit-code
 ```
 
-- [ ] Linux source gate passes, including the race detector.
+- [x] Linux source gate passes, including the race detector.
 - [x] Windows amd64 source gate passes, excluding the unsupported local race
   detector and relying on the Linux CI race job.
 - [x] Release doctor reports ready with no secret material in its output.
-- [ ] GitHub CI passes from a clean protected-branch commit.
+- [x] GitHub CI passes from a clean protected-branch commit.
 
 ## 4. Docker Desktop integration gate
 

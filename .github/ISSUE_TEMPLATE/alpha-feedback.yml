@@ -1,0 +1,51 @@
+name: Alpha experience
+description: Share first-run feedback without filing a specific defect.
+title: "feedback: "
+labels:
+  - question
+body:
+  - type: dropdown
+    id: journey
+    attributes:
+      label: Journey attempted
+      options:
+        - Quick Start and demo
+        - Scan a repository
+        - Generate the HTML report
+        - Compare semantic drift
+        - Run policy or CI enforcement
+        - Evaluate the control-plane server
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpsCustodian version
+      placeholder: v0.5.0-alpha
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What worked?
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Where did you get stuck or lose confidence?
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: What result would make this useful in your environment?
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed sensitive output and private organization or repository data.
+          required: true

@@ -1,0 +1,61 @@
+name: Parser compatibility
+description: Provide a sanitized format that OpsCustodian misses or interprets incorrectly.
+title: "parser: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Parser reports are most useful with a minimal synthetic fixture and the
+        expected Agent BOM semantics. Do not paste private workflow or agent files.
+  - type: dropdown
+    id: parser
+    attributes:
+      label: Parser or source type
+      options:
+        - GitHub Actions
+        - GitHub Agentic Workflows
+        - Agent Markdown
+        - MCP
+        - Kubernetes
+        - Ownership or Backstage
+        - Unknown or new source
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OpsCustodian version
+      placeholder: v0.5.0-alpha
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Minimal synthetic fixture
+      description: Replace organization, repository, host, identity, and secret references.
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed sanitized output or diagnostic
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected assets, capabilities, relationships, or findings
+    validations:
+      required: true
+  - type: checkboxes
+    id: provenance
+    attributes:
+      label: Fixture provenance
+      options:
+        - label: The fixture is synthetic or authorized for public disclosure.
+          required: true
+        - label: The fixture contains no credential value or private repository data.
+          required: true

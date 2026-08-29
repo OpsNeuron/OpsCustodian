@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible OpsCustodian failure or incorrect result.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the public alpha. Remove credentials, private
+        repository content, customer data, and sensitive generated evidence.
+        Report security issues through the private security link instead.
+  - type: input
+    id: version
+    attributes:
+      label: OpsCustodian version
+      description: Paste the output of `opscustodian version`.
+      placeholder: v0.5.0-alpha
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux amd64
+        - Linux arm64
+        - macOS amd64
+        - macOS arm64
+        - Windows amd64
+        - Container or GitHub Action
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Sanitized command or workflow
+      description: Include flags and paths, but replace private names and values.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exit code and sanitized diagnostic output.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal sanitized reproduction
+      description: Prefer a small synthetic fixture over real repository content.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed secrets, tokens, private keys, customer data, and private repository content.
+          required: true
+        - label: This report is not a security vulnerability requiring private disclosure.
+          required: true

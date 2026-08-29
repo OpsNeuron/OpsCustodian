@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/OpsNeuron/OpsCustodian/security/advisories/new
+    about: Report vulnerabilities and any possible secret exposure privately.
+  - name: Documentation and Quick Start
+    url: https://github.com/OpsNeuron/OpsCustodian/tree/main/docs
+    about: Check installation, compatibility, and integration guidance first.

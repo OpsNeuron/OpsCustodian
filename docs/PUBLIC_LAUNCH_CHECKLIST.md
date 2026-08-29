@@ -17,6 +17,10 @@ keep the offline evidence workflow separate from production-runtime claims.
 - [ ] Enable GitHub private vulnerability reporting before changing visibility.
 - [ ] Confirm no real secret, private repository data, personal identifier, or
   internal organization reference exists in Git history or the public tree.
+  A secret-safe scan of 221 revisions found no private-key/token patterns or
+  local filesystem paths. Historical commit metadata still contains one email
+  from a consumer mail provider; repository-local identity is now configured to
+  use the GitHub noreply address for future commits.
 - [ ] Configure repository description, topics, website/documentation link, and
   default branch protection. Description, topics, and the active `main` ruleset
   are verified; the repository homepage remains unset.

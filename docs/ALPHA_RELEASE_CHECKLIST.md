@@ -88,8 +88,12 @@ tokens, private keys, secret values, or signed download URLs in release evidence
 - [x] Confirm `opscustodian version` reports `v0.5.0-alpha` in every archive.
 - [x] Confirm the Quick Start succeeds using the archive, not the source tree's
   development binary.
-- [ ] Create annotated tag `v0.5.0-alpha` from the approved commit.
-- [ ] Observe the complete Release workflow before announcing availability.
+- [x] Create annotated tag `v0.5.0-alpha` from the approved commit
+  (`20e32b56f4e46802f32002d9d259e62640f355fd`).
+- [x] Observe the complete Release workflow before announcing availability;
+  source verification, race detection, five platform builds, CycloneDX SBOM
+  generation, provenance attestation, and prerelease publication passed in
+  [Release run #1](https://github.com/OpsNeuron/OpsCustodian/actions/runs/33249640513).
 - [ ] Publish limitations: alpha contracts, experimental server, unsupported
   production HA, and the difference between offline evidence and live runtime
   authorization.

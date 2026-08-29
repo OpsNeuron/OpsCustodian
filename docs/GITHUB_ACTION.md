@@ -54,8 +54,9 @@ published when OpsCustodian intentionally fails the guard step.
 - Treat the baseline as security-sensitive configuration and protect it with
   CODEOWNERS and branch rules.
 - Pin production workflows to an immutable release commit rather than a moving tag.
-- The action requests only `contents: read` and `security-events: write` in the
-  example workflow.
+- The workflow requests `contents: read`, `security-events: write`, and
+  `actions: read`. The SARIF uploader uses `actions: read` to inspect the
+  current workflow run, including for private repositories.
 - GitHub may restrict SARIF uploads from untrusted fork pull requests. Choose a
   workflow model appropriate for the repository's contributor threat model;
   never grant fork-controlled code write-capable credentials.

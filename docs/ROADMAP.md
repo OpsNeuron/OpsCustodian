@@ -15,6 +15,56 @@ The two-replica deployment remains an explicitly experimental artifact. The
 default deployment stays single-replica until product adoption demonstrates a
 need for HA and the Docker Desktop failure-injection plan has been executed.
 
+## Release maturity gates
+
+Release maturity is evidence-based rather than date-based. A version number or
+elapsed development time alone does not promote the project to the next stage.
+
+### Alpha — validate the product and contracts
+
+The public alpha is suitable for evaluation, offline repository scans, CI
+experiments, and feedback. Consumers must pin the executable and generated data
+contracts because compatible additions and explicitly versioned breaking
+changes may still occur.
+
+Alpha continues until all of the following are true:
+
+- independent users have completed the documented Quick Start and reported
+  actionable installation, inventory, drift, or policy feedback;
+- representative repositories exercise GitHub Actions, MCP, agent Markdown,
+  Kubernetes, ownership, and policy paths with bounded false positives;
+- public Agent BOM, finding, policy, and API contracts have a documented
+  migration path and no known imminent redesign;
+- real GitHub, OPA, PostgreSQL, OpenTelemetry, and Kubernetes compatibility
+  gates pass on the supported configurations; and
+- no known critical or high-severity defect compromises evidence integrity,
+  tenant isolation, credential handling, or fail-closed enforcement.
+
+### Beta — stabilize operations and upgrades
+
+The first beta may be cut only after the alpha gate passes. Beta freezes the
+core semantic contracts except for versioned migrations and focuses on upgrade,
+rollback, performance, recovery, and multi-repository operational evidence.
+Beta does not imply production HA unless the separate HA test plan passes.
+
+Beta exits when:
+
+- at least two consecutive releases preserve compatibility or provide tested
+  migrations;
+- fresh installation, upgrade, rollback, backup, restore, and failure-recovery
+  paths pass in the supported environment matrix;
+- security review, fuzzing, dependency review, and published performance
+  envelopes have no unresolved release blocker; and
+- external adopters have operated the supported deployment and its runbooks
+  without an unresolved data-integrity or access-control failure.
+
+### Stable — organization-ready support promise
+
+`v1.0.0` begins the documented compatibility and support window. It requires
+the organization-control-plane, hardening, migration, operational-runbook, and
+release-signing gates below. Experimental features remain explicitly excluded
+from the stable support promise until they pass their own exit gates.
+
 ## Foundation — current
 
 - Define mission, users, product boundaries, and differentiator.

@@ -40,3 +40,8 @@ truth.
 Before the first stable release, alpha consumers should pin the OpsCustodian
 binary and validate golden artifacts during upgrades. Stable releases will
 publish an explicit support window and migration policy.
+
+Beta releases freeze the core semantic contracts except for changes delivered
+through a new contract version with tested migration guidance. See the
+[release maturity gates](ROADMAP.md#release-maturity-gates) for the evidence
+required to enter beta and stable stages.

@@ -11,14 +11,14 @@ does not satisfy a real-environment item.
 - [x] Scope-expansion demo produces an explainable critical semantic drift.
 - [x] Installation paths distinguish source, release archive, and Action image.
 - [x] Reviewed `v0.5.0-alpha` release notes are wired into tag publication.
-- [ ] Capture one current HTML report screenshot for the README.
+- [x] Capture one current HTML report screenshot for the README.
 - [ ] Record a short terminal-to-report demo for the GitHub release.
 
 ## 2. Repository and legal
 
 - [x] Apache License 2.0 text is included as the project `LICENSE`.
-- [ ] Confirm README, SECURITY, CONTRIBUTING, and repository links.
-- [ ] Confirm generated demo/report files remain ignored.
+- [x] Confirm README, SECURITY, CONTRIBUTING, and repository links.
+- [x] Confirm generated demo/report files remain ignored.
 - [x] Docker build context excludes local caches, binaries, reports, and
   generated scan artifacts.
 - [ ] Protect `main` and require the CI workflow plus review.
@@ -39,9 +39,9 @@ git diff --exit-code
 ```
 
 - [ ] Linux source gate passes, including the race detector.
-- [ ] Windows amd64 source gate passes, excluding the unsupported local race
+- [x] Windows amd64 source gate passes, excluding the unsupported local race
   detector and relying on the Linux CI race job.
-- [ ] Release doctor reports ready with no secret material in its output.
+- [x] Release doctor reports ready with no secret material in its output.
 - [ ] GitHub CI passes from a clean protected-branch commit.
 
 ## 4. Docker Desktop integration gate
@@ -51,15 +51,15 @@ Use only the repository integration harness and preserve unrelated workloads.
 
 - [x] PostgreSQL 17.4 bootstrap and forward migrations pass in the disposable
   Docker Desktop harness.
-- [ ] PostgreSQL rollback/reapply and persistence-after-restart pass.
-- [ ] PostgreSQL TLS certificate and hostname verification pass.
+- [x] PostgreSQL rollback/reapply and persistence-after-restart pass.
+- [x] PostgreSQL TLS certificate and hostname verification pass.
 - [x] OPA 1.7.1 executes the built-in policy suite successfully (`3/3`).
 - [ ] Control-plane policy requests succeed and fail closed as expected.
 - [x] OTLP/HTTP events reach OpenTelemetry Collector 0.123.0 and its debug
   backend with resource, scope, body, severity, and OpsCustodian attributes.
-- [ ] Kubernetes manifests render, apply, become ready, and enforce network/TLS
+- [x] Kubernetes manifests render, apply, become ready, and enforce network/TLS
   boundaries in the Docker Desktop cluster.
-- [ ] Single-replica server ingestion and restart recovery pass.
+- [x] Single-replica server ingestion and restart recovery pass.
 - [ ] Experimental two-replica lease takeover/fencing tests pass; failures do
   not block the offline alpha, but must prevent any HA-ready claim.
 
@@ -73,7 +73,7 @@ Follow [Integration Testing](INTEGRATION_TESTING.md),
 - [ ] GitHub App installation authentication and token refresh pass.
 - [ ] Redirect, cancellation, unchanged-revision, and provider rate-limit
   behavior are observed against the real provider.
-- [ ] Live GitHub Action produces the expected SARIF/check result on a pull
+- [x] Live GitHub Action produces the expected SARIF/check result on a pull
   request containing a known risky fixture.
 - [ ] At least one real Kubernetes authorization result is compared with the
   offline effective-access result; discrepancies are documented.
@@ -83,10 +83,10 @@ tokens, private keys, secret values, or signed download URLs in release evidence
 
 ## 6. Release candidate and publication
 
-- [ ] Build and inspect all Linux, macOS, and Windows archives.
+- [x] Build and inspect all Linux, macOS, and Windows archives.
 - [ ] Verify `SHA256SUMS`, SBOM, and provenance from a disposable consumer.
-- [ ] Confirm `opscustodian version` reports `v0.5.0-alpha` in every archive.
-- [ ] Confirm the Quick Start succeeds using the archive, not the source tree's
+- [x] Confirm `opscustodian version` reports `v0.5.0-alpha` in every archive.
+- [x] Confirm the Quick Start succeeds using the archive, not the source tree's
   development binary.
 - [ ] Create annotated tag `v0.5.0-alpha` from the approved commit.
 - [ ] Observe the complete Release workflow before announcing availability.

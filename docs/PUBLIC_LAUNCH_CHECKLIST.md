@@ -31,7 +31,10 @@ keep the offline evidence workflow separate from production-runtime claims.
 - [x] Prepare one concise problem statement, screenshots, one critical-drift
   example, alpha limitations, and one feedback request in the
   [public alpha launch kit](LAUNCH_KIT.md).
-- [ ] Verify every public link in an anonymous/private browser session.
+- [x] Verify the repository, `v0.5.0-alpha` release, tagged Quick Start, and
+  synthetic report images without authentication. Confirm the issue chooser
+  and private vulnerability form resolve to GitHub's expected sign-in flow for
+  unauthenticated visitors (verified 2026-08-29).
 
 ## Not blockers for the public alpha
 

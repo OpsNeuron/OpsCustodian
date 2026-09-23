@@ -33,6 +33,16 @@ Kustomize variants. The temporary PostgreSQL container, certificates,
 namespace, Compose containers, network, and volumes were removed after the
 run. No secret or generated evidence file was committed.
 
+A subsequent disposable runtime deployment on the same Docker Desktop cluster
+reached Ready with the restricted Pod settings, PostgreSQL dependency, probes,
+Service, and Envoy TLS sidecar. A client in the labeled namespace reached
+`/healthz` over HTTPS. The negative NetworkPolicy check did not pass: an
+unlabeled namespace also reached the Service, and the cluster exposed
+`kube-proxy` but no policy-enforcing CNI/controller. All three temporary
+namespaces and the supporting PostgreSQL container were removed. This is a
+recorded environment limitation and must not be reported as policy
+enforcement.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -40,9 +50,10 @@ The committed Compose harness itself does not cover GitHub PAT/App provider
 behavior, PostgreSQL TLS/CA compatibility, migration rollback, Kubernetes
 workload readiness, load, or failure injection. The supplemental result above
 closes the TLS, rollback, policy-runtime, and Kubernetes API-admission checks
-for this environment only. Runtime NetworkPolicy/TLS enforcement, real
-authorization comparison, HA contention, load, and failure injection remain
-explicit gates rather than implied by a passing harness.
+for this environment only. Runtime NetworkPolicy enforcement on a capable CNI,
+certificate rotation/trust validation, real authorization comparison, HA
+contention, load, and failure injection remain explicit gates rather than
+implied by a passing harness.
 
 ## Execution boundary
 

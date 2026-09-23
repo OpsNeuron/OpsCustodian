@@ -60,8 +60,12 @@ Use only the repository integration harness and preserve unrelated workloads.
   backend with resource, scope, body, severity, and OpsCustodian attributes.
 - [x] Kubernetes base and experimental HA manifests render and pass
   server-side admission against the Docker Desktop Kubernetes API.
-- [ ] Kubernetes workloads become ready and enforce the documented
-  NetworkPolicy and TLS boundaries in a disposable cluster deployment.
+- [x] The single-replica Kubernetes workload becomes ready and serves its
+  health endpoint through the Envoy TLS sidecar from an allowed namespace.
+- [ ] Kubernetes NetworkPolicy denies an unlabeled namespace. The current
+  Docker Desktop cluster exposed no policy-enforcing CNI/controller and the
+  negative client unexpectedly reached the Service; repeat on a policy-capable
+  disposable cluster before claiming enforcement.
 - [x] Single-replica server ingestion and restart recovery pass.
 - [ ] Experimental two-replica lease takeover/fencing tests pass; failures do
   not block the offline alpha, but must prevent any HA-ready claim.

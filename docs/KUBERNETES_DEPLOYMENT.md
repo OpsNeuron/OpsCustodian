@@ -1,8 +1,15 @@
 # Kubernetes deployment contract
 
-The Kustomize base under `deploy/kubernetes/base` is a source-level deployment
-contract for the organization control plane. It has not yet been applied to a
-real cluster.
+The Kustomize base under `deploy/kubernetes/base` is a deployment contract for
+the organization control plane. On 2026-09-23 it passed server-side admission
+and a disposable single-replica runtime deployment on Docker Desktop
+Kubernetes. The Pod became Ready and an allowed namespace reached `/healthz`
+through the Envoy TLS sidecar before all temporary resources were removed.
+
+The same run did not prove NetworkPolicy enforcement. The Docker Desktop
+cluster exposed no policy-enforcing CNI/controller, and an unlabeled namespace
+also reached the Service. Repeat the negative connectivity test on a disposable
+cluster with a policy-capable CNI before making an enforcement claim.
 
 OpsCustodian intentionally remains bound to loopback. An Envoy sidecar accepts
 TLS 1.3 on port 8443 and forwards only within the Pod to

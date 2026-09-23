@@ -43,6 +43,14 @@ namespaces and the supporting PostgreSQL container were removed. This is a
 recorded environment limitation and must not be reported as policy
 enforcement.
 
+The connectivity test was then repeated on an isolated Kind v1.32.2 cluster
+with Calico v3.32.1. The single-replica workload became Ready, the labeled
+client received the expected HTTPS health response, and the unlabeled client
+timed out and failed as required. PostgreSQL ran as a disposable container on
+the Kind network so the application egress path remained constrained to port
+5432. The Kind cluster, PostgreSQL container, temporary certificates, downloaded
+tools, and image archives were removed after the successful run.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -50,10 +58,9 @@ The committed Compose harness itself does not cover GitHub PAT/App provider
 behavior, PostgreSQL TLS/CA compatibility, migration rollback, Kubernetes
 workload readiness, load, or failure injection. The supplemental result above
 closes the TLS, rollback, policy-runtime, and Kubernetes API-admission checks
-for this environment only. Runtime NetworkPolicy enforcement on a capable CNI,
-certificate rotation/trust validation, real authorization comparison, HA
-contention, load, and failure injection remain explicit gates rather than
-implied by a passing harness.
+for this environment only. Certificate rotation/trust validation, real
+authorization comparison, HA contention, load, and failure injection remain
+explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
 

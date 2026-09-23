@@ -44,16 +44,16 @@ observed. Supplemental disposable validation passed PostgreSQL
 fail-closed behavior, Kubernetes server-side admission, single-replica runtime
 readiness, and HTTPS access through the Envoy sidecar. The current Docker
 Desktop cluster did not enforce the NetworkPolicy and exposed no policy-capable
-CNI/controller. This does not cover GitHub provider parity, load, HA
-contention, or failure injection.
+CNI/controller. A follow-up Kind v1.32.2 and Calico v3.32.1 lab passed both the
+labeled allow path and unlabeled deny path before complete cleanup. This does
+not cover GitHub provider parity, load, HA contention, or failure injection.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
 resources, secret references, network policy, and disruption behavior. Both
 variants pass server-side API admission, and the base workload reached Ready
-in a disposable deployment before cleanup. HTTPS through the sidecar passed,
-but NetworkPolicy enforcement did not; that gate remains open for a cluster
-with a policy-capable CNI.
+in disposable deployments before cleanup. HTTPS through the sidecar passed,
+and NetworkPolicy enforcement passed on the policy-capable Kind/Calico lab.
 
 An opt-in two-replica `ha-experimental` overlay and evidence-oriented
 takeover/fencing test plan are statically defined. The single-replica base is

@@ -62,10 +62,10 @@ Use only the repository integration harness and preserve unrelated workloads.
   server-side admission against the Docker Desktop Kubernetes API.
 - [x] The single-replica Kubernetes workload becomes ready and serves its
   health endpoint through the Envoy TLS sidecar from an allowed namespace.
-- [ ] Kubernetes NetworkPolicy denies an unlabeled namespace. The current
-  Docker Desktop cluster exposed no policy-enforcing CNI/controller and the
-  negative client unexpectedly reached the Service; repeat on a policy-capable
-  disposable cluster before claiming enforcement.
+- [x] Kubernetes NetworkPolicy permits the labeled client namespace and denies
+  an unlabeled namespace on a disposable Kind v1.32.2 cluster with Calico
+  v3.32.1. Docker Desktop's built-in cluster exposed no policy-enforcing CNI,
+  so its negative check was retained as an explicit environment limitation.
 - [x] Single-replica server ingestion and restart recovery pass.
 - [ ] Experimental two-replica lease takeover/fencing tests pass; failures do
   not block the offline alpha, but must prevent any HA-ready claim.

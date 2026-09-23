@@ -91,7 +91,9 @@ tokens, private keys, secret values, or signed download URLs in release evidence
 ## 6. Release candidate and publication
 
 - [x] Build and inspect all Linux, macOS, and Windows archives.
-- [ ] Verify `SHA256SUMS`, SBOM, and provenance from a disposable consumer.
+- [x] Verify `SHA256SUMS`, the populated CycloneDX 1.6 SBOM, and the SLSA
+  provenance subject digest from a disposable consumer download of the Windows
+  amd64 archive.
 - [x] Confirm `opscustodian version` reports `v0.5.0-alpha` in every archive.
 - [x] Confirm the Quick Start succeeds using the archive, not the source tree's
   development binary.

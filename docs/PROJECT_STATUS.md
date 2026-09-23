@@ -30,6 +30,13 @@ checksums, CycloneDX SBOM, provenance attestation, and dependency updates for
 `v0.5.0-alpha`. Passing release automation does not imply that every
 real-provider or production-runtime gate has passed.
 
+The published Windows amd64 archive has also passed an independent consumer
+check: its digest matched `SHA256SUMS`, the archive contained the binary,
+license, README, and security policy, the binary reported `v0.5.0-alpha`, the
+CycloneDX 1.6 SBOM was populated, and GitHub returned an in-toto SLSA provenance
+statement whose subject matched the downloaded archive digest and tagged
+release workflow.
+
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, and release licensing. It is deliberately secret-free and does not

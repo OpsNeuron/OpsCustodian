@@ -54,11 +54,14 @@ Use only the repository integration harness and preserve unrelated workloads.
 - [x] PostgreSQL rollback/reapply and persistence-after-restart pass.
 - [x] PostgreSQL TLS certificate and hostname verification pass.
 - [x] OPA 1.7.1 executes the built-in policy suite successfully (`3/3`).
-- [ ] Control-plane policy requests succeed and fail closed as expected.
+- [x] Control-plane policy requests allow a clean BOM, deny the known
+  production escalation, and fail closed when the OPA executable is missing.
 - [x] OTLP/HTTP events reach OpenTelemetry Collector 0.123.0 and its debug
   backend with resource, scope, body, severity, and OpsCustodian attributes.
-- [x] Kubernetes manifests render, apply, become ready, and enforce network/TLS
-  boundaries in the Docker Desktop cluster.
+- [x] Kubernetes base and experimental HA manifests render and pass
+  server-side admission against the Docker Desktop Kubernetes API.
+- [ ] Kubernetes workloads become ready and enforce the documented
+  NetworkPolicy and TLS boundaries in a disposable cluster deployment.
 - [x] Single-replica server ingestion and restart recovery pass.
 - [ ] Experimental two-replica lease takeover/fencing tests pass; failures do
   not block the offline alpha, but must prevent any HA-ready claim.

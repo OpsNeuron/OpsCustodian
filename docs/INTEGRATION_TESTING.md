@@ -24,12 +24,25 @@ authenticated repository ingestion became ready, all three built-in OPA tests
 passed, the Collector rendered a 27-record OpsCustodian log batch, and cleanup
 removed only the Compose project's containers, internal network, and volumes.
 
+On 2026-09-23 the harness was repeated with Linux Engine 28.3.2. Supplemental
+disposable tests also proved `sslmode=verify-full` with an explicit test CA,
+transactional rollback and reapplication of the latest migration, clean and
+escalated control-plane policy decisions, fail-closed behavior when the OPA
+executable is unavailable, and server-side admission of both Kubernetes
+Kustomize variants. The temporary PostgreSQL container, certificates,
+namespace, Compose containers, network, and volumes were removed after the
+run. No secret or generated evidence file was committed.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
-It does not cover GitHub PAT/App provider behavior, Kubernetes API access,
-PostgreSQL TLS/CA compatibility, migration rollback, load, or failure injection.
-Those remain explicit final gates rather than implied by a passing harness.
+The committed Compose harness itself does not cover GitHub PAT/App provider
+behavior, PostgreSQL TLS/CA compatibility, migration rollback, Kubernetes
+workload readiness, load, or failure injection. The supplemental result above
+closes the TLS, rollback, policy-runtime, and Kubernetes API-admission checks
+for this environment only. Runtime NetworkPolicy/TLS enforcement, real
+authorization comparison, HA contention, load, and failure injection remain
+explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
 

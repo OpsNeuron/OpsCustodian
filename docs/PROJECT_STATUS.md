@@ -6,26 +6,29 @@ until its build, automated tests, fixtures, and integration gates pass.
 
 ## Current position
 
-The immediate delivery phase is **alpha productization and developer
-experience**. The success gate is that a new user can clone the repository,
-run the offline demo, open a meaningful report, and understand the permission
-drift result in under ten minutes. The Quick Start and representative fixtures
-are therefore the current priority ahead of additional control-plane features.
+The immediate delivery phase is **public-alpha adoption and evidence-backed
+hardening**. The offline onboarding path, tagged release, and initial Docker
+Desktop integration gate have passed. The current priority is compatibility,
+real-provider evidence, and closing the remaining runtime Kubernetes and
+operational gates without expanding the public HA claim.
 
 OpsCustodian has completed the offline/core implementation scope of the `v0.4`
-effective-access milestone. The milestone remains pending final integration,
-upstream compatibility, browser, OPA-runtime, and real-environment validation;
-those results must not be represented as production readiness.
+effective-access milestone. Deterministic tests, browser report inspection,
+OPA runtime execution, Docker-backed PostgreSQL/Collector integration, and
+Kubernetes API admission have passed. Upstream compatibility, live runtime
+authorization comparison, and workload-level Kubernetes enforcement remain;
+these results must not be represented as production readiness.
 
 The control-plane runtime now separates public liveness (`/healthz`) from
 bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
 ingestion outcomes, and GitHub App authentication update fixed low-cardinality
 component states without exposing repository, credential, path, or error data.
 
-Release automation now defines SHA-pinned least-privilege CI, Linux race and
-Windows compatibility gates, cross-platform tagged builds, checksums,
-CycloneDX SBOM, provenance attestation, and dependency updates. Execution in
-GitHub Actions and all real-environment release gates remain unverified.
+Release automation now defines and has executed SHA-pinned least-privilege CI,
+Linux race and Windows compatibility gates, cross-platform tagged builds,
+checksums, CycloneDX SBOM, provenance attestation, and dependency updates for
+`v0.5.0-alpha`. Passing release automation does not imply that every
+real-provider or production-runtime gate has passed.
 
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
@@ -33,16 +36,20 @@ presence, and release licensing. It is deliberately secret-free and does not
 claim network or runtime validation.
 
 A disposable, internal-network Compose harness has passed on Docker Desktop
-4.44.1 with Linux Engine 28.3.2: PostgreSQL 17.4 bootstrap and forward
-migrations, authenticated repository ingestion/readiness, OPA 1.7.1 policy
-tests, OTLP/HTTP export to OpenTelemetry Collector 0.123.0, and scoped cleanup
-were observed in one complete run. This does not cover PostgreSQL rollback/TLS,
-restart persistence, Kubernetes, GitHub providers, load, or failure injection.
+with Linux Engine 28.3.2: PostgreSQL 17.4 bootstrap and forward migrations,
+authenticated repository ingestion/readiness, OPA 1.7.1 policy tests,
+OTLP/HTTP export to OpenTelemetry Collector 0.123.0, and scoped cleanup were
+observed. Supplemental disposable validation passed PostgreSQL
+`sslmode=verify-full`, migration rollback/reapplication, policy allow/deny and
+fail-closed behavior, and Kubernetes server-side admission. This does not
+cover Kubernetes workload readiness or network enforcement, GitHub provider
+parity, load, HA contention, or failure injection.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
-resources, secret references, network policy, and disruption behavior. It is
-statically validated only and remains unapplied to a cluster.
+resources, secret references, network policy, and disruption behavior. Both
+variants pass server-side API admission, but no workload was persisted and
+runtime readiness or policy enforcement has not yet been demonstrated.
 
 An opt-in two-replica `ha-experimental` overlay and evidence-oriented
 takeover/fencing test plan are statically defined. The single-replica base is
@@ -202,8 +209,10 @@ Missing exit items:
 - RepositorySet and process integration for GitHub repositories with connector-specific schema validation, allowlisted `OPSCUSTODIAN_GITHUB_TOKEN_*` environment references, arbitrary-environment exfiltration prevention, and shared local/GitHub orchestration.
 
 The server can now be started explicitly, but remains restricted to loopback
-and is not production-ready. Fine-grained authorization, rotation, real
-PostgreSQL validation, and final platform/security gates remain incomplete.
+and is not production-ready. Fine-grained authorization and rotation contracts
+exist, while real PostgreSQL TLS/migration behavior has been validated in one
+disposable environment. Provider parity, Kubernetes runtime enforcement, HA
+contention, load, recovery, and final platform/security gates remain incomplete.
 
 ## Remaining path to 1.0
 

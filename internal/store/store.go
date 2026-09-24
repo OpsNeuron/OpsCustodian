@@ -140,6 +140,7 @@ type AuditPage struct {
 type AuditStore interface {
 	Record(context.Context, audit.Event) error
 	ListAuditEvents(context.Context, AuditFilter) (AuditPage, error)
+	PruneAuditEvents(context.Context, time.Time, int) (int64, error)
 }
 
 type Writer interface {

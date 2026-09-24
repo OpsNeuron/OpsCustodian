@@ -168,6 +168,7 @@ runtime authorization system.
 - Organization relationship graph API. *(latest repository subgraphs, authorization filtering, bounded pagination, OpenAPI, and PostgreSQL-backed integration coverage implemented)*
 - Organization graph query filters. *(exact repository and graph-content matching with complete-subgraph results and filter-bound cursors implemented)*
 - Persistent audit history. *(tenant-scoped PostgreSQL retention, fail-closed process wiring, repository authorization, bounded filters, pagination, and OpenAPI query contract implemented)*
+- Audit retention policy. *(bounded configurable lifetime, startup/periodic tenant-scoped pruning, safe config visibility, and fail-closed runtime coordination implemented)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*

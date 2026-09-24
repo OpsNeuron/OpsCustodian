@@ -12,22 +12,25 @@ import (
 )
 
 const (
-	defaultConnectTimeout    = 5 * time.Second
-	defaultMigrationTimeout  = 2 * time.Minute
-	defaultShutdownTimeout   = 10 * time.Second
-	defaultMaxOpenConns      = 20
-	defaultMaxIdleConns      = 5
-	defaultConnMaxLifetime   = 30 * time.Minute
-	defaultListenAddress     = "127.0.0.1:8080"
-	defaultReadHeaderTimeout = 5 * time.Second
-	defaultReadTimeout       = 15 * time.Second
-	defaultWriteTimeout      = 30 * time.Second
-	defaultIdleTimeout       = 60 * time.Second
-	defaultMaxHeaderBytes    = 64 << 10
-	defaultSchedulerLeaseTTL = time.Minute
-	defaultSchedulerRenewal  = 20 * time.Second
-	defaultPolicyQuery       = "data.opscustodian.decision"
-	defaultPolicyTimeout     = 5 * time.Second
+	defaultConnectTimeout     = 5 * time.Second
+	defaultMigrationTimeout   = 2 * time.Minute
+	defaultShutdownTimeout    = 10 * time.Second
+	defaultMaxOpenConns       = 20
+	defaultMaxIdleConns       = 5
+	defaultConnMaxLifetime    = 30 * time.Minute
+	defaultListenAddress      = "127.0.0.1:8080"
+	defaultReadHeaderTimeout  = 5 * time.Second
+	defaultReadTimeout        = 15 * time.Second
+	defaultWriteTimeout       = 30 * time.Second
+	defaultIdleTimeout        = 60 * time.Second
+	defaultMaxHeaderBytes     = 64 << 10
+	defaultSchedulerLeaseTTL  = time.Minute
+	defaultSchedulerRenewal   = 20 * time.Second
+	defaultPolicyQuery        = "data.opscustodian.decision"
+	defaultPolicyTimeout      = 5 * time.Second
+	defaultAuditRetention     = 90 * 24 * time.Hour
+	defaultAuditPruneInterval = 24 * time.Hour
+	defaultAuditPruneBatch    = 1000
 )
 
 type LookupEnv func(string) (string, bool)
@@ -62,6 +65,9 @@ type Config struct {
 	PolicyBinary             string
 	PolicyQuery              string
 	PolicyTimeout            time.Duration
+	AuditRetention           time.Duration
+	AuditPruneInterval       time.Duration
+	AuditPruneBatch          int
 }
 
 type HTTPConfig struct {
@@ -100,6 +106,9 @@ type SafeConfig struct {
 	PolicyConfigured         bool          `json:"policyConfigured"`
 	PolicyQuery              string        `json:"policyQuery,omitempty"`
 	PolicyTimeout            time.Duration `json:"policyTimeout,omitempty"`
+	AuditRetention           time.Duration `json:"auditRetention"`
+	AuditPruneInterval       time.Duration `json:"auditPruneInterval"`
+	AuditPruneBatch          int           `json:"auditPruneBatch"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -121,6 +130,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		SchedulerRenewInterval:  defaultSchedulerRenewal,
 		PolicyQuery:             defaultPolicyQuery,
 		PolicyTimeout:           defaultPolicyTimeout,
+		AuditRetention:          defaultAuditRetention,
+		AuditPruneInterval:      defaultAuditPruneInterval,
+		AuditPruneBatch:         defaultAuditPruneBatch,
 		HTTP:                    defaultHTTPConfig(),
 	}
 	var err error
@@ -224,6 +236,15 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.SchedulerRenewInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", config.SchedulerRenewInterval); err != nil {
 		return Config{}, err
 	}
+	if config.AuditRetention, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_RETENTION", config.AuditRetention); err != nil {
+		return Config{}, err
+	}
+	if config.AuditPruneInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL", config.AuditPruneInterval); err != nil {
+		return Config{}, err
+	}
+	if config.AuditPruneBatch, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_BATCH", config.AuditPruneBatch); err != nil {
+		return Config{}, err
+	}
 	if config.MaxOpenConns, err = environmentInt(lookup, "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", config.MaxOpenConns); err != nil {
 		return Config{}, err
 	}
@@ -297,6 +318,15 @@ func (config Config) Validate() error {
 	if config.SchedulerRenewInterval <= 0 || config.SchedulerRenewInterval >= config.SchedulerLeaseTTL {
 		return fmt.Errorf("OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL must be positive and less than OPSCUSTODIAN_SCHEDULER_LEASE_TTL")
 	}
+	if config.AuditRetention < 24*time.Hour || config.AuditRetention > 10*365*24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETENTION must be between 24h and 87600h")
+	}
+	if config.AuditPruneInterval < time.Minute || config.AuditPruneInterval > 24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL must be between 1m and 24h")
+	}
+	if config.AuditPruneBatch < 1 || config.AuditPruneBatch > 10000 {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_BATCH must be between 1 and 10000")
+	}
 	if err := config.HTTP.Validate(); err != nil {
 		return err
 	}
@@ -367,6 +397,9 @@ func (config Config) Safe() SafeConfig {
 		PolicyConfigured:         config.PolicyPath != "",
 		PolicyQuery:              policySafeQuery(config),
 		PolicyTimeout:            policySafeTimeout(config),
+		AuditRetention:           config.AuditRetention,
+		AuditPruneInterval:       config.AuditPruneInterval,
+		AuditPruneBatch:          config.AuditPruneBatch,
 	}
 }
 

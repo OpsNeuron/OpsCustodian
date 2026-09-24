@@ -271,6 +271,14 @@ The regular `serve` path now opens a real loopback listener and requires a real
 PostgreSQL connection. It remains experimental until the deferred database,
 signal, platform, and security integration suite is complete.
 
+Audit history defaults to 90 days and is pruned in bounded batches of 1,000
+records every 24 hours, including one pass at startup. Operators can set
+`OPSCUSTODIAN_AUDIT_RETENTION`, `OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL`, and
+`OPSCUSTODIAN_AUDIT_PRUNE_BATCH`; validation restricts retention to 24 hours
+through 10 years, intervals to one minute through 24 hours, and batches to
+1 through 10,000. Pruning is tenant-scoped, and a database failure stops the
+process rather than silently disabling retention.
+
 ## Request audit middleware
 
 The authenticated API has a request-audit middleware contract that emits the

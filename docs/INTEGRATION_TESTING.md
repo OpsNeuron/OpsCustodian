@@ -117,6 +117,12 @@ repository-scoped snapshot-ingestion event through the authenticated
 `audit:read` API. Raw authorization headers, tokens, request bodies, and query
 strings remain outside the retained event contract.
 
+The audit-retention phase adds bounded tenant-scoped pruning with deterministic
+unit coverage for age and batch limits. The Docker harness validates the
+retention-capable schema and startup worker initialization; long-duration
+wall-clock expiry remains a release-candidate soak-test gate rather than being
+simulated as proof in this short-lived harness.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

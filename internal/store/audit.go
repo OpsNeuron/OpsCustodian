@@ -172,3 +172,58 @@ func (memory *Memory) ListAuditEvents(ctx context.Context, filter AuditFilter) (
 	}
 	return result, nil
 }
+
+const pruneAuditEventsSQL = `WITH expired AS (
+    SELECT id FROM audit_events
+    WHERE organization_id = $1 AND occurred_at < $2
+    ORDER BY id
+    LIMIT $3
+)
+DELETE FROM audit_events
+WHERE organization_id = $1 AND id IN (SELECT id FROM expired)`
+
+func (postgres *Postgres) PruneAuditEvents(ctx context.Context, before time.Time, limit int) (int64, error) {
+	if before.IsZero() || limit < 1 || limit > 10000 {
+		return 0, fmt.Errorf("audit retention cutoff and batch limit are invalid")
+	}
+	transaction, err := postgres.database.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer transaction.Rollback()
+	result, err := transaction.ExecContext(ctx, pruneAuditEventsSQL, postgres.organizationID, before.UTC(), limit)
+	if err != nil {
+		return 0, fmt.Errorf("prune audit events: %w", err)
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
+func (memory *Memory) PruneAuditEvents(ctx context.Context, before time.Time, limit int) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if before.IsZero() || limit < 1 || limit > 10000 {
+		return 0, fmt.Errorf("audit retention cutoff and batch limit are invalid")
+	}
+	memory.mu.Lock()
+	defer memory.mu.Unlock()
+	kept := make([]AuditRecord, 0, len(memory.auditEvents))
+	var deleted int64
+	for _, record := range memory.auditEvents {
+		occurred, err := time.Parse(time.RFC3339Nano, record.Event.Timestamp)
+		if err == nil && occurred.Before(before) && deleted < int64(limit) {
+			deleted++
+			continue
+		}
+		kept = append(kept, record)
+	}
+	memory.auditEvents = kept
+	return deleted, nil
+}

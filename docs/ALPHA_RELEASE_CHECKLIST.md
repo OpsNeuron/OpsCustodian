@@ -12,7 +12,8 @@ does not satisfy a real-environment item.
 - [x] Installation paths distinguish source, release archive, and Action image.
 - [x] Reviewed `v0.5.0-alpha` release notes are wired into tag publication.
 - [x] Capture one current HTML report screenshot for the README.
-- [ ] Record a short terminal-to-report demo for the GitHub release.
+- [x] Record a short terminal-to-report demo for the GitHub release; the
+  secret-free GIF is stored at `docs/images/opscustodian-demo.gif`.
 
 ## 2. Repository and legal
 

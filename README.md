@@ -13,6 +13,8 @@ production.
 OpsCustodian turns scattered agent, workflow, MCP, skill, and Kubernetes
 configuration into one evidence-backed inventory of operational access.
 
+![OpsCustodian terminal-to-report demo](docs/images/opscustodian-demo.gif)
+
 ![OpsCustodian inventory overview](docs/images/opscustodian-inventory-overview.png)
 
 It does more than list automation: it shows what each agent can actually do,

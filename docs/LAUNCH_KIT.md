@@ -21,6 +21,10 @@ Use this one-line description consistently:
 
 ## Recommended images
 
+Use the terminal-to-report GIF when the platform supports animated media:
+
+![OpsCustodian terminal-to-report demo](images/opscustodian-demo.gif)
+
 Use the inventory overview as the main post image:
 
 ![OpsCustodian inventory overview](images/opscustodian-inventory-overview.png)

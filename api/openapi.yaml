@@ -198,6 +198,28 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/JSONSuccess" }
         "400": { $ref: "#/components/responses/APIError" }
+  /api/v1/audit-events:
+    get:
+      operationId: listAuditEvents
+      description: Query the retained secret-minimized audit history visible to the authenticated identity.
+      x-opscustodian-required-scope: audit:read
+      parameters:
+        - name: repositoryId
+          in: query
+          schema: { $ref: "#/components/schemas/RepositoryID" }
+        - name: eventName
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: identityId
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "403": { $ref: "#/components/responses/APIError" }
+        "503": { $ref: "#/components/responses/APIError" }
   /api/v1/finding-lifecycles:
     get:
       operationId: listFindingLifecycles

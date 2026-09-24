@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/validation"
 )
@@ -116,6 +117,31 @@ type Reader interface {
 	ListFindingLifecycle(context.Context, FindingLifecycleFilter) (FindingLifecyclePage, error)
 }
 
+type AuditRecord struct {
+	ID           int64       `json:"id"`
+	RepositoryID string      `json:"repositoryId,omitempty"`
+	IdentityID   string      `json:"identityId,omitempty"`
+	Event        audit.Event `json:"event"`
+}
+
+type AuditFilter struct {
+	RepositoryIDs []string
+	RepositoryID  string
+	EventName     string
+	IdentityID    string
+	Page          PageRequest
+}
+
+type AuditPage struct {
+	Items      []AuditRecord
+	NextCursor string
+}
+
+type AuditStore interface {
+	Record(context.Context, audit.Event) error
+	ListAuditEvents(context.Context, AuditFilter) (AuditPage, error)
+}
+
 type Writer interface {
 	PutSnapshot(context.Context, model.AgentBOM) (Snapshot, error)
 }
@@ -129,6 +155,7 @@ type Memory struct {
 	repositories map[string]*memoryRepository
 	leases       map[string]SchedulerLease
 	nextFence    map[string]int64
+	auditEvents  []AuditRecord
 }
 
 type memoryRepository struct {

@@ -41,8 +41,12 @@ func requestGraphFilter(w http.ResponseWriter, request *http.Request) (graphFilt
 }
 
 func (filter graphFilter) cursorScope() string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{filter.RepositoryID, filter.AssetType, filter.Owner, filter.Component, filter.Action, filter.RelationshipType}, "\x00")))
-	return fmt.Sprintf("graph:%x", sum[:8])
+	return boundedCursorScope("graph", filter.RepositoryID, filter.AssetType, filter.Owner, filter.Component, filter.Action, filter.RelationshipType)
+}
+
+func boundedCursorScope(prefix string, values ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(values, "\x00")))
+	return fmt.Sprintf("%s:%x", prefix, sum[:8])
 }
 
 func (filter graphFilter) matches(bom model.AgentBOM) bool {

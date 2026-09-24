@@ -143,6 +143,11 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	if err := readiness.Update(server.ReadinessDatabase, server.ReadinessReady); err != nil {
 		return err
 	}
+	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, runtime.Store)
+	if err != nil {
+		return fmt.Errorf("initialize persistent audit sink: %w", err)
+	}
+	dependencies.AuditSink = persistentAuditSink
 	var ingestionRunner ingestion.BatchRunner
 	if config.RepositorySetFile != "" {
 		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: githubCredentials})

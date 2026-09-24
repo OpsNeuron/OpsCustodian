@@ -111,6 +111,12 @@ graph page contains the authorized scope-expansion repository after ingestion;
 the query uses its exact Kubernetes deployment-update capability action, while
 repository filtering remains enforced by the shared collection boundary.
 
+The persistent-audit phase applies the third migration, writes request events
+to PostgreSQL in addition to the JSONL operational sink, and queries a
+repository-scoped snapshot-ingestion event through the authenticated
+`audit:read` API. Raw authorization headers, tokens, request bodies, and query
+strings remain outside the retained event contract.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

@@ -95,6 +95,7 @@ func newHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, 
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
 	mux.HandleFunc("GET /api/v1/repositories", api.repositories)
 	mux.HandleFunc("GET /api/v1/graph", api.organizationGraph)
+	mux.HandleFunc("GET /api/v1/audit-events", api.auditEvents)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
@@ -264,6 +265,46 @@ func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) 
 		})
 	}
 	writeJSON(w, http.StatusOK, listResponse[organizationGraph]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items, NextCursor: encodeCursor(filter.cursorScope(), repositories.NextCursor)})
+}
+
+func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
+	auditStore, ok := api.reader.(store.AuditStore)
+	if !ok {
+		writeError(w, http.StatusServiceUnavailable, "audit-store-unavailable", "audit history is unavailable")
+		return
+	}
+	repositoryID := request.URL.Query().Get("repositoryId")
+	if repositoryID != "" {
+		if !validRepositoryID(repositoryID) {
+			writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+			return
+		}
+		if !authorizeRepository(w, request, repositoryID) {
+			return
+		}
+	}
+	eventName, identityID := request.URL.Query().Get("eventName"), request.URL.Query().Get("identityId")
+	for _, value := range []string{eventName, identityID} {
+		if value != strings.TrimSpace(value) || len(value) > 200 || strings.ContainsAny(value, "\x00\r\n") {
+			writeError(w, http.StatusBadRequest, "invalid-audit-filter", "audit filters must be trimmed values of at most 200 bytes")
+			return
+		}
+	}
+	scope := boundedCursorScope("audit-events", repositoryID, eventName, identityID)
+	page, ok := requestPage(w, request, scope)
+	if !ok {
+		return
+	}
+	filter := store.AuditFilter{RepositoryID: repositoryID, EventName: eventName, IdentityID: identityID, Page: page}
+	if repositoryID == "" {
+		filter.RepositoryIDs = authorizedRepositoryIDs(request)
+	}
+	result, err := auditStore.ListAuditEvents(request.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "audit history is unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, listResponse[store.AuditRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor(scope, result.NextCursor)})
 }
 
 func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {

@@ -15,6 +15,7 @@ const (
 	ScopeFindingsRead      = "findings:read"
 	ScopeSnapshotsWrite    = "snapshots:write"
 	ScopePolicyEvaluate    = "policy:evaluate"
+	ScopeAuditRead         = "audit:read"
 )
 
 var supportedScopes = map[string]struct{}{
@@ -25,6 +26,7 @@ var supportedScopes = map[string]struct{}{
 	ScopeFindingsRead:      {},
 	ScopeSnapshotsWrite:    {},
 	ScopePolicyEvaluate:    {},
+	ScopeAuditRead:         {},
 }
 
 type ScopeAuthorizer struct {
@@ -119,6 +121,8 @@ func requiredScope(method, path string) string {
 		return ScopeContractsRead
 	case path == "/api/v1/graph":
 		return ScopeInventoryRead
+	case path == "/api/v1/audit-events":
+		return ScopeAuditRead
 	case path == "/api/v1/findings", path == "/api/v1/finding-lifecycles":
 		return ScopeFindingsRead
 	case strings.HasPrefix(path, "/api/v1/repositories/") && strings.HasSuffix(path, "/drift"):

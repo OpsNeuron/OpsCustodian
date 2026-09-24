@@ -15,6 +15,7 @@ type SnapshotStore interface {
 	store.Reader
 	store.Writer
 	store.SchedulerLeaseStore
+	store.AuditStore
 }
 
 type Dependencies struct {

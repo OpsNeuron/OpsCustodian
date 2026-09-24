@@ -221,6 +221,7 @@ Missing exit items:
 - Repository-authorized historical semantic drift API comparing two immutable stored snapshots, with versioned OpenAPI coverage and no repository rescan or client-supplied comparison payload.
 - Bounded organization-graph API exposing the latest assets, relationships, and effective-access paths per authorized repository with repository-keyset pagination.
 - Integrity-preserving organization-graph filters for repository, asset type, owner, component, capability action, and relationship type with filter-bound opaque cursors.
+- Tenant-scoped PostgreSQL audit retention with secret-minimized event validation, fail-closed dual sinks, repository-aware filtering, dedicated `audit:read` authorization, and a paginated query API.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.

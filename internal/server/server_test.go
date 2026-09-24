@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/store"
@@ -164,6 +166,39 @@ func TestOrganizationGraphReturnsLatestAuthorizedRepositorySubgraphs(t *testing.
 	invalidResponse := httptest.NewRecorder()
 	handler.ServeHTTP(invalidResponse, invalid)
 	assertResponse(t, invalidResponse, http.StatusBadRequest, `"code":"invalid-graph-filter"`)
+}
+
+func TestAuditHistoryIsScopeAndRepositoryAuthorized(t *testing.T) {
+	memory := store.NewMemory()
+	repositoryID := store.RepositoryID("github:acme/allowed")
+	event := audit.FromHTTPRequest(audit.HTTPRequestObservation{
+		OccurredAt: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), RequestID: "request-a",
+		OrganizationID: "organization-0123456789abcdef", Identity: "operator-a", Method: http.MethodGet,
+		Route: "/api/v1/repositories/{repositoryID}/bom", Status: http.StatusOK, Authentication: "authenticated", Authorization: "authorized",
+		Snapshot: &audit.SnapshotIngestionObservation{RepositoryID: repositoryID},
+	})
+	if err := memory.Record(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	token := "audit-history-token-0123456789abcdef"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{{
+		ID: "audit-reader", Token: token, Scopes: []string{ScopeAuditRead}, Repositories: []string{repositoryID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(memory, "test", &authenticator, &authorizer)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/audit-events?repositoryId="+repositoryID+"&eventName=opscustodian.http.request.completed", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	assertResponse(t, response, http.StatusOK, `"identityId":"operator-a"`, `"eventName":"opscustodian.http.request.completed"`)
+
+	denied := httptest.NewRequest(http.MethodGet, "/api/v1/audit-events?repositoryId="+store.RepositoryID("github:acme/denied"), nil)
+	denied.Header.Set("Authorization", "Bearer "+token)
+	deniedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deniedResponse, denied)
+	assertResponse(t, deniedResponse, http.StatusForbidden, `"code":"repository-authorization-denied"`)
 }
 
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {

@@ -29,6 +29,7 @@ type Runtime struct {
 	Store SnapshotStore
 
 	database *sql.DB
+	ping     func(context.Context, *sql.DB) error
 	close    func(*sql.DB) error
 	once     sync.Once
 	closeErr error
@@ -99,7 +100,14 @@ func Bootstrap(ctx context.Context, config Config, dependencies Dependencies) (*
 		return nil, fmt.Errorf("initialize PostgreSQL store: dependency returned nil store")
 	}
 	cleanup = false
-	return &Runtime{Store: snapshotStore, database: database, close: dependencies.Close}, nil
+	return &Runtime{Store: snapshotStore, database: database, ping: dependencies.Ping, close: dependencies.Close}, nil
+}
+
+func (runtime *Runtime) Ping(ctx context.Context) error {
+	if runtime == nil || runtime.database == nil || runtime.ping == nil {
+		return fmt.Errorf("PostgreSQL runtime is not initialized")
+	}
+	return runtime.ping(ctx, runtime.database)
 }
 
 func (runtime *Runtime) Close() error {

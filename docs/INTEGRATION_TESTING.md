@@ -67,6 +67,13 @@ watch, `/healthz` non-resource URL read, and wildcard-derived Secret deletion
 were all allowed as predicted. No discrepancy was observed. The Kind cluster,
 kubeconfig, and comparison output were removed after the run.
 
+A Docker Compose failure test then stopped PostgreSQL while the control plane
+remained running. The database readiness probe changed `/readyz` to `503`
+within its bounded polling window while `/healthz` continued to report process
+liveness. Restarting PostgreSQL restored readiness and authenticated repository
+reads without restarting the control plane. The Compose containers, network,
+and volumes were removed after the successful recovery.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -77,8 +84,8 @@ closes the TLS, rollback, policy-runtime, Kubernetes API-admission, and listed
 GitHub App checks for this environment only. Certificate rotation/trust
 validation, PAT parity, expiry-driven App refresh, real-provider redirect,
 cancellation and rate-limit observations, broader authorization compatibility,
-HA contention, load, and failure injection remain explicit gates rather than
-implied by a passing harness.
+HA contention, load, and broader failure injection remain explicit gates
+rather than implied by a passing harness.
 
 ## Execution boundary
 

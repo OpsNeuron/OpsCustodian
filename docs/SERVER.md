@@ -42,6 +42,10 @@ degraded. Its component names are fixed to `database`, `ingestion`, and
 repository identity, credential references, paths, provider responses, or
 error text, so both probe endpoints remain public behind authentication and
 authorization middleware.
+The control plane probes PostgreSQL every five seconds with the configured
+connection timeout. A failed probe marks database readiness as degraded while
+liveness remains healthy; a later successful probe restores readiness without
+restarting the process.
 A Go conformance test ensures every implemented route remains
 documented under the same API contract version.
 

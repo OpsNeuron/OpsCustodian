@@ -30,6 +30,8 @@ type ProcessDependencies struct {
 	NewSchedulerHolderID   func() (string, error)
 }
 
+const databaseReadinessInterval = 5 * time.Second
+
 func DefaultProcessDependencies() (ProcessDependencies, error) {
 	database, err := PostgresDependencies()
 	if err != nil {
@@ -184,6 +186,7 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	defer listener.Close()
 	serveContext, cancelServe := context.WithCancel(ctx)
 	defer cancelServe()
+	go monitorDatabaseReadiness(serveContext, runtime, readiness, databaseReadinessInterval, config.ConnectTimeout)
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- dependencies.Serve(serveContext, listener, httpServer, config) }()
 	var watcherResult <-chan error
@@ -272,6 +275,33 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return errors.Join(ingestionErr, serveErr)
 		}
 		return nil
+	}
+}
+
+type databasePinger interface {
+	Ping(context.Context) error
+}
+
+func monitorDatabaseReadiness(ctx context.Context, database databasePinger, readiness *server.ReadinessTracker, interval, timeout time.Duration) {
+	if database == nil || readiness == nil || interval <= 0 || timeout <= 0 {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pingContext, cancel := context.WithTimeout(ctx, timeout)
+			err := database.Ping(pingContext)
+			cancel()
+			status := server.ReadinessReady
+			if err != nil {
+				status = server.ReadinessDegraded
+			}
+			_ = readiness.Update(server.ReadinessDatabase, status)
+		}
 	}
 }
 

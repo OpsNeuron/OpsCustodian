@@ -62,6 +62,11 @@ The offline effective-access result was also compared with live Kubernetes
 authorization for four representative namespaced, cluster-wide, non-resource,
 and wildcard-derived capabilities without discrepancy.
 
+Database readiness now performs bounded periodic PostgreSQL probes. A Docker
+Compose outage/recovery test observed readiness degradation with uninterrupted
+liveness, followed by readiness and authenticated API recovery after PostgreSQL
+returned. Broader dependency failure injection and load testing remain open.
+
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
 resources, secret references, network policy, and disruption behavior. Both

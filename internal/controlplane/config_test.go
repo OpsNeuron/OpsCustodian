@@ -319,6 +319,60 @@ func TestConfigEnablesSecretSafeGitHubAppAuthentication(t *testing.T) {
 	}
 }
 
+func TestConfigEnablesSecretSafePolicyRuntime(t *testing.T) {
+	policyPath := filepath.Join(t.TempDir(), "policies")
+	config, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":            "policy-client",
+		"OPSCUSTODIAN_API_SCOPES":              "policy:evaluate",
+		"OPSCUSTODIAN_POLICY_PATH":             policyPath,
+		"OPSCUSTODIAN_OPA_BINARY":              "opa-custom",
+		"OPSCUSTODIAN_POLICY_QUERY":            "data.example.decision",
+		"OPSCUSTODIAN_POLICY_TIMEOUT":          "7s",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := json.Marshal(config.Safe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.PolicyPath != policyPath || config.PolicyBinary != "opa-custom" || config.PolicyQuery != "data.example.decision" || config.PolicyTimeout != 7*time.Second {
+		t.Fatalf("policy configuration was not preserved: %#v", config)
+	}
+	if strings.Contains(string(content), policyPath) || strings.Contains(string(content), "opa-custom") || !strings.Contains(string(content), `"policyConfigured":true`) {
+		t.Fatalf("unsafe policy projection: %s", content)
+	}
+}
+
+func TestConfigRejectsUnsafePolicyRuntimeSettings(t *testing.T) {
+	base := map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":            "policy-client",
+		"OPSCUSTODIAN_API_SCOPES":              "policy:evaluate",
+	}
+	base["OPSCUSTODIAN_POLICY_PATH"] = "relative/policies"
+	if _, err := ConfigFromEnvironment(environment(base)); err == nil || !strings.Contains(err.Error(), "clean absolute") {
+		t.Fatalf("relative policy path error = %v", err)
+	}
+	delete(base, "OPSCUSTODIAN_POLICY_PATH")
+	base["OPSCUSTODIAN_POLICY_TIMEOUT"] = "5s"
+	if _, err := ConfigFromEnvironment(environment(base)); err == nil || !strings.Contains(err.Error(), "require OPSCUSTODIAN_POLICY_PATH") {
+		t.Fatalf("orphan policy setting error = %v", err)
+	}
+	base["OPSCUSTODIAN_POLICY_PATH"] = filepath.Join(t.TempDir(), "policies")
+	base["OPSCUSTODIAN_POLICY_TIMEOUT"] = "31s"
+	if _, err := ConfigFromEnvironment(environment(base)); err == nil || !strings.Contains(err.Error(), "between") {
+		t.Fatalf("unbounded policy timeout error = %v", err)
+	}
+}
+
 func environment(values map[string]string) LookupEnv {
 	return func(name string) (string, bool) {
 		value, exists := values[name]

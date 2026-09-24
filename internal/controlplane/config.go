@@ -26,6 +26,8 @@ const (
 	defaultMaxHeaderBytes    = 64 << 10
 	defaultSchedulerLeaseTTL = time.Minute
 	defaultSchedulerRenewal  = 20 * time.Second
+	defaultPolicyQuery       = "data.opscustodian.decision"
+	defaultPolicyTimeout     = 5 * time.Second
 )
 
 type LookupEnv func(string) (string, bool)
@@ -55,6 +57,10 @@ type Config struct {
 	GitHubAppPrivateKeyFile  string
 	SchedulerLeaseTTL        time.Duration
 	SchedulerRenewInterval   time.Duration
+	PolicyPath               string
+	PolicyBinary             string
+	PolicyQuery              string
+	PolicyTimeout            time.Duration
 }
 
 type HTTPConfig struct {
@@ -89,6 +95,9 @@ type SafeConfig struct {
 	GitHubAppConfigured      bool          `json:"githubAppConfigured"`
 	SchedulerLeaseTTL        time.Duration `json:"schedulerLeaseTtl"`
 	SchedulerRenewInterval   time.Duration `json:"schedulerRenewInterval"`
+	PolicyConfigured         bool          `json:"policyConfigured"`
+	PolicyQuery              string        `json:"policyQuery,omitempty"`
+	PolicyTimeout            time.Duration `json:"policyTimeout,omitempty"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -108,6 +117,8 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		ConnMaxLifetime:         defaultConnMaxLifetime,
 		SchedulerLeaseTTL:       defaultSchedulerLeaseTTL,
 		SchedulerRenewInterval:  defaultSchedulerRenewal,
+		PolicyQuery:             defaultPolicyQuery,
+		PolicyTimeout:           defaultPolicyTimeout,
 		HTTP:                    defaultHTTPConfig(),
 	}
 	var err error
@@ -160,6 +171,15 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	config.RepositorySetFile = environmentValue(lookup, "OPSCUSTODIAN_REPOSITORY_SET_FILE")
 	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
 		return Config{}, fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
+	}
+	config.PolicyPath = environmentValue(lookup, "OPSCUSTODIAN_POLICY_PATH")
+	if config.PolicyPath == "" && (environmentValue(lookup, "OPSCUSTODIAN_OPA_BINARY") != "" || environmentValue(lookup, "OPSCUSTODIAN_POLICY_QUERY") != "" || environmentValue(lookup, "OPSCUSTODIAN_POLICY_TIMEOUT") != "") {
+		return Config{}, fmt.Errorf("OPSCUSTODIAN_OPA_BINARY, OPSCUSTODIAN_POLICY_QUERY, and OPSCUSTODIAN_POLICY_TIMEOUT require OPSCUSTODIAN_POLICY_PATH")
+	}
+	config.PolicyBinary = environmentValueOr(lookup, "OPSCUSTODIAN_OPA_BINARY", "opa")
+	config.PolicyQuery = environmentValueOr(lookup, "OPSCUSTODIAN_POLICY_QUERY", config.PolicyQuery)
+	if config.PolicyTimeout, err = environmentDuration(lookup, "OPSCUSTODIAN_POLICY_TIMEOUT", config.PolicyTimeout); err != nil {
+		return Config{}, err
 	}
 	githubAppID := environmentValue(lookup, "OPSCUSTODIAN_GITHUB_APP_ID")
 	config.GitHubAppPrivateKeyFile = environmentValue(lookup, "OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE")
@@ -296,6 +316,20 @@ func (config Config) Validate() error {
 	if config.RepositorySetFile != "" && (!filepath.IsAbs(config.RepositorySetFile) || filepath.Clean(config.RepositorySetFile) != config.RepositorySetFile) {
 		return fmt.Errorf("OPSCUSTODIAN_REPOSITORY_SET_FILE must be a clean absolute path")
 	}
+	if config.PolicyPath != "" && (!filepath.IsAbs(config.PolicyPath) || filepath.Clean(config.PolicyPath) != config.PolicyPath) {
+		return fmt.Errorf("OPSCUSTODIAN_POLICY_PATH must be a clean absolute path")
+	}
+	if config.PolicyPath != "" {
+		if strings.TrimSpace(config.PolicyBinary) == "" || strings.ContainsAny(config.PolicyBinary, "\r\n\x00") {
+			return fmt.Errorf("OPSCUSTODIAN_OPA_BINARY must be a command name or path without control characters")
+		}
+		if strings.TrimSpace(config.PolicyQuery) == "" || len(config.PolicyQuery) > 500 || strings.ContainsAny(config.PolicyQuery, "\r\n\x00") {
+			return fmt.Errorf("OPSCUSTODIAN_POLICY_QUERY must contain 1 to 500 characters without control characters")
+		}
+		if config.PolicyTimeout <= 0 || config.PolicyTimeout > 30*time.Second {
+			return fmt.Errorf("OPSCUSTODIAN_POLICY_TIMEOUT must be between 1ns and 30s")
+		}
+	}
 	if (config.GitHubAppID == 0) != (config.GitHubAppPrivateKeyFile == "") {
 		return fmt.Errorf("GitHub App ID and private key file must be configured together")
 	}
@@ -324,7 +358,24 @@ func (config Config) Safe() SafeConfig {
 		GitHubAppConfigured:      config.GitHubAppID > 0,
 		SchedulerLeaseTTL:        config.SchedulerLeaseTTL,
 		SchedulerRenewInterval:   config.SchedulerRenewInterval,
+		PolicyConfigured:         config.PolicyPath != "",
+		PolicyQuery:              policySafeQuery(config),
+		PolicyTimeout:            policySafeTimeout(config),
 	}
+}
+
+func policySafeQuery(config Config) string {
+	if config.PolicyPath == "" {
+		return ""
+	}
+	return config.PolicyQuery
+}
+
+func policySafeTimeout(config Config) time.Duration {
+	if config.PolicyPath == "" {
+		return 0
+	}
+	return config.PolicyTimeout
 }
 
 func environmentList(lookup LookupEnv, name string) []string {

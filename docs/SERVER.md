@@ -197,6 +197,10 @@ timeout-bounded graceful shutdown when its context is cancelled.
 | `OPSCUSTODIAN_REPOSITORY_SET_FILE` | unset | clean absolute path to a strict versioned RepositorySet JSON file |
 | `OPSCUSTODIAN_GITHUB_APP_ID` | unset | positive integer; requires the private-key file setting |
 | `OPSCUSTODIAN_GITHUB_APP_PRIVATE_KEY_FILE` | unset | clean absolute path; requires the App ID setting |
+| `OPSCUSTODIAN_POLICY_PATH` | unset | clean absolute path to a reviewed Rego file or bundle directory; absence keeps evaluation fail-closed |
+| `OPSCUSTODIAN_OPA_BINARY` | `opa` | local executable name or path; valid only with a policy path |
+| `OPSCUSTODIAN_POLICY_QUERY` | `data.opscustodian.decision` | 1–500 characters without control characters; valid only with a policy path |
+| `OPSCUSTODIAN_POLICY_TIMEOUT` | `5s` | positive, at most 30 seconds; valid only with a policy path |
 
 Unit tests verify both loopback families, rejection of exposure-prone binds,
 timeout/header bounds, cancellation, shutdown, and error propagation without

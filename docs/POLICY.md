@@ -10,8 +10,24 @@ input used by the CLI and returns an explicit `allowed` boolean with the full
 normalized deny/warn decision. Requests are bounded, strict, non-persisting,
 and protected by the dedicated `policy:evaluate` scope. The endpoint fails
 closed when its evaluator is unavailable or invalid. Process-level OPA wiring
-is not enabled yet, so the current server returns `503` until that dependency is
-configured in a subsequent step.
+is enabled only when `OPSCUSTODIAN_POLICY_PATH` is configured. Without that
+setting, the endpoint deliberately returns `503` rather than bypassing policy.
+
+The server executes OPA as a bounded local subprocess. Configure a reviewed
+absolute policy path, optionally select the executable and query, and keep the
+dedicated scope on only the clients that need policy evaluation:
+
+```bash
+OPSCUSTODIAN_API_SCOPES=policy:evaluate
+OPSCUSTODIAN_POLICY_PATH=/etc/opscustodian/policies
+OPSCUSTODIAN_OPA_BINARY=opa
+OPSCUSTODIAN_POLICY_QUERY=data.opscustodian.decision
+OPSCUSTODIAN_POLICY_TIMEOUT=5s
+```
+
+The supplied container image includes the pinned OPA executable. Policy files
+are not embedded; operators mount their reviewed bundle read-only and select it
+with `OPSCUSTODIAN_POLICY_PATH`.
 
 ## Check an Agent BOM
 
@@ -76,6 +92,7 @@ stable policy finding ID when the policy does not provide one.
 ## Security behavior
 
 - OPA execution is bounded by `--timeout` (10 seconds by default).
+- Server-side OPA execution is bounded by `OPSCUSTODIAN_POLICY_TIMEOUT` (5 seconds by default and at most 30 seconds).
 - Captured OPA stdout and stderr are bounded to prevent unbounded memory use.
 - Policy input uses a mode `0600` temporary file removed after evaluation.
 - Agent BOM forbids credential values; only references enter policy input.

@@ -36,7 +36,11 @@ func NewAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, au
 }
 
 func NewAuditedAuthenticatedHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader) (http.Handler, error) {
-	return newAuditedAuthenticatedHandlerWithReadiness(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readiness, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
+	return NewAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readiness, nil)
+}
+
+func NewAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader, evaluator PolicyEvaluator) (http.Handler, error) {
+	return newAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readiness, evaluator, requestAuditOptions{Now: time.Now, RequestID: randomRequestID})
 }
 
 func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) (http.Handler, error) {
@@ -44,6 +48,10 @@ func newAuditedAuthenticatedHandler(reader store.Reader, buildVersion string, au
 }
 
 func newAuditedAuthenticatedHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader, options requestAuditOptions) (http.Handler, error) {
+	return newAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader, buildVersion, authenticator, authorizer, organizationID, sink, onFailure, readiness, nil, options)
+}
+
+func newAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, authenticator BearerAuthenticator, authorizer ScopeAuthorizer, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, readiness ReadinessReader, evaluator PolicyEvaluator, options requestAuditOptions) (http.Handler, error) {
 	if sink == nil || onFailure == nil {
 		return nil, fmt.Errorf("request audit sink and failure handler are required")
 	}
@@ -56,7 +64,7 @@ func newAuditedAuthenticatedHandlerWithReadiness(reader store.Reader, buildVersi
 	if !authorizer.Configured() {
 		return nil, fmt.Errorf("configured request authorizer is required")
 	}
-	return requestAuditMiddleware(newHandlerWithReadiness(reader, buildVersion, &authenticator, &authorizer, readiness), organizationID, sink, onFailure, options), nil
+	return requestAuditMiddleware(newHandlerWithReadinessAndPolicy(reader, buildVersion, &authenticator, &authorizer, readiness, evaluator), organizationID, sink, onFailure, options), nil
 }
 
 func requestAuditMiddleware(next http.Handler, organizationID string, sink RequestAuditSink, onFailure RequestAuditFailureHandler, options requestAuditOptions) http.Handler {

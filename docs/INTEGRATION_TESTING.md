@@ -12,6 +12,7 @@ The harness covers:
 - scheduled repository ingestion persisted to and read from PostgreSQL;
 - `/healthz` and dependency-aware `/readyz` behavior;
 - real OPA parsing and built-in Rego tests;
+- authenticated server-side policy evaluation through the pinned OPA runtime;
 - real OTLP/HTTP export through an OpenTelemetry Collector;
 - secret-free generated Agent BOM and audit-event fixtures.
 
@@ -81,6 +82,14 @@ requests/second, and observed latency was 5.374 ms p50, 24.526 ms p95, and
 30.822 ms p99 on this Docker Desktop host. This is a regression baseline for
 one machine, not a capacity, soak, or service-level objective claim. The
 Compose resources were removed after the run.
+
+The policy-runtime phase then rebuilt the application image with the pinned OPA
+1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
+called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
+running control-plane process. The valid fixture returned `allowed: true`, all
+three Rego contract tests passed, the request audit contained only the bounded
+allowed outcome and decision counts, and the disposable containers, network,
+and volumes were removed.
 
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.

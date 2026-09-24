@@ -64,6 +64,12 @@ request IDs, Authorization headers, tokens, remote addresses, or request/respons
 bodies. A random 128-bit request ID is returned as `X-Request-ID` for local
 correlation.
 
+Policy-evaluation requests add only a bounded outcome (`allowed`, `denied`,
+`rejected`, `unavailable`, `failed`, or `invalid`). Successful evaluations also
+record non-negative deny and warning counts. Policy input, BOM content, decision
+messages, rule names, evidence, remediation text, and evaluator errors are never
+copied into the request audit event.
+
 The request middleware requires an explicit sink and uses the same
 `opscustodian.dev/audit-event/v1alpha1` envelope as scan and drift events.
 `serve` installs a synchronized JSONL sink on standard error so container and

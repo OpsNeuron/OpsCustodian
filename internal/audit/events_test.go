@@ -61,6 +61,24 @@ func TestFromHTTPRequestUsesSharedSecretSafeAuditEnvelope(t *testing.T) {
 	}
 }
 
+func TestFromHTTPRequestAddsOnlyBoundedPolicyDecisionSummary(t *testing.T) {
+	event := FromHTTPRequest(HTTPRequestObservation{
+		OccurredAt: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC), RequestID: "request-0123456789abcdef0123456789abcdef",
+		OrganizationID: "organization-0123456789abcdef", Method: "POST", Route: "POST /api/v1/policy/evaluate", Status: 200,
+		Authentication: "authenticated", Authorization: "authorized", Identity: "policy-client",
+		Policy: &PolicyEvaluationObservation{Result: "denied", DenyCount: 2, WarnCount: 1},
+	})
+	if event.Attributes["opscustodian.policy.evaluation.result"] != "denied" || event.Attributes["opscustodian.policy.deny.count"] != 2 || event.Attributes["opscustodian.policy.warn.count"] != 1 {
+		t.Fatalf("policy audit attributes = %#v", event.Attributes)
+	}
+	content, _ := json.Marshal(event)
+	for _, forbidden := range []string{"policy input", "policy rule", "AgentBOM"} {
+		if strings.Contains(string(content), forbidden) {
+			t.Fatalf("policy audit leaked payload content: %s", content)
+		}
+	}
+}
+
 func TestFromCredentialReloadMinimizesFailureEvent(t *testing.T) {
 	event := FromCredentialReload(CredentialReloadObservation{OccurredAt: time.Date(2026, 8, 22, 12, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: false})
 	if event.EventName != "opscustodian.credential.reload.completed" || event.SeverityNumber != 13 || event.Attributes["opscustodian.credential.reload.result"] != "failed" || len(event.Attributes) != 2 {

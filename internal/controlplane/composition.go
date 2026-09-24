@@ -13,13 +13,17 @@ func NewControlPlaneHTTPServer(config Config, reader store.Reader, buildVersion 
 }
 
 func NewControlPlaneHTTPServerWithReadiness(config Config, reader store.Reader, buildVersion string, auditSink server.RequestAuditSink, onAuditFailure server.RequestAuditFailureHandler, readiness server.ReadinessReader) (*http.Server, error) {
+	return NewControlPlaneHTTPServerWithReadinessAndPolicy(config, reader, buildVersion, auditSink, onAuditFailure, readiness, nil)
+}
+
+func NewControlPlaneHTTPServerWithReadinessAndPolicy(config Config, reader store.Reader, buildVersion string, auditSink server.RequestAuditSink, onAuditFailure server.RequestAuditFailureHandler, readiness server.ReadinessReader, evaluator server.PolicyEvaluator) (*http.Server, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
 	if reader == nil {
 		return nil, fmt.Errorf("control-plane store reader is required")
 	}
-	handler, err := server.NewAuditedAuthenticatedHandlerWithReadiness(reader, buildVersion, config.Authenticator, config.Authorizer, config.OrganizationID, auditSink, onAuditFailure, readiness)
+	handler, err := server.NewAuditedAuthenticatedHandlerWithReadinessAndPolicy(reader, buildVersion, config.Authenticator, config.Authorizer, config.OrganizationID, auditSink, onAuditFailure, readiness, evaluator)
 	if err != nil {
 		return nil, err
 	}

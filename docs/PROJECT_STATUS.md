@@ -214,6 +214,8 @@ Missing exit items:
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.
 - Versioned secret-minimized HTTP request audit events, synchronized JSONL stderr sink, and fail-closed process wiring with server-generated correlation IDs, canonical routes, authentication outcomes, status, and latency.
+- Authenticated fail-closed policy-evaluation API backed by a locally executed, timeout-bounded OPA runtime with secret-safe configuration and a pinned container executable.
+- Minimized policy request audit summaries containing only bounded outcomes and deny/warn counts, with policy input, decision text, rules, evidence, remediation, and evaluator errors excluded.
 - Explicit scope-based API authorization with granular contracts, inventory, and findings read permissions plus a `control-plane:read` umbrella, separate `401`/`403` semantics, fail-closed environment validation, OpenAPI declarations, and authorization audit outcomes.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.

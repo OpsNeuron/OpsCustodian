@@ -32,6 +32,8 @@ until compose exec -T opscustodian wget -q -O - http://127.0.0.1:8080/readyz | g
 done
 
 compose exec -T opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories' | grep -q 'integration:scan-input'
+compose exec -T opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_API_TOKEN" --header="Content-Type: application/json" --post-file=/config/policy-input.json http://127.0.0.1:8080/api/v1/policy/evaluate' | grep -q '"allowed":true'
+compose logs opscustodian | grep -q '"opscustodian.policy.evaluation.result":"allowed"'
 compose exec -T opscustodian opscustodian scan --output /work/agentbom.integration.json /fixtures/scan-input
 compose exec -T opscustodian opscustodian events --bom /work/agentbom.integration.json --output /work/events.integration.jsonl --otlp-endpoint http://collector:4318/v1/logs --allow-insecure-otlp
 compose run --rm opa

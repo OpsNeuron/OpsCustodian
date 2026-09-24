@@ -167,12 +167,12 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		}
 	}
 
-	httpServer, err := NewControlPlaneHTTPServerWithReadiness(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
+	httpServer, err := NewControlPlaneHTTPServerWithReadinessAndPolicy(config, runtime.Store, buildVersion, dependencies.AuditSink, func(err error) {
 		select {
 		case auditFailures <- err:
 		default:
 		}
-	}, readiness)
+	}, readiness, newPolicyEvaluator(config))
 	if err != nil {
 		return err
 	}

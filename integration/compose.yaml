@@ -37,8 +37,10 @@ services:
       OPSCUSTODIAN_DATABASE_MIGRATE: "true"
       OPSCUSTODIAN_API_TOKEN_ID: integration-operator
       OPSCUSTODIAN_API_TOKEN: ${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}
-      OPSCUSTODIAN_API_SCOPES: control-plane:read,snapshots:write
+      OPSCUSTODIAN_API_SCOPES: control-plane:read,snapshots:write,policy:evaluate
       OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
+      OPSCUSTODIAN_POLICY_PATH: /policies
+      OPSCUSTODIAN_POLICY_TIMEOUT: 5s
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,6 +54,8 @@ services:
     volumes:
       - ./repository-set.json:/config/repository-set.json:ro
       - ../examples/scan-input:/fixtures/scan-input:ro
+      - ../policies/builtin:/policies:ro
+      - ./policy-input.json:/config/policy-input.json:ro
       - integration-output:/work
     working_dir: /work
     networks: [integration]

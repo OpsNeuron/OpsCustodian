@@ -1,0 +1,14 @@
+{
+  "apiVersion": "opscustodian.dev/policy-input/v1alpha1",
+  "bom": {
+    "apiVersion": "opscustodian.dev/v1alpha1",
+    "kind": "AgentBOM",
+    "metadata": {
+      "source": "integration:policy-runtime",
+      "revision": "fixture",
+      "generator": "integration-harness",
+      "normalizationVersion": "v1alpha1"
+    },
+    "assets": []
+  }
+}

@@ -15,6 +15,7 @@ const (
 	ScopeFindingsRead      = "findings:read"
 	ScopeSnapshotsWrite    = "snapshots:write"
 	ScopePolicyEvaluate    = "policy:evaluate"
+	ScopeAuditRead         = "audit:read"
 )
 
 var supportedScopes = map[string]struct{}{
@@ -25,6 +26,7 @@ var supportedScopes = map[string]struct{}{
 	ScopeFindingsRead:      {},
 	ScopeSnapshotsWrite:    {},
 	ScopePolicyEvaluate:    {},
+	ScopeAuditRead:         {},
 }
 
 type ScopeAuthorizer struct {
@@ -117,11 +119,43 @@ func requiredScope(method, path string) string {
 		return ScopePolicyEvaluate
 	case path == "/api/v1/contracts":
 		return ScopeContractsRead
+	case path == "/api/v1/graph":
+		return ScopeInventoryRead
+	case path == "/api/v1/audit-events":
+		return ScopeAuditRead
 	case path == "/api/v1/findings", path == "/api/v1/finding-lifecycles":
+		return ScopeFindingsRead
+	case strings.HasPrefix(path, "/api/v1/repositories/") && strings.HasSuffix(path, "/drift"):
 		return ScopeFindingsRead
 	case strings.HasPrefix(path, "/api/v1/repositories"):
 		return ScopeInventoryRead
 	default:
 		return ScopeControlPlaneRead
 	}
+}
+
+func authorizedRepositoryIDs(request *http.Request) []string {
+	principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal)
+	if !ok || !principal.restricted {
+		return nil
+	}
+	values := make([]string, 0, len(principal.repositories))
+	for repositoryID := range principal.repositories {
+		values = append(values, repositoryID)
+	}
+	sort.Strings(values)
+	return values
+}
+
+func authorizeRepository(w http.ResponseWriter, request *http.Request, repositoryID string) bool {
+	principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal)
+	if !ok || !principal.restricted {
+		return true
+	}
+	if _, allowed := principal.repositories[repositoryID]; allowed {
+		return true
+	}
+	setRequestAuthorization(request, "denied")
+	writeError(w, http.StatusForbidden, "repository-authorization-denied", "the authenticated identity is not authorized for this repository")
+	return false
 }

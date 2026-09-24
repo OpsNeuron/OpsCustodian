@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/model"
 	"github.com/opscustodian/opscustodian/internal/validation"
 )
@@ -45,8 +46,9 @@ type SnapshotSummary struct {
 }
 
 type PageRequest struct {
-	Limit  int
-	Cursor string
+	Limit         int
+	Cursor        string
+	RepositoryIDs []string
 }
 
 type RepositoryPage struct {
@@ -80,10 +82,11 @@ type FindingLifecycleRecord struct {
 }
 
 type FindingLifecycleFilter struct {
-	RepositoryID string
-	Severity     string
-	Status       string
-	Page         PageRequest
+	RepositoryID  string
+	RepositoryIDs []string
+	Severity      string
+	Status        string
+	Page          PageRequest
 }
 
 type FindingLifecyclePage struct {
@@ -99,9 +102,10 @@ type FindingRecord struct {
 }
 
 type FindingFilter struct {
-	RepositoryID string
-	Severity     string
-	Page         PageRequest
+	RepositoryID  string
+	RepositoryIDs []string
+	Severity      string
+	Page          PageRequest
 }
 
 type Reader interface {
@@ -111,6 +115,32 @@ type Reader interface {
 	ListSnapshots(context.Context, string, PageRequest) (SnapshotPage, error)
 	ListFindings(context.Context, FindingFilter) (FindingPage, error)
 	ListFindingLifecycle(context.Context, FindingLifecycleFilter) (FindingLifecyclePage, error)
+}
+
+type AuditRecord struct {
+	ID           int64       `json:"id"`
+	RepositoryID string      `json:"repositoryId,omitempty"`
+	IdentityID   string      `json:"identityId,omitempty"`
+	Event        audit.Event `json:"event"`
+}
+
+type AuditFilter struct {
+	RepositoryIDs []string
+	RepositoryID  string
+	EventName     string
+	IdentityID    string
+	Page          PageRequest
+}
+
+type AuditPage struct {
+	Items      []AuditRecord
+	NextCursor string
+}
+
+type AuditStore interface {
+	Record(context.Context, audit.Event) error
+	ListAuditEvents(context.Context, AuditFilter) (AuditPage, error)
+	PruneAuditEvents(context.Context, time.Time, int) (int64, error)
 }
 
 type Writer interface {
@@ -126,6 +156,7 @@ type Memory struct {
 	repositories map[string]*memoryRepository
 	leases       map[string]SchedulerLease
 	nextFence    map[string]int64
+	auditEvents  []AuditRecord
 }
 
 type memoryRepository struct {
@@ -259,7 +290,13 @@ func (memory *Memory) ListRepositories(ctx context.Context, page PageRequest) (R
 	memory.mu.RLock()
 	defer memory.mu.RUnlock()
 	result := make([]RepositorySummary, 0, len(memory.repositories))
+	allowed := repositorySet(page.RepositoryIDs)
 	for id, repository := range memory.repositories {
+		if allowed != nil {
+			if _, ok := allowed[id]; !ok {
+				continue
+			}
+		}
 		latest := repository.snapshots[repository.latest].bom
 		result = append(result, RepositorySummary{
 			ID: id, Source: repository.source, LatestRevision: latest.Metadata.Revision,
@@ -343,7 +380,13 @@ func (memory *Memory) ListFindings(ctx context.Context, filter FindingFilter) (F
 	}
 	memory.mu.RLock()
 	result := make([]FindingRecord, 0)
+	allowed := repositorySet(filter.RepositoryIDs)
 	for id, repository := range memory.repositories {
+		if allowed != nil {
+			if _, ok := allowed[id]; !ok {
+				continue
+			}
+		}
 		if filter.RepositoryID != "" && filter.RepositoryID != id {
 			continue
 		}
@@ -369,7 +412,13 @@ func (memory *Memory) ListFindingLifecycle(ctx context.Context, filter FindingLi
 	}
 	memory.mu.RLock()
 	result := make([]FindingLifecycleRecord, 0)
+	allowed := repositorySet(filter.RepositoryIDs)
 	for repositoryID, repository := range memory.repositories {
+		if allowed != nil {
+			if _, ok := allowed[repositoryID]; !ok {
+				continue
+			}
+		}
 		if filter.RepositoryID != "" && filter.RepositoryID != repositoryID {
 			continue
 		}
@@ -393,6 +442,17 @@ func (memory *Memory) ListFindingLifecycle(ctx context.Context, filter FindingLi
 	sort.Slice(result, func(i, j int) bool { return lifecycleSortKey(result[i]) < lifecycleSortKey(result[j]) })
 	items, next := pageSlice(result, filter.Page, lifecycleSortKey)
 	return FindingLifecyclePage{Items: items, NextCursor: next}, nil
+}
+
+func repositorySet(repositoryIDs []string) map[string]struct{} {
+	if repositoryIDs == nil {
+		return nil
+	}
+	result := make(map[string]struct{}, len(repositoryIDs))
+	for _, repositoryID := range repositoryIDs {
+		result[repositoryID] = struct{}{}
+	}
+	return result
 }
 
 type lifecycleState struct {

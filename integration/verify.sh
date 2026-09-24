@@ -31,9 +31,35 @@ until compose exec -T opscustodian wget -q -O - http://127.0.0.1:8080/readyz | g
   sleep 1
 done
 
-compose exec -T opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories' | grep -q 'integration:scan-input'
-compose exec -T opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_API_TOKEN" --header="Content-Type: application/json" --post-file=/config/policy-input.json http://127.0.0.1:8080/api/v1/policy/evaluate' | grep -q '"allowed":true'
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories' | grep -q 'integration:scan-input'
+if compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O /dev/null --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories/repository-0000000000000000/bom'; then
+  echo "repository-scoped credential unexpectedly accessed an unauthorized repository" >&2
+  exit 1
+fi
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" --header="Content-Type: application/json" --post-file=/config/policy-input.json http://127.0.0.1:8080/api/v1/policy/evaluate' | grep -q '"allowed":true'
 compose logs opscustodian | grep -q '"opscustodian.policy.evaluation.result":"allowed"'
+echo "Verifying PostgreSQL-backed historical drift"
+if ! before_snapshot=$(compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" --header="Content-Type: application/json" --post-file=/fixtures/scope-expansion/agentbom.before.json http://127.0.0.1:8080/api/v1/snapshots'); then
+  echo "baseline snapshot ingestion failed" >&2
+  compose logs opscustodian >&2
+  exit 1
+fi
+if ! printf '%s\n' "$before_snapshot" | grep -q '"snapshotId":"snapshot-58c6a249b11fd7c7"'; then
+  printf 'unexpected baseline snapshot response: %s\n' "$before_snapshot" >&2
+  exit 1
+fi
+after_snapshot=$(compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" --header="Content-Type: application/json" --post-file=/fixtures/scope-expansion/agentbom.after.json http://127.0.0.1:8080/api/v1/snapshots')
+if ! printf '%s\n' "$after_snapshot" | grep -q '"snapshotId":"snapshot-0f2be90bc27aef1d"'; then
+  printf 'unexpected proposed snapshot response: %s\n' "$after_snapshot" >&2
+  exit 1
+fi
+drift_response=$(compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" "http://127.0.0.1:8080/api/v1/repositories/repository-4b70fe32f822b795/drift?beforeSnapshotId=snapshot-58c6a249b11fd7c7&afterSnapshotId=snapshot-0f2be90bc27aef1d"')
+if ! printf '%s\n' "$drift_response" | grep -q '"type":"capability-escalated"'; then
+  printf 'unexpected historical drift response: %s\n' "$drift_response" >&2
+  exit 1
+fi
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" "http://127.0.0.1:8080/api/v1/graph?limit=2&action=kubernetes.deployments.update"' | grep -q '"repositoryId":"repository-4b70fe32f822b795"'
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" "http://127.0.0.1:8080/api/v1/audit-events?repositoryId=repository-4b70fe32f822b795&eventName=opscustodian.http.request.completed"' | grep -q '"opscustodian.snapshot.ingestion.result":"persisted"'
 compose exec -T opscustodian opscustodian scan --output /work/agentbom.integration.json /fixtures/scan-input
 compose exec -T opscustodian opscustodian events --bom /work/agentbom.integration.json --output /work/events.integration.jsonl --otlp-endpoint http://collector:4318/v1/logs --allow-insecure-otlp
 compose run --rm opa

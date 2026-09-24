@@ -202,6 +202,29 @@ func TestConfigAcceptsMultiCredentialRegistryWithoutLeakingTokens(t *testing.T) 
 	}
 }
 
+func TestConfigEnablesSecretSafeRepositoryAuthorization(t *testing.T) {
+	repositoryID := "repository-0123456789abcdef"
+	config, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_TOKEN":               controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":            "repository-reader",
+		"OPSCUSTODIAN_API_SCOPES":              "inventory:read",
+		"OPSCUSTODIAN_API_REPOSITORIES":        repositoryID,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := json.Marshal(config.Safe())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !config.RepositoryAuthorization || !strings.Contains(string(content), `"repositoryAuthorizationConfigured":true`) || strings.Contains(string(content), repositoryID) {
+		t.Fatalf("unsafe repository authorization projection: %s", content)
+	}
+}
+
 func TestConfigRejectsMixedCredentialModes(t *testing.T) {
 	_, err := ConfigFromEnvironment(environment(map[string]string{
 		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
@@ -212,6 +235,19 @@ func TestConfigRejectsMixedCredentialModes(t *testing.T) {
 	}))
 	if err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Fatalf("mixed credential error = %v", err)
+	}
+}
+
+func TestConfigRejectsRepositoryAuthorizationMixedWithRegistryMode(t *testing.T) {
+	_, err := ConfigFromEnvironment(environment(map[string]string{
+		"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+		"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+		"OPSCUSTODIAN_API_CREDENTIALS":         `[{"id":"reader","token":"registry-token-0123456789abcdefghijkl","scopes":["inventory:read"]}]`,
+		"OPSCUSTODIAN_API_REPOSITORIES":        "repository-0123456789abcdef",
+	}))
+	if err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("mixed repository authorization error = %v", err)
 	}
 }
 

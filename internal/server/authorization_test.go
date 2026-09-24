@@ -59,12 +59,16 @@ func TestScopeAuthorizationValidatesAndDoesNotExposeMutableState(t *testing.T) {
 func TestGranularScopesCannotCrossAPIBoundaries(t *testing.T) {
 	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
 	for _, test := range []struct {
-		scope string
-		path  string
+		scope         string
+		path          string
+		allowedStatus int
 	}{
-		{ScopeContractsRead, "/api/v1/contracts"},
-		{ScopeInventoryRead, "/api/v1/repositories"},
-		{ScopeFindingsRead, "/api/v1/findings"},
+		{ScopeContractsRead, "/api/v1/contracts", http.StatusOK},
+		{ScopeInventoryRead, "/api/v1/repositories", http.StatusOK},
+		{ScopeInventoryRead, "/api/v1/graph", http.StatusOK},
+		{ScopeAuditRead, "/api/v1/audit-events", http.StatusOK},
+		{ScopeFindingsRead, "/api/v1/findings", http.StatusOK},
+		{ScopeFindingsRead, "/api/v1/repositories/repository-0123456789abcdef/drift", http.StatusBadRequest},
 	} {
 		authorizer, _ := NewScopeAuthorizer([]string{test.scope})
 		handler := newHandler(store.NewMemory(), "test", &authenticator, &authorizer)
@@ -72,7 +76,7 @@ func TestGranularScopesCannotCrossAPIBoundaries(t *testing.T) {
 		request.Header.Set("Authorization", "Bearer "+serverTestBearerToken)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
-		if response.Code != http.StatusOK {
+		if response.Code != test.allowedStatus {
 			t.Fatalf("scope %s path %s status = %d", test.scope, test.path, response.Code)
 		}
 	}

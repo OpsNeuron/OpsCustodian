@@ -91,6 +91,38 @@ three Rego contract tests passed, the request audit contained only the bounded
 allowed outcome and decision counts, and the disposable containers, network,
 and volumes were removed.
 
+The repository-authorization phase then ran the control plane with a
+repository-scoped multi-credential entry against real PostgreSQL. Collection
+pagination returned only the granted repository, the scoped findings query
+executed through the PostgreSQL allowlist filter, and a direct request for an
+ungranted repository returned `403`. The disposable resources were removed
+after the successful run.
+
+The historical-drift phase extends the same disposable harness with two
+immutable scope-expansion snapshots submitted through the authenticated API.
+The control plane reads both snapshots from PostgreSQL and returns the expected
+semantic capability-escalation change through the repository-authorized drift
+endpoint. The comparison neither rescans a repository nor accepts a client
+supplied comparison result.
+
+The organization-graph phase queries the latest persisted graph material from
+the same PostgreSQL-backed repositories. The harness verifies that the bounded
+graph page contains the authorized scope-expansion repository after ingestion;
+the query uses its exact Kubernetes deployment-update capability action, while
+repository filtering remains enforced by the shared collection boundary.
+
+The persistent-audit phase applies the third migration, writes request events
+to PostgreSQL in addition to the JSONL operational sink, and queries a
+repository-scoped snapshot-ingestion event through the authenticated
+`audit:read` API. Raw authorization headers, tokens, request bodies, and query
+strings remain outside the retained event contract.
+
+The audit-retention phase adds bounded tenant-scoped pruning with deterministic
+unit coverage for age and batch limits. The Docker harness validates the
+retention-capable schema and startup worker initialization; long-duration
+wall-clock expiry remains a release-candidate soak-test gate rather than being
+simulated as proof in this short-lived harness.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

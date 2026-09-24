@@ -14,6 +14,7 @@ import (
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/ingestion"
 	"github.com/opscustodian/opscustodian/internal/server"
+	"github.com/opscustodian/opscustodian/internal/store"
 )
 
 type ProcessDependencies struct {
@@ -143,6 +144,17 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	if err := readiness.Update(server.ReadinessDatabase, server.ReadinessReady); err != nil {
 		return err
 	}
+	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, runtime.Store)
+	if err != nil {
+		return fmt.Errorf("initialize persistent audit sink: %w", err)
+	}
+	dependencies.AuditSink = persistentAuditSink
+	retentionFailures := make(chan error, 1)
+	go func() {
+		if err := runAuditRetention(ctx, runtime.Store, config.AuditRetention, config.AuditPruneInterval, config.AuditPruneBatch); err != nil {
+			retentionFailures <- err
+		}
+	}()
 	var ingestionRunner ingestion.BatchRunner
 	if config.RepositorySetFile != "" {
 		revisions, err := ingestion.NewGitHubRevisionClient(ingestion.GitHubRevisionOptions{Credentials: githubCredentials})
@@ -275,6 +287,37 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 			return errors.Join(ingestionErr, serveErr)
 		}
 		return nil
+	case retentionErr := <-retentionFailures:
+		cancelServe()
+		serveErr := <-serveResult
+		return errors.Join(retentionErr, serveErr)
+	}
+}
+
+func runAuditRetention(ctx context.Context, auditStore store.AuditStore, retention, interval time.Duration, batch int) error {
+	if auditStore == nil || retention < 24*time.Hour || interval < time.Minute || interval > 24*time.Hour || batch < 1 || batch > 10000 {
+		return fmt.Errorf("valid audit retention dependencies and bounds are required")
+	}
+	prune := func() error {
+		if _, err := auditStore.PruneAuditEvents(ctx, time.Now().UTC().Add(-retention), batch); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("prune retained audit events: %w", err)
+		}
+		return nil
+	}
+	if err := prune(); err != nil {
+		return err
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := prune(); err != nil {
+				return err
+			}
+		}
 	}
 }
 

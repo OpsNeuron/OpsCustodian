@@ -24,9 +24,11 @@ JOIN LATERAL (
     WHERE organization_id = r.organization_id AND repository_id = r.id
     ORDER BY ingested_at DESC, id DESC LIMIT 1
 ) latest ON true
-WHERE r.organization_id = $1 AND r.id > $2
+WHERE r.organization_id = $1
+  AND (cardinality($2::text[]) = 0 OR r.id = ANY($2::text[]))
+  AND r.id > $3
 ORDER BY r.id
-LIMIT $3`
+LIMIT $4`
 
 const repositoryExistsSQL = `SELECT EXISTS (
     SELECT 1 FROM repositories WHERE organization_id = $1 AND id = $2
@@ -52,6 +54,7 @@ LIMIT $5`
 const listFindingsSQL = `WITH latest AS (
     SELECT DISTINCT ON (repository_id) repository_id, id AS snapshot_id, revision
     FROM snapshots WHERE organization_id = $1
+      AND (cardinality($2::text[]) = 0 OR repository_id = ANY($2::text[]))
     ORDER BY repository_id, ingested_at DESC, id DESC
 )
 SELECT r.id, r.source, latest.revision, findings.finding
@@ -59,16 +62,18 @@ FROM latest
 JOIN repositories r ON r.organization_id = $1 AND r.id = latest.repository_id
 JOIN snapshot_findings findings ON findings.organization_id = $1
     AND findings.repository_id = latest.repository_id AND findings.snapshot_id = latest.snapshot_id
-WHERE ($2 = '' OR r.id = $2) AND ($3 = '' OR findings.severity = $3)
-  AND (r.id, findings.finding_id) > ($4, $5)
+WHERE ($3 = '' OR r.id = $3) AND ($4 = '' OR findings.severity = $4)
+  AND (r.id, findings.finding_id) > ($5, $6)
 ORDER BY r.id, findings.finding_id
-LIMIT $6`
+LIMIT $7`
 
 const listFindingLifecycleSQL = `WITH ordered_snapshots AS (
     SELECT repository_id, id AS snapshot_id, revision, generated_at,
            row_number() OVER (PARTITION BY repository_id ORDER BY ingested_at, id) AS sequence
     FROM snapshots
-    WHERE organization_id = $1 AND ($2 = '' OR repository_id = $2)
+    WHERE organization_id = $1
+      AND (cardinality($2::text[]) = 0 OR repository_id = ANY($2::text[]))
+      AND ($3 = '' OR repository_id = $3)
 ), presence AS (
     SELECT snapshots.repository_id, snapshots.snapshot_id, snapshots.revision, snapshots.generated_at,
            snapshots.sequence, findings.finding_id, findings.severity, findings.finding,
@@ -110,14 +115,14 @@ const listFindingLifecycleSQL = `WITH ordered_snapshots AS (
 SELECT repository_id, source, finding_id, status, first_revision, last_revision,
        resolved_revision, first_observed_at, last_observed_at, resolved_at, occurrences, finding
 FROM current_episodes
-WHERE ($3 = '' OR severity = $3) AND ($4 = '' OR status = $4)
-  AND (repository_id, finding_id) > ($5, $6)
+WHERE ($4 = '' OR severity = $4) AND ($5 = '' OR status = $5)
+  AND (repository_id, finding_id) > ($6, $7)
 ORDER BY repository_id, finding_id
-LIMIT $7`
+LIMIT $8`
 
 func (store *Postgres) ListRepositories(ctx context.Context, page PageRequest) (RepositoryPage, error) {
 	limit := normalizedPageLimit(page.Limit)
-	rows, err := store.database.QueryContext(ctx, listRepositoriesSQL, store.organizationID, page.Cursor, limit+1)
+	rows, err := store.database.QueryContext(ctx, listRepositoriesSQL, store.organizationID, repositoryFilter(page.RepositoryIDs), page.Cursor, limit+1)
 	if err != nil {
 		return RepositoryPage{}, fmt.Errorf("list repositories: %w", err)
 	}
@@ -200,7 +205,7 @@ func (store *Postgres) ListFindings(ctx context.Context, filter FindingFilter) (
 	cursorRepository, cursorFinding := splitCompositeCursor(filter.Page.Cursor)
 	limit := normalizedPageLimit(filter.Page.Limit)
 	rows, err := store.database.QueryContext(ctx, listFindingsSQL,
-		store.organizationID, filter.RepositoryID, filter.Severity, cursorRepository, cursorFinding, limit+1,
+		store.organizationID, repositoryFilter(filter.RepositoryIDs), filter.RepositoryID, filter.Severity, cursorRepository, cursorFinding, limit+1,
 	)
 	if err != nil {
 		return FindingPage{}, fmt.Errorf("list findings: %w", err)
@@ -229,7 +234,7 @@ func (store *Postgres) ListFindingLifecycle(ctx context.Context, filter FindingL
 	cursorRepository, cursorFinding := splitCompositeCursor(filter.Page.Cursor)
 	limit := normalizedPageLimit(filter.Page.Limit)
 	rows, err := store.database.QueryContext(ctx, listFindingLifecycleSQL,
-		store.organizationID, filter.RepositoryID, filter.Severity, filter.Status,
+		store.organizationID, repositoryFilter(filter.RepositoryIDs), filter.RepositoryID, filter.Severity, filter.Status,
 		cursorRepository, cursorFinding, limit+1,
 	)
 	if err != nil {
@@ -261,6 +266,13 @@ func (store *Postgres) ListFindingLifecycle(ctx context.Context, filter FindingL
 	}
 	items, next := databasePage(items, limit, lifecycleSortKey)
 	return FindingLifecyclePage{Items: items, NextCursor: next}, nil
+}
+
+func repositoryFilter(repositoryIDs []string) []string {
+	if repositoryIDs == nil {
+		return []string{}
+	}
+	return repositoryIDs
 }
 
 func decodeStoredBOM(content []byte) (model.AgentBOM, error) {

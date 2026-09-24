@@ -13,7 +13,9 @@ import (
 
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
+	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/normalize"
 	"github.com/opscustodian/opscustodian/internal/store"
 	"github.com/opscustodian/opscustodian/internal/validation"
 )
@@ -46,6 +48,15 @@ type snapshotIngestionResponse struct {
 	GeneratedAt  string `json:"generatedAt,omitempty"`
 	AssetCount   int    `json:"assetCount"`
 	FindingCount int    `json:"findingCount"`
+}
+
+type organizationGraph struct {
+	RepositoryID  string               `json:"repositoryId"`
+	Source        string               `json:"source"`
+	Revision      string               `json:"revision"`
+	Assets        []model.Asset        `json:"assets"`
+	Relationships []model.Relationship `json:"relationships"`
+	AccessPaths   []model.AccessPath   `json:"accessPaths"`
 }
 
 type errorResponse struct {
@@ -83,9 +94,12 @@ func newHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, 
 	mux.HandleFunc("GET /readyz", api.ready)
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
 	mux.HandleFunc("GET /api/v1/repositories", api.repositories)
+	mux.HandleFunc("GET /api/v1/graph", api.organizationGraph)
+	mux.HandleFunc("GET /api/v1/audit-events", api.auditEvents)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
+	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/drift", api.repositoryDrift)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
 	mux.HandleFunc("POST /api/v1/snapshots", api.ingestSnapshot)
@@ -142,9 +156,12 @@ func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "invalid-agent-bom", "Agent BOM does not satisfy the supported contract")
 		return
 	}
+	repositoryID := store.RepositoryID(bom.Metadata.Source)
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
 	snapshot, err := api.writer.PutSnapshot(request.Context(), bom)
 	if errors.Is(err, store.ErrConflict) {
-		repositoryID := store.RepositoryID(bom.Metadata.Source)
 		setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{
 			Result: "conflict", RepositoryID: repositoryID,
 			SnapshotID: store.SnapshotID(repositoryID, bom.Metadata.Revision), Revision: bom.Metadata.Revision,
@@ -188,6 +205,7 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 	if !ok {
 		return
 	}
+	page.RepositoryIDs = authorizedRepositoryIDs(request)
 	result, err := api.reader.ListRepositories(request.Context(), page)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository inventory is unavailable")
@@ -199,10 +217,103 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 	writeJSON(w, http.StatusOK, listResponse[store.RepositorySummary]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("repositories", result.NextCursor)})
 }
 
+func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) {
+	filter, ok := requestGraphFilter(w, request)
+	if !ok {
+		return
+	}
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	page, ok := requestPage(w, request, filter.cursorScope())
+	if !ok {
+		return
+	}
+	if filter.RepositoryID != "" {
+		page.RepositoryIDs = []string{filter.RepositoryID}
+	} else {
+		page.RepositoryIDs = authorizedRepositoryIDs(request)
+	}
+	repositories, err := api.reader.ListRepositories(request.Context(), page)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "organization graph is unavailable")
+		return
+	}
+	items := make([]organizationGraph, 0, len(repositories.Items))
+	for _, repository := range repositories.Items {
+		snapshot, err := api.reader.LatestSnapshot(request.Context(), repository.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "store-read-failed", "organization graph is unavailable")
+			return
+		}
+		normalize.BOM(&snapshot.BOM)
+		if !filter.matches(snapshot.BOM) {
+			continue
+		}
+		if snapshot.BOM.Assets == nil {
+			snapshot.BOM.Assets = []model.Asset{}
+		}
+		if snapshot.BOM.Relationships == nil {
+			snapshot.BOM.Relationships = []model.Relationship{}
+		}
+		if snapshot.BOM.AccessPaths == nil {
+			snapshot.BOM.AccessPaths = []model.AccessPath{}
+		}
+		items = append(items, organizationGraph{
+			RepositoryID: repository.ID, Source: repository.Source, Revision: snapshot.BOM.Metadata.Revision,
+			Assets: snapshot.BOM.Assets, Relationships: snapshot.BOM.Relationships, AccessPaths: snapshot.BOM.AccessPaths,
+		})
+	}
+	writeJSON(w, http.StatusOK, listResponse[organizationGraph]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items, NextCursor: encodeCursor(filter.cursorScope(), repositories.NextCursor)})
+}
+
+func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
+	auditStore, ok := api.reader.(store.AuditStore)
+	if !ok {
+		writeError(w, http.StatusServiceUnavailable, "audit-store-unavailable", "audit history is unavailable")
+		return
+	}
+	repositoryID := request.URL.Query().Get("repositoryId")
+	if repositoryID != "" {
+		if !validRepositoryID(repositoryID) {
+			writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+			return
+		}
+		if !authorizeRepository(w, request, repositoryID) {
+			return
+		}
+	}
+	eventName, identityID := request.URL.Query().Get("eventName"), request.URL.Query().Get("identityId")
+	for _, value := range []string{eventName, identityID} {
+		if value != strings.TrimSpace(value) || len(value) > 200 || strings.ContainsAny(value, "\x00\r\n") {
+			writeError(w, http.StatusBadRequest, "invalid-audit-filter", "audit filters must be trimmed values of at most 200 bytes")
+			return
+		}
+	}
+	scope := boundedCursorScope("audit-events", repositoryID, eventName, identityID)
+	page, ok := requestPage(w, request, scope)
+	if !ok {
+		return
+	}
+	filter := store.AuditFilter{RepositoryID: repositoryID, EventName: eventName, IdentityID: identityID, Page: page}
+	if repositoryID == "" {
+		filter.RepositoryIDs = authorizedRepositoryIDs(request)
+	}
+	result, err := auditStore.ListAuditEvents(request.Context(), filter)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "audit history is unavailable")
+		return
+	}
+	writeJSON(w, http.StatusOK, listResponse[store.AuditRecord]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor(scope, result.NextCursor)})
+}
+
 func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {
 	repositoryID := request.PathValue("repositoryID")
 	if !validRepositoryID(repositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if !authorizeRepository(w, request, repositoryID) {
 		return
 	}
 	page, ok := requestPage(w, request, "snapshots:"+repositoryID)
@@ -230,6 +341,9 @@ func (api *API) snapshotBOM(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
 	if !validSnapshotID(snapshotID) {
 		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "snapshot ID is invalid")
 		return
@@ -252,6 +366,9 @@ func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if !authorizeRepository(w, request, id) {
+		return
+	}
 	snapshot, err := api.reader.LatestSnapshot(request.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "repository-not-found", "repository was not found")
@@ -264,12 +381,57 @@ func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
 	writeJSON(w, http.StatusOK, valueResponse[store.Snapshot]{APIVersion: contracts.ControlPlaneAPIVersion, Value: snapshot})
 }
 
+func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
+	repositoryID := request.PathValue("repositoryID")
+	if !validRepositoryID(repositoryID) {
+		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
+	beforeID, afterID := request.URL.Query().Get("beforeSnapshotId"), request.URL.Query().Get("afterSnapshotId")
+	if !validSnapshotID(beforeID) || !validSnapshotID(afterID) {
+		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "beforeSnapshotId and afterSnapshotId must be valid snapshot IDs")
+		return
+	}
+	before, err := api.reader.Snapshot(request.Context(), repositoryID, beforeID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "snapshot-not-found", "one or more snapshots were not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository snapshots are unavailable")
+		return
+	}
+	after, err := api.reader.Snapshot(request.Context(), repositoryID, afterID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "snapshot-not-found", "one or more snapshots were not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository snapshots are unavailable")
+		return
+	}
+	normalize.BOM(&before.BOM)
+	normalize.BOM(&after.BOM)
+	report := drift.Compare(before.BOM, after.BOM)
+	if report.Changes == nil {
+		report.Changes = []drift.Change{}
+	}
+	writeJSON(w, http.StatusOK, valueResponse[drift.Report]{APIVersion: contracts.ControlPlaneAPIVersion, Value: report})
+}
+
 func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 	filter := store.FindingFilter{RepositoryID: request.URL.Query().Get("repositoryId"), Severity: strings.ToLower(request.URL.Query().Get("severity"))}
 	if filter.RepositoryID != "" && !validRepositoryID(filter.RepositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	filter.RepositoryIDs = authorizedRepositoryIDs(request)
 	if filter.Severity != "" && !validSeverity(filter.Severity) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return
@@ -301,6 +463,10 @@ func (api *API) findingLifecycles(w http.ResponseWriter, request *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	filter.RepositoryIDs = authorizedRepositoryIDs(request)
 	if filter.Severity != "" && !validSeverity(filter.Severity) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return

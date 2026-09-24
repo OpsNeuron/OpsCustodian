@@ -12,22 +12,25 @@ import (
 )
 
 const (
-	defaultConnectTimeout    = 5 * time.Second
-	defaultMigrationTimeout  = 2 * time.Minute
-	defaultShutdownTimeout   = 10 * time.Second
-	defaultMaxOpenConns      = 20
-	defaultMaxIdleConns      = 5
-	defaultConnMaxLifetime   = 30 * time.Minute
-	defaultListenAddress     = "127.0.0.1:8080"
-	defaultReadHeaderTimeout = 5 * time.Second
-	defaultReadTimeout       = 15 * time.Second
-	defaultWriteTimeout      = 30 * time.Second
-	defaultIdleTimeout       = 60 * time.Second
-	defaultMaxHeaderBytes    = 64 << 10
-	defaultSchedulerLeaseTTL = time.Minute
-	defaultSchedulerRenewal  = 20 * time.Second
-	defaultPolicyQuery       = "data.opscustodian.decision"
-	defaultPolicyTimeout     = 5 * time.Second
+	defaultConnectTimeout     = 5 * time.Second
+	defaultMigrationTimeout   = 2 * time.Minute
+	defaultShutdownTimeout    = 10 * time.Second
+	defaultMaxOpenConns       = 20
+	defaultMaxIdleConns       = 5
+	defaultConnMaxLifetime    = 30 * time.Minute
+	defaultListenAddress      = "127.0.0.1:8080"
+	defaultReadHeaderTimeout  = 5 * time.Second
+	defaultReadTimeout        = 15 * time.Second
+	defaultWriteTimeout       = 30 * time.Second
+	defaultIdleTimeout        = 60 * time.Second
+	defaultMaxHeaderBytes     = 64 << 10
+	defaultSchedulerLeaseTTL  = time.Minute
+	defaultSchedulerRenewal   = 20 * time.Second
+	defaultPolicyQuery        = "data.opscustodian.decision"
+	defaultPolicyTimeout      = 5 * time.Second
+	defaultAuditRetention     = 90 * 24 * time.Hour
+	defaultAuditPruneInterval = 24 * time.Hour
+	defaultAuditPruneBatch    = 1000
 )
 
 type LookupEnv func(string) (string, bool)
@@ -52,6 +55,7 @@ type Config struct {
 	CredentialRegistry       *server.CredentialRegistry
 	CredentialFile           string
 	CredentialReloadInterval time.Duration
+	RepositoryAuthorization  bool
 	RepositorySetFile        string
 	GitHubAppID              int64
 	GitHubAppPrivateKeyFile  string
@@ -61,6 +65,9 @@ type Config struct {
 	PolicyBinary             string
 	PolicyQuery              string
 	PolicyTimeout            time.Duration
+	AuditRetention           time.Duration
+	AuditPruneInterval       time.Duration
+	AuditPruneBatch          int
 }
 
 type HTTPConfig struct {
@@ -91,6 +98,7 @@ type SafeConfig struct {
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
 	CredentialFileConfigured bool          `json:"credentialFileConfigured"`
 	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
+	RepositoryAuthorization  bool          `json:"repositoryAuthorizationConfigured"`
 	RepositorySetConfigured  bool          `json:"repositorySetConfigured"`
 	GitHubAppConfigured      bool          `json:"githubAppConfigured"`
 	SchedulerLeaseTTL        time.Duration `json:"schedulerLeaseTtl"`
@@ -98,6 +106,9 @@ type SafeConfig struct {
 	PolicyConfigured         bool          `json:"policyConfigured"`
 	PolicyQuery              string        `json:"policyQuery,omitempty"`
 	PolicyTimeout            time.Duration `json:"policyTimeout,omitempty"`
+	AuditRetention           time.Duration `json:"auditRetention"`
+	AuditPruneInterval       time.Duration `json:"auditPruneInterval"`
+	AuditPruneBatch          int           `json:"auditPruneBatch"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -119,18 +130,22 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		SchedulerRenewInterval:  defaultSchedulerRenewal,
 		PolicyQuery:             defaultPolicyQuery,
 		PolicyTimeout:           defaultPolicyTimeout,
+		AuditRetention:          defaultAuditRetention,
+		AuditPruneInterval:      defaultAuditPruneInterval,
+		AuditPruneBatch:         defaultAuditPruneBatch,
 		HTTP:                    defaultHTTPConfig(),
 	}
 	var err error
 	credentialsJSON := environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIALS")
 	if credentialsJSON != "" {
-		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" {
+		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_REPOSITORIES") != "" {
 			return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIALS cannot be combined with single-token API variables")
 		}
 		credentials, parseErr := server.ParseBearerCredentialsJSON([]byte(credentialsJSON))
 		if parseErr != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", parseErr)
 		}
+		config.RepositoryAuthorization = credentialsUseRepositoryAuthorization(credentials)
 		config.CredentialRegistry, err = server.NewCredentialRegistry(credentials)
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
@@ -142,7 +157,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		config.CredentialIDs = config.Authenticator.CredentialIDs()
 	} else {
 		config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
-		credential := server.BearerCredential{ID: config.CredentialID, Token: environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"), Scopes: environmentList(lookup, "OPSCUSTODIAN_API_SCOPES")}
+		repositories := environmentList(lookup, "OPSCUSTODIAN_API_REPOSITORIES")
+		credential := server.BearerCredential{ID: config.CredentialID, Token: environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"), Scopes: environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"), Repositories: repositories}
+		config.RepositoryAuthorization = len(repositories) > 0
 		config.CredentialRegistry, err = server.NewCredentialRegistry([]server.BearerCredential{credential})
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID, OPSCUSTODIAN_API_TOKEN, or OPSCUSTODIAN_API_SCOPES: %w", err)
@@ -219,6 +236,15 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.SchedulerRenewInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", config.SchedulerRenewInterval); err != nil {
 		return Config{}, err
 	}
+	if config.AuditRetention, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_RETENTION", config.AuditRetention); err != nil {
+		return Config{}, err
+	}
+	if config.AuditPruneInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL", config.AuditPruneInterval); err != nil {
+		return Config{}, err
+	}
+	if config.AuditPruneBatch, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_BATCH", config.AuditPruneBatch); err != nil {
+		return Config{}, err
+	}
 	if config.MaxOpenConns, err = environmentInt(lookup, "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", config.MaxOpenConns); err != nil {
 		return Config{}, err
 	}
@@ -292,6 +318,15 @@ func (config Config) Validate() error {
 	if config.SchedulerRenewInterval <= 0 || config.SchedulerRenewInterval >= config.SchedulerLeaseTTL {
 		return fmt.Errorf("OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL must be positive and less than OPSCUSTODIAN_SCHEDULER_LEASE_TTL")
 	}
+	if config.AuditRetention < 24*time.Hour || config.AuditRetention > 10*365*24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETENTION must be between 24h and 87600h")
+	}
+	if config.AuditPruneInterval < time.Minute || config.AuditPruneInterval > 24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL must be between 1m and 24h")
+	}
+	if config.AuditPruneBatch < 1 || config.AuditPruneBatch > 10000 {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_BATCH must be between 1 and 10000")
+	}
 	if err := config.HTTP.Validate(); err != nil {
 		return err
 	}
@@ -354,6 +389,7 @@ func (config Config) Safe() SafeConfig {
 		AuthorizationScopes:      config.Authorizer.Scopes(),
 		CredentialFileConfigured: config.CredentialFile != "",
 		CredentialReloadInterval: config.CredentialReloadInterval,
+		RepositoryAuthorization:  config.RepositoryAuthorization,
 		RepositorySetConfigured:  config.RepositorySetFile != "",
 		GitHubAppConfigured:      config.GitHubAppID > 0,
 		SchedulerLeaseTTL:        config.SchedulerLeaseTTL,
@@ -361,7 +397,19 @@ func (config Config) Safe() SafeConfig {
 		PolicyConfigured:         config.PolicyPath != "",
 		PolicyQuery:              policySafeQuery(config),
 		PolicyTimeout:            policySafeTimeout(config),
+		AuditRetention:           config.AuditRetention,
+		AuditPruneInterval:       config.AuditPruneInterval,
+		AuditPruneBatch:          config.AuditPruneBatch,
 	}
+}
+
+func credentialsUseRepositoryAuthorization(credentials []server.BearerCredential) bool {
+	for _, credential := range credentials {
+		if len(credential.Repositories) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func policySafeQuery(config Config) string {

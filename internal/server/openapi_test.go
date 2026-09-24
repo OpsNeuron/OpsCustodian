@@ -50,10 +50,11 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		t.Fatalf("OpenAPI readiness operation must explicitly disable authentication: %#v", security)
 	}
 	paths := []string{
-		"/healthz", "/readyz", "/api/v1/contracts", "/api/v1/repositories",
+		"/healthz", "/readyz", "/api/v1/contracts", "/api/v1/repositories", "/api/v1/graph", "/api/v1/audit-events",
 		"/api/v1/repositories/{repositoryId}/bom",
 		"/api/v1/repositories/{repositoryId}/snapshots",
 		"/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom",
+		"/api/v1/repositories/{repositoryId}/drift",
 		"/api/v1/findings",
 		"/api/v1/finding-lifecycles",
 	}

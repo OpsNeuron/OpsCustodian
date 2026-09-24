@@ -12,6 +12,8 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/readyz` | Bounded dependency readiness |
 | `GET` | `/api/v1/contracts` | Build and supported contract discovery |
 | `GET` | `/api/v1/repositories` | Deterministic repository summaries |
+| `GET` | `/api/v1/graph` | Latest asset, relationship, and effective-access subgraphs across authorized repositories |
+| `GET` | `/api/v1/audit-events` | Query retained secret-minimized control-plane audit events |
 | `GET` | `/api/v1/repositories/{repositoryId}/bom` | Latest repository snapshot |
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots` | Repository snapshot history |
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom` | One immutable snapshot |
@@ -19,8 +21,14 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/api/v1/finding-lifecycles` | Current lifecycle episode for each Finding |
 | `POST` | `/api/v1/snapshots` | Validate and persist an immutable Agent BOM snapshot |
 | `POST` | `/api/v1/policy/evaluate` | Evaluate a bounded policy input and return explicit allow/deny |
+| `GET` | `/api/v1/repositories/{repositoryId}/drift` | Compare two stored snapshots using `beforeSnapshotId` and `afterSnapshotId` |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
+The organization graph accepts exact `repositoryId`, `assetType`, `owner`,
+`component`, `action`, and `relationshipType` filters. Filters select matching
+repositories while returning each complete latest subgraph so relationships
+and access paths are never truncated into invalid fragments. Graph cursors are
+bound to the complete filter set and cannot be reused for a different query.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
 200) and an opaque versioned `cursor`. All API envelopes use
 `opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit
@@ -92,11 +100,17 @@ The raw token is neither retained by the authenticator nor serializable.
 Authentication and authorization are separate middleware boundaries. Every
 current `/api/*` operation requires an explicit scope. `contracts:read`,
 `inventory:read`, and `findings:read` constrain access by API family, while
+`audit:read` protects retained operational history, and
 `control-plane:read` grants all current read operations. Snapshot ingestion
 requires `snapshots:write`; it is deliberately not implied by
 `control-plane:read`. `control-plane:admin` explicitly grants all operations. An authenticated token
-without the required permission receives a public-safe `403`.
-Per-repository roles, token rotation, and OIDC identity are not implemented yet.
+without the required permission receives a public-safe `403`. Multi-credential
+entries can also carry a `repositories` allowlist of canonical `repository-`
+IDs. The restriction is applied before pagination to repository, finding, and
+lifecycle collections and before direct snapshot read or write operations. An
+omitted allowlist preserves organization-wide access for backward
+compatibility; an invalid, duplicate, or oversized allowlist fails
+configuration. OIDC identity is not implemented yet.
 The unauthenticated constructor remains available only for isolated tests and
 must not be connected to a listener. The runtime still cannot bind outside
 loopback.
@@ -108,14 +122,16 @@ and immediately converted into the authenticator's digest-only representation.
 3 to 63 lowercase letters, digits, or hyphens. Successful requests carry this
 identity into audit records without exposing the token or its digest.
 In single-token mode, `OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
-the documented scopes. Unknown scopes fail configuration rather than granting
+the documented scopes. `OPSCUSTODIAN_API_REPOSITORIES` optionally accepts a
+comma-separated repository allowlist. Unknown scopes or invalid repository IDs fail configuration rather than granting
 future permissions accidentally. The safe configuration projection reports
-authentication state, credential ID, and the non-secret authorization scope list.
+authentication state, credential ID, the non-secret authorization scope list,
+and whether repository authorization is configured without exposing the grant list.
 
 For rotation and distinct service identities, `OPSCUSTODIAN_API_CREDENTIALS`
-accepts a JSON array of `{id, token, scopes}` objects. It supports 1 to 100
+accepts a JSON array of `{id, token, scopes, repositories}` objects. It supports 1 to 100
 credentials, rejects duplicate IDs and duplicate token digests, and assigns
-scopes independently per identity. Registry mode is mutually exclusive with
+scopes and up to 1,000 repository grants independently per identity. Registry mode is mutually exclusive with
 the three single-token variables. Authentication examines every configured
 digest before deciding the match, and safe configuration exposes only IDs.
 Each registry entry may set `disabled`, `notBefore`, and `expiresAt`.
@@ -124,6 +140,13 @@ window is start-inclusive and expiration-exclusive, enabling a bounded overlap
 where old and new rotation credentials are both accepted. Disabled, future,
 expired, unknown, and malformed credentials all receive the same public-safe
 `401` response.
+
+For example, this credential can read inventory and findings only for one
+known repository and can ingest snapshots only for that same repository:
+
+```json
+[{"id":"payments-reader","token":"REPLACE_SECRET","scopes":["inventory:read","findings:read","snapshots:write"],"repositories":["repository-0123456789abcdef"]}]
+```
 
 Credential configuration is held by an in-process atomic registry. A validated
 reload publishes authentication digests and authorization grants together;
@@ -247,6 +270,14 @@ token digests are never included in its output.
 The regular `serve` path now opens a real loopback listener and requires a real
 PostgreSQL connection. It remains experimental until the deferred database,
 signal, platform, and security integration suite is complete.
+
+Audit history defaults to 90 days and is pruned in bounded batches of 1,000
+records every 24 hours, including one pass at startup. Operators can set
+`OPSCUSTODIAN_AUDIT_RETENTION`, `OPSCUSTODIAN_AUDIT_PRUNE_INTERVAL`, and
+`OPSCUSTODIAN_AUDIT_PRUNE_BATCH`; validation restricts retention to 24 hours
+through 10 years, intervals to one minute through 24 hours, and batches to
+1 through 10,000. Pruning is tenant-scoped, and a database failure stops the
+process rather than silently disabling retention.
 
 ## Request audit middleware
 

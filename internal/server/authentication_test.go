@@ -157,6 +157,23 @@ func TestBearerCredentialRegistryRejectsAmbiguousConfiguration(t *testing.T) {
 	}
 }
 
+func TestBearerCredentialRepositoryGrantsAreValidated(t *testing.T) {
+	validRepository := store.RepositoryID("github:acme/allowed")
+	base := BearerCredential{ID: "repository-reader", Token: "repository-reader-token-0123456789abcdef", Scopes: []string{ScopeInventoryRead}}
+	for _, repositories := range [][]string{{validRepository}, {"invalid"}, {validRepository, validRepository}} {
+		credential := base
+		credential.Repositories = repositories
+		_, _, err := NewBearerCredentialSecurity([]BearerCredential{credential})
+		if len(repositories) == 1 && repositories[0] == validRepository {
+			if err != nil {
+				t.Fatalf("valid repository grant rejected: %v", err)
+			}
+		} else if err == nil {
+			t.Fatalf("invalid repository grants accepted: %#v", repositories)
+		}
+	}
+}
+
 func TestBearerCredentialLifecycleSupportsBoundedRotation(t *testing.T) {
 	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
 	credentials := []BearerCredential{

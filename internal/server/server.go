@@ -25,6 +25,7 @@ type API struct {
 	writer       store.Writer
 	buildVersion string
 	readiness    ReadinessReader
+	policy       PolicyEvaluator
 }
 
 type listResponse[T any] struct {
@@ -68,11 +69,15 @@ func newHandler(reader store.Reader, buildVersion string, authenticator *BearerA
 }
 
 func newHandlerWithReadiness(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer, readiness ReadinessReader) http.Handler {
+	return newHandlerWithReadinessAndPolicy(reader, buildVersion, authenticator, authorizer, readiness, nil)
+}
+
+func newHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, authenticator *BearerAuthenticator, authorizer *ScopeAuthorizer, readiness ReadinessReader, evaluator PolicyEvaluator) http.Handler {
 	writer, _ := reader.(store.Writer)
 	if readiness == nil {
 		readiness = (*ReadinessTracker)(nil)
 	}
-	api := &API{reader: reader, writer: writer, buildVersion: buildVersion, readiness: readiness}
+	api := &API{reader: reader, writer: writer, buildVersion: buildVersion, readiness: readiness, policy: evaluator}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", api.health)
 	mux.HandleFunc("GET /readyz", api.ready)
@@ -84,6 +89,7 @@ func newHandlerWithReadiness(reader store.Reader, buildVersion string, authentic
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
 	mux.HandleFunc("POST /api/v1/snapshots", api.ingestSnapshot)
+	mux.HandleFunc("POST /api/v1/policy/evaluate", api.evaluatePolicy)
 	var handler http.Handler = mux
 	if authorizer != nil {
 		handler = authorizer.middleware(handler)

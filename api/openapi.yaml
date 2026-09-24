@@ -61,6 +61,27 @@ paths:
         "413": { $ref: "#/components/responses/APIError" }
         "415": { $ref: "#/components/responses/APIError" }
         "422": { $ref: "#/components/responses/APIError" }
+  /api/v1/policy/evaluate:
+    post:
+      operationId: evaluatePolicy
+      description: Evaluate a versioned Agent BOM policy input without persisting it.
+      x-opscustodian-required-scope: policy:evaluate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyInput" }
+      responses:
+        "200":
+          description: Explicit allow or deny policy decision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PolicyEvaluation" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "413": { $ref: "#/components/responses/APIError" }
+        "415": { $ref: "#/components/responses/APIError" }
+        "422": { $ref: "#/components/responses/APIError" }
+        "503": { $ref: "#/components/responses/APIError" }
   /api/v1/repositories:
     get:
       operationId: listRepositories
@@ -185,6 +206,40 @@ components:
       type: object
       description: Agent BOM document conforming to opscustodian.dev/v1alpha1.
       required: [apiVersion, kind, metadata, assets]
+    PolicyInput:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, bom]
+      properties:
+        apiVersion: { const: opscustodian.dev/policy-input/v1alpha1 }
+        bom: { $ref: "#/components/schemas/AgentBOM" }
+        drift:
+          type: object
+          description: Optional semantic drift report conforming to the public policy input contract.
+          additionalProperties: true
+    PolicyEvaluation:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, value]
+      properties:
+        apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+        value:
+          type: object
+          additionalProperties: false
+          required: [allowed, decision]
+          properties:
+            allowed: { type: boolean }
+            decision:
+              type: object
+              additionalProperties: false
+              required: [deny, warn]
+              properties:
+                deny:
+                  type: array
+                  items: { type: object, additionalProperties: true }
+                warn:
+                  type: array
+                  items: { type: object, additionalProperties: true }
     RepositoryID:
       type: string
       pattern: ^repository-[0-9a-f]{16}$

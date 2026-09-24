@@ -4,6 +4,15 @@ OpsCustodian delegates policy evaluation to Open Policy Agent (OPA). It does not
 define a proprietary policy language. Policies are ordinary Rego and receive a
 versioned JSON input document.
 
+The organization API defines `POST /api/v1/policy/evaluate` as a
+provider-neutral enforcement boundary. It accepts the same versioned policy
+input used by the CLI and returns an explicit `allowed` boolean with the full
+normalized deny/warn decision. Requests are bounded, strict, non-persisting,
+and protected by the dedicated `policy:evaluate` scope. The endpoint fails
+closed when its evaluator is unavailable or invalid. Process-level OPA wiring
+is not enabled yet, so the current server returns `503` until that dependency is
+configured in a subsequent step.
+
 ## Check an Agent BOM
 
 ```bash

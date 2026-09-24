@@ -1,8 +1,17 @@
 # Kubernetes deployment contract
 
-The Kustomize base under `deploy/kubernetes/base` is a source-level deployment
-contract for the organization control plane. It has not yet been applied to a
-real cluster.
+The Kustomize base under `deploy/kubernetes/base` is a deployment contract for
+the organization control plane. On 2026-09-23 it passed server-side admission
+and a disposable single-replica runtime deployment on Docker Desktop
+Kubernetes. The Pod became Ready and an allowed namespace reached `/healthz`
+through the Envoy TLS sidecar before all temporary resources were removed.
+
+The Docker Desktop built-in cluster exposed no policy-enforcing CNI/controller,
+and an unlabeled namespace also reached the Service there. A follow-up isolated
+Kind v1.32.2 cluster with Calico v3.32.1 proved the intended policy behavior:
+the labeled client received the HTTPS health response and the unlabeled client
+timed out and failed. Both clusters and all supporting resources were removed
+after validation.
 
 OpsCustodian intentionally remains bound to loopback. An Envoy sidecar accepts
 TLS 1.3 on port 8443 and forwards only within the Pod to
@@ -74,6 +83,8 @@ kubectl kustomize deploy/kubernetes/base
 kubectl kustomize deploy/kubernetes/overlays/ha-experimental
 ```
 
-Final validation must add server-side dry-run, Pod Security admission,
-NetworkPolicy connectivity, certificate rotation, PostgreSQL TLS, probe,
-rollout, disruption, resource, and rollback tests in a disposable cluster.
+Final validation must still add certificate rotation, trust-distribution,
+disruption, resource-pressure, and rollout rollback tests in a disposable
+cluster. Server-side admission, restricted workload readiness, probes,
+NetworkPolicy connectivity, and PostgreSQL transport/migration behavior have
+passed in the documented disposable environments.

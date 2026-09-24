@@ -3,6 +3,11 @@
 This is a presenter script for introducing OpsCustodian without explaining the
 organization server, HA, or every parser. Run it from the repository root.
 
+The repository also includes a short, silent terminal-to-report teaser at
+[`docs/images/opscustodian-demo.gif`](images/opscustodian-demo.gif). It contains
+no local filesystem path, credential, or generated Agent BOM content and can be
+embedded in the repository or release description.
+
 ## 0:00 — The problem
 
 > AI agents and automated workflows are becoming DevOps operators. Their

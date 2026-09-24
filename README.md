@@ -13,6 +13,8 @@ production.
 OpsCustodian turns scattered agent, workflow, MCP, skill, and Kubernetes
 configuration into one evidence-backed inventory of operational access.
 
+![OpsCustodian terminal-to-report demo](docs/images/opscustodian-demo.gif)
+
 ![OpsCustodian inventory overview](docs/images/opscustodian-inventory-overview.png)
 
 It does more than list automation: it shows what each agent can actually do,
@@ -116,13 +118,14 @@ GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
 parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
 severity thresholds, finding explanations, and OPA/Rego policy evaluation.
 The release also includes a GitHub Action contract with SARIF output; review the
-[alpha limitations](docs/releases/v0.5.0-alpha.md#alpha-limitations) before use.
+[public alpha limitations](docs/LIMITATIONS.md) before use.
 
 The experimental organization control-plane server is configured exclusively
 through environment variables and binds only to loopback. Validate its
 secret-free effective configuration before startup with `serve --print-config`;
 see [server documentation](docs/SERVER.md) for required database and API-token
-settings. Live PostgreSQL operation is not yet release-validated.
+settings. Disposable PostgreSQL integration and outage/recovery tests have
+passed; the server remains an experimental single-replica evaluation path.
 
 ## Build prerequisites
 
@@ -230,7 +233,8 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 Public alpha under active development. The offline CLI is ready for local
 evaluation; file formats and server APIs may still change. Organization-server,
 HA, and real-provider operation are experimental and must not be treated as
-production-ready. See [current project status](docs/PROJECT_STATUS.md).
+production-ready. See [current project status](docs/PROJECT_STATUS.md) and the
+[public alpha limitations](docs/LIMITATIONS.md).
 
 ## License
 

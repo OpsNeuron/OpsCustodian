@@ -16,8 +16,13 @@ server failures are classified as transient for the existing bounded retry
 policy; authentication, authorization, missing repository, and malformed
 responses fail permanently.
 
-Current tests use local HTTP fakes. Real GitHub provider, authentication, and
-rate-limit tests remain subsequent work.
+Deterministic protocol and failure tests use local HTTP fakes. On 2026-09-24 a
+disposable real-provider run also passed GitHub App installation-token
+exchange, cache reuse, private-repository ingestion, unchanged-revision
+handling, and invalid-installation rejection. Expiry-driven refresh, redirect,
+cancellation, and rate-limit observations against the real provider remain
+open. A cached disposable PAT returned `401` and must be replaced before the
+PAT provider gate can be repeated.
 
 The archive materialization boundary accepts a streamed ZIP only into an
 OpsCustodian-owned temporary workspace. It enforces compressed size, extracted

@@ -175,7 +175,7 @@ runtime authorization system.
 - Safe loopback-first server command and operational configuration. *(experimental authenticated `serve` and secret-free `--print-config` implemented)*
 - Secure HTTP runtime primitives. *(loopback validation, bounded server configuration, and graceful shutdown implemented; CLI listener remains gated on authentication design)*
 - Initial API authentication boundary. *(opaque Bearer digest verification and OpenAPI contract implemented; rotation and OIDC pending)*
-- Initial API authorization boundary. *(granular read scopes, isolated `snapshots:write`, explicit `control-plane:admin`, fail-closed environment configuration, `403` response, OpenAPI declarations, and audit outcome implemented; repository-level roles pending)*
+- Initial API authorization boundary. *(granular read scopes, isolated `snapshots:write`, explicit `control-plane:admin`, fail-closed environment configuration, repository-scoped credential grants, `403` response, OpenAPI declarations, and audit outcome implemented)*
 - Stable credential identity. *(validated non-secret token identity and audit propagation implemented)*
 - Multi-credential rotation registry. *(bounded environment registry, independent identity grants, ambiguity rejection, and safe projection implemented; external secret-provider reload pending)*
 - Credential lifecycle policy. *(disablement, activation, expiration, overlap semantics, and deterministic clock-backed tests implemented; external reload triggers pending)*

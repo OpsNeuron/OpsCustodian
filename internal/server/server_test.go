@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -112,6 +113,53 @@ func TestSnapshotIngestionRequiresWriteScopeAndPersistsRepository(t *testing.T) 
 	conflictResponse := httptest.NewRecorder()
 	handler.ServeHTTP(conflictResponse, conflict)
 	assertResponse(t, conflictResponse, http.StatusConflict, `"code":"immutable-snapshot-conflict"`)
+}
+
+func TestRepositoryScopedCredentialFiltersCollectionsAndRejectsDirectAccess(t *testing.T) {
+	memory := store.NewMemory()
+	allowedBOM := serverTestBOM()
+	allowedBOM.Metadata.Source, allowedBOM.Metadata.Revision = "github:acme/allowed", "allowed-revision"
+	deniedBOM := serverTestBOM()
+	deniedBOM.Metadata.Source, deniedBOM.Metadata.Revision = "github:acme/denied", "denied-revision"
+	for _, bom := range []model.AgentBOM{allowedBOM, deniedBOM} {
+		if _, err := memory.PutSnapshot(context.Background(), bom); err != nil {
+			t.Fatal(err)
+		}
+	}
+	allowedRepositoryID, deniedRepositoryID := store.RepositoryID(allowedBOM.Metadata.Source), store.RepositoryID(deniedBOM.Metadata.Source)
+	token := "repository-scoped-token-0123456789abcdef"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{{
+		ID: "allowed-reader", Token: token, Scopes: []string{ScopeInventoryRead, ScopeFindingsRead, ScopeSnapshotsWrite}, Repositories: []string{allowedRepositoryID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(memory, "test", &authenticator, &authorizer)
+	request := func(method, path string, body io.Reader) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, body)
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		return response
+	}
+	repositories := request(http.MethodGet, "/api/v1/repositories", nil)
+	if repositories.Code != http.StatusOK || !strings.Contains(repositories.Body.String(), allowedRepositoryID) || strings.Contains(repositories.Body.String(), deniedRepositoryID) {
+		t.Fatalf("filtered repositories response = %d: %s", repositories.Code, repositories.Body.String())
+	}
+	if response := request(http.MethodGet, "/api/v1/repositories/"+deniedRepositoryID+"/bom", nil); response.Code != http.StatusForbidden {
+		t.Fatalf("denied direct repository status = %d: %s", response.Code, response.Body.String())
+	}
+	findings := request(http.MethodGet, "/api/v1/findings", nil)
+	if findings.Code != http.StatusOK || !strings.Contains(findings.Body.String(), allowedRepositoryID) || strings.Contains(findings.Body.String(), deniedRepositoryID) {
+		t.Fatalf("filtered findings response = %d: %s", findings.Code, findings.Body.String())
+	}
+	content, _ := json.Marshal(deniedBOM)
+	if response := request(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(content)); response.Code != http.StatusForbidden {
+		t.Fatalf("denied snapshot write status = %d: %s", response.Code, response.Body.String())
+	}
 }
 
 func TestSnapshotIngestionRejectsUnsafeBodies(t *testing.T) {

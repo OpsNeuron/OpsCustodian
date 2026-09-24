@@ -20,19 +20,22 @@ const (
 )
 
 type BearerCredential struct {
-	ID        string   `json:"id"`
-	Token     string   `json:"token"`
-	Scopes    []string `json:"scopes"`
-	Disabled  bool     `json:"disabled,omitempty"`
-	NotBefore string   `json:"notBefore,omitempty"`
-	ExpiresAt string   `json:"expiresAt,omitempty"`
+	ID           string   `json:"id"`
+	Token        string   `json:"token"`
+	Scopes       []string `json:"scopes"`
+	Repositories []string `json:"repositories,omitempty"`
+	Disabled     bool     `json:"disabled,omitempty"`
+	NotBefore    string   `json:"notBefore,omitempty"`
+	ExpiresAt    string   `json:"expiresAt,omitempty"`
 }
 type bearerCredentialDigest struct {
-	identity  string
-	digest    [sha256.Size]byte
-	disabled  bool
-	notBefore time.Time
-	expiresAt time.Time
+	identity     string
+	digest       [sha256.Size]byte
+	repositories map[string]struct{}
+	restricted   bool
+	disabled     bool
+	notBefore    time.Time
+	expiresAt    time.Time
 }
 type BearerAuthenticator struct {
 	credentials []bearerCredentialDigest
@@ -41,8 +44,10 @@ type BearerAuthenticator struct {
 }
 type authenticatedIdentityContextKey struct{}
 type authenticatedPrincipal struct {
-	identity string
-	scopes   map[string]struct{}
+	identity     string
+	scopes       map[string]struct{}
+	repositories map[string]struct{}
+	restricted   bool
 }
 
 func NewBearerAuthenticator(token string) (BearerAuthenticator, error) {
@@ -88,6 +93,10 @@ func newBearerCredentialSecurity(credentials []BearerCredential, now func() time
 			return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential %q: %w", credential.ID, err)
 		}
 		grants[credential.ID] = scopes
+		repositories, err := validatedRepositoryGrants(credential.Repositories)
+		if err != nil {
+			return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential %q: %w", credential.ID, err)
+		}
 		notBefore, err := parseCredentialTime(credential.ID, "notBefore", credential.NotBefore)
 		if err != nil {
 			return BearerAuthenticator{}, ScopeAuthorizer{}, err
@@ -99,7 +108,7 @@ func newBearerCredentialSecurity(credentials []BearerCredential, now func() time
 		if !notBefore.IsZero() && !expiresAt.IsZero() && !expiresAt.After(notBefore) {
 			return BearerAuthenticator{}, ScopeAuthorizer{}, fmt.Errorf("credential %q expiresAt must be after notBefore", credential.ID)
 		}
-		authenticator.credentials = append(authenticator.credentials, bearerCredentialDigest{identity: credential.ID, digest: digest, disabled: credential.Disabled, notBefore: notBefore, expiresAt: expiresAt})
+		authenticator.credentials = append(authenticator.credentials, bearerCredentialDigest{identity: credential.ID, digest: digest, repositories: repositories, restricted: len(credential.Repositories) > 0, disabled: credential.Disabled, notBefore: notBefore, expiresAt: expiresAt})
 	}
 	return authenticator, ScopeAuthorizer{grants: grants}, nil
 }
@@ -175,14 +184,14 @@ func (authenticator BearerAuthenticator) authenticatePrincipal(values []string) 
 		if snapshot == nil {
 			return authenticatedPrincipal{}, false
 		}
-		identity, ok := snapshot.authenticator.authenticate(values)
+		principal, ok := snapshot.authenticator.authenticateLocalPrincipal(values)
 		if !ok {
 			return authenticatedPrincipal{}, false
 		}
-		return authenticatedPrincipal{identity: identity, scopes: snapshot.authorizer.grants[identity]}, true
+		principal.scopes = snapshot.authorizer.grants[principal.identity]
+		return principal, true
 	}
-	identity, ok := authenticator.authenticate(values)
-	return authenticatedPrincipal{identity: identity}, ok
+	return authenticator.authenticateLocalPrincipal(values)
 }
 
 func (authenticator BearerAuthenticator) authenticate(values []string) (string, bool) {
@@ -193,29 +202,55 @@ func (authenticator BearerAuthenticator) authenticate(values []string) (string, 
 		}
 		return snapshot.authenticator.authenticate(values)
 	}
+	principal, ok := authenticator.authenticateLocalPrincipal(values)
+	return principal.identity, ok
+}
+
+func (authenticator BearerAuthenticator) authenticateLocalPrincipal(values []string) (authenticatedPrincipal, bool) {
 	if len(values) != 1 {
-		return "", false
+		return authenticatedPrincipal{}, false
 	}
 	header := values[0]
 	if len(header) <= len("Bearer ") || !strings.EqualFold(header[:len("Bearer")], "Bearer") || header[len("Bearer")] != ' ' {
-		return "", false
+		return authenticatedPrincipal{}, false
 	}
 	token := header[len("Bearer "):]
 	if validateBearerToken(token) != nil {
-		return "", false
+		return authenticatedPrincipal{}, false
 	}
 	digest := sha256.Sum256([]byte(token))
-	identity, matched := "", 0
+	principal, matched := authenticatedPrincipal{}, 0
 	now := authenticator.now().UTC()
 	for _, credential := range authenticator.credentials {
 		comparison := subtle.ConstantTimeCompare(credential.digest[:], digest[:])
 		active := !credential.disabled && (credential.notBefore.IsZero() || !now.Before(credential.notBefore)) && (credential.expiresAt.IsZero() || now.Before(credential.expiresAt))
 		if comparison == 1 && active {
-			identity = credential.identity
+			principal = authenticatedPrincipal{identity: credential.identity, repositories: credential.repositories, restricted: credential.restricted}
 		}
 		if active {
 			matched |= comparison
 		}
 	}
-	return identity, matched == 1
+	return principal, matched == 1
+}
+
+func validatedRepositoryGrants(repositoryIDs []string) (map[string]struct{}, error) {
+	if len(repositoryIDs) > 1000 {
+		return nil, fmt.Errorf("repository grant count must not exceed 1000")
+	}
+	if len(repositoryIDs) == 0 {
+		return nil, nil
+	}
+	grants := make(map[string]struct{}, len(repositoryIDs))
+	for _, repositoryID := range repositoryIDs {
+		repositoryID = strings.TrimSpace(repositoryID)
+		if !validRepositoryID(repositoryID) {
+			return nil, fmt.Errorf("repository grant %q is not a valid repository ID", repositoryID)
+		}
+		if _, exists := grants[repositoryID]; exists {
+			return nil, fmt.Errorf("duplicate repository grant %q", repositoryID)
+		}
+		grants[repositoryID] = struct{}{}
+	}
+	return grants, nil
 }

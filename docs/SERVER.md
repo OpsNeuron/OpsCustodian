@@ -95,8 +95,13 @@ current `/api/*` operation requires an explicit scope. `contracts:read`,
 `control-plane:read` grants all current read operations. Snapshot ingestion
 requires `snapshots:write`; it is deliberately not implied by
 `control-plane:read`. `control-plane:admin` explicitly grants all operations. An authenticated token
-without the required permission receives a public-safe `403`.
-Per-repository roles, token rotation, and OIDC identity are not implemented yet.
+without the required permission receives a public-safe `403`. Multi-credential
+entries can also carry a `repositories` allowlist of canonical `repository-`
+IDs. The restriction is applied before pagination to repository, finding, and
+lifecycle collections and before direct snapshot read or write operations. An
+omitted allowlist preserves organization-wide access for backward
+compatibility; an invalid, duplicate, or oversized allowlist fails
+configuration. OIDC identity is not implemented yet.
 The unauthenticated constructor remains available only for isolated tests and
 must not be connected to a listener. The runtime still cannot bind outside
 loopback.
@@ -108,14 +113,16 @@ and immediately converted into the authenticator's digest-only representation.
 3 to 63 lowercase letters, digits, or hyphens. Successful requests carry this
 identity into audit records without exposing the token or its digest.
 In single-token mode, `OPSCUSTODIAN_API_SCOPES` is also required and accepts a comma-separated set of
-the documented scopes. Unknown scopes fail configuration rather than granting
+the documented scopes. `OPSCUSTODIAN_API_REPOSITORIES` optionally accepts a
+comma-separated repository allowlist. Unknown scopes or invalid repository IDs fail configuration rather than granting
 future permissions accidentally. The safe configuration projection reports
-authentication state, credential ID, and the non-secret authorization scope list.
+authentication state, credential ID, the non-secret authorization scope list,
+and whether repository authorization is configured without exposing the grant list.
 
 For rotation and distinct service identities, `OPSCUSTODIAN_API_CREDENTIALS`
-accepts a JSON array of `{id, token, scopes}` objects. It supports 1 to 100
+accepts a JSON array of `{id, token, scopes, repositories}` objects. It supports 1 to 100
 credentials, rejects duplicate IDs and duplicate token digests, and assigns
-scopes independently per identity. Registry mode is mutually exclusive with
+scopes and up to 1,000 repository grants independently per identity. Registry mode is mutually exclusive with
 the three single-token variables. Authentication examines every configured
 digest before deciding the match, and safe configuration exposes only IDs.
 Each registry entry may set `disabled`, `notBefore`, and `expiresAt`.
@@ -124,6 +131,13 @@ window is start-inclusive and expiration-exclusive, enabling a bounded overlap
 where old and new rotation credentials are both accepted. Disabled, future,
 expired, unknown, and malformed credentials all receive the same public-safe
 `401` response.
+
+For example, this credential can read inventory and findings only for one
+known repository and can ingest snapshots only for that same repository:
+
+```json
+[{"id":"payments-reader","token":"REPLACE_SECRET","scopes":["inventory:read","findings:read","snapshots:write"],"repositories":["repository-0123456789abcdef"]}]
+```
 
 Credential configuration is held by an in-process atomic registry. A validated
 reload publishes authentication digests and authorization grants together;

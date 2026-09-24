@@ -125,3 +125,29 @@ func requiredScope(method, path string) string {
 		return ScopeControlPlaneRead
 	}
 }
+
+func authorizedRepositoryIDs(request *http.Request) []string {
+	principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal)
+	if !ok || !principal.restricted {
+		return nil
+	}
+	values := make([]string, 0, len(principal.repositories))
+	for repositoryID := range principal.repositories {
+		values = append(values, repositoryID)
+	}
+	sort.Strings(values)
+	return values
+}
+
+func authorizeRepository(w http.ResponseWriter, request *http.Request, repositoryID string) bool {
+	principal, ok := request.Context().Value(authenticatedIdentityContextKey{}).(authenticatedPrincipal)
+	if !ok || !principal.restricted {
+		return true
+	}
+	if _, allowed := principal.repositories[repositoryID]; allowed {
+		return true
+	}
+	setRequestAuthorization(request, "denied")
+	writeError(w, http.StatusForbidden, "repository-authorization-denied", "the authenticated identity is not authorized for this repository")
+	return false
+}

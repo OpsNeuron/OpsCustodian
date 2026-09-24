@@ -52,6 +52,7 @@ type Config struct {
 	CredentialRegistry       *server.CredentialRegistry
 	CredentialFile           string
 	CredentialReloadInterval time.Duration
+	RepositoryAuthorization  bool
 	RepositorySetFile        string
 	GitHubAppID              int64
 	GitHubAppPrivateKeyFile  string
@@ -91,6 +92,7 @@ type SafeConfig struct {
 	AuthorizationScopes      []string      `json:"authorizationScopes"`
 	CredentialFileConfigured bool          `json:"credentialFileConfigured"`
 	CredentialReloadInterval time.Duration `json:"credentialReloadInterval,omitempty"`
+	RepositoryAuthorization  bool          `json:"repositoryAuthorizationConfigured"`
 	RepositorySetConfigured  bool          `json:"repositorySetConfigured"`
 	GitHubAppConfigured      bool          `json:"githubAppConfigured"`
 	SchedulerLeaseTTL        time.Duration `json:"schedulerLeaseTtl"`
@@ -124,13 +126,14 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	var err error
 	credentialsJSON := environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIALS")
 	if credentialsJSON != "" {
-		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" {
+		if environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_SCOPES") != "" || environmentValue(lookup, "OPSCUSTODIAN_API_REPOSITORIES") != "" {
 			return Config{}, fmt.Errorf("OPSCUSTODIAN_API_CREDENTIALS cannot be combined with single-token API variables")
 		}
 		credentials, parseErr := server.ParseBearerCredentialsJSON([]byte(credentialsJSON))
 		if parseErr != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", parseErr)
 		}
+		config.RepositoryAuthorization = credentialsUseRepositoryAuthorization(credentials)
 		config.CredentialRegistry, err = server.NewCredentialRegistry(credentials)
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_CREDENTIALS: %w", err)
@@ -142,7 +145,9 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		config.CredentialIDs = config.Authenticator.CredentialIDs()
 	} else {
 		config.CredentialID = environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN_ID")
-		credential := server.BearerCredential{ID: config.CredentialID, Token: environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"), Scopes: environmentList(lookup, "OPSCUSTODIAN_API_SCOPES")}
+		repositories := environmentList(lookup, "OPSCUSTODIAN_API_REPOSITORIES")
+		credential := server.BearerCredential{ID: config.CredentialID, Token: environmentValue(lookup, "OPSCUSTODIAN_API_TOKEN"), Scopes: environmentList(lookup, "OPSCUSTODIAN_API_SCOPES"), Repositories: repositories}
+		config.RepositoryAuthorization = len(repositories) > 0
 		config.CredentialRegistry, err = server.NewCredentialRegistry([]server.BearerCredential{credential})
 		if err != nil {
 			return Config{}, fmt.Errorf("invalid OPSCUSTODIAN_API_TOKEN_ID, OPSCUSTODIAN_API_TOKEN, or OPSCUSTODIAN_API_SCOPES: %w", err)
@@ -354,6 +359,7 @@ func (config Config) Safe() SafeConfig {
 		AuthorizationScopes:      config.Authorizer.Scopes(),
 		CredentialFileConfigured: config.CredentialFile != "",
 		CredentialReloadInterval: config.CredentialReloadInterval,
+		RepositoryAuthorization:  config.RepositoryAuthorization,
 		RepositorySetConfigured:  config.RepositorySetFile != "",
 		GitHubAppConfigured:      config.GitHubAppID > 0,
 		SchedulerLeaseTTL:        config.SchedulerLeaseTTL,
@@ -362,6 +368,15 @@ func (config Config) Safe() SafeConfig {
 		PolicyQuery:              policySafeQuery(config),
 		PolicyTimeout:            policySafeTimeout(config),
 	}
+}
+
+func credentialsUseRepositoryAuthorization(credentials []server.BearerCredential) bool {
+	for _, credential := range credentials {
+		if len(credential.Repositories) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func policySafeQuery(config Config) string {

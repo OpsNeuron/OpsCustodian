@@ -91,6 +91,13 @@ three Rego contract tests passed, the request audit contained only the bounded
 allowed outcome and decision counts, and the disposable containers, network,
 and volumes were removed.
 
+The repository-authorization phase then ran the control plane with a
+repository-scoped multi-credential entry against real PostgreSQL. Collection
+pagination returned only the granted repository, the scoped findings query
+executed through the PostgreSQL allowlist filter, and a direct request for an
+ungranted repository returned `403`. The disposable resources were removed
+after the successful run.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

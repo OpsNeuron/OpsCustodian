@@ -35,9 +35,8 @@ services:
       OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres:5432/opscustodian?sslmode=disable
       OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
       OPSCUSTODIAN_DATABASE_MIGRATE: "true"
-      OPSCUSTODIAN_API_TOKEN_ID: integration-operator
-      OPSCUSTODIAN_API_TOKEN: ${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}
-      OPSCUSTODIAN_API_SCOPES: control-plane:read,snapshots:write,policy:evaluate
+      OPSCUSTODIAN_API_CREDENTIALS: >-
+        [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","snapshots:write","policy:evaluate"],"repositories":["repository-d19526261c01a8e3"]}]
       OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
       OPSCUSTODIAN_POLICY_PATH: /policies
       OPSCUSTODIAN_POLICY_TIMEOUT: 5s

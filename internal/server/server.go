@@ -142,9 +142,12 @@ func (api *API) ingestSnapshot(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "invalid-agent-bom", "Agent BOM does not satisfy the supported contract")
 		return
 	}
+	repositoryID := store.RepositoryID(bom.Metadata.Source)
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
 	snapshot, err := api.writer.PutSnapshot(request.Context(), bom)
 	if errors.Is(err, store.ErrConflict) {
-		repositoryID := store.RepositoryID(bom.Metadata.Source)
 		setSnapshotIngestionAudit(request, audit.SnapshotIngestionObservation{
 			Result: "conflict", RepositoryID: repositoryID,
 			SnapshotID: store.SnapshotID(repositoryID, bom.Metadata.Revision), Revision: bom.Metadata.Revision,
@@ -188,6 +191,7 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 	if !ok {
 		return
 	}
+	page.RepositoryIDs = authorizedRepositoryIDs(request)
 	result, err := api.reader.ListRepositories(request.Context(), page)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository inventory is unavailable")
@@ -203,6 +207,9 @@ func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {
 	repositoryID := request.PathValue("repositoryID")
 	if !validRepositoryID(repositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if !authorizeRepository(w, request, repositoryID) {
 		return
 	}
 	page, ok := requestPage(w, request, "snapshots:"+repositoryID)
@@ -230,6 +237,9 @@ func (api *API) snapshotBOM(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
 	if !validSnapshotID(snapshotID) {
 		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "snapshot ID is invalid")
 		return
@@ -252,6 +262,9 @@ func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if !authorizeRepository(w, request, id) {
+		return
+	}
 	snapshot, err := api.reader.LatestSnapshot(request.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "repository-not-found", "repository was not found")
@@ -270,6 +283,10 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	filter.RepositoryIDs = authorizedRepositoryIDs(request)
 	if filter.Severity != "" && !validSeverity(filter.Severity) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return
@@ -301,6 +318,10 @@ func (api *API) findingLifecycles(w http.ResponseWriter, request *http.Request) 
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
 	}
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	filter.RepositoryIDs = authorizedRepositoryIDs(request)
 	if filter.Severity != "" && !validSeverity(filter.Severity) {
 		writeError(w, http.StatusBadRequest, "invalid-severity", "severity must be info, low, medium, high, or critical")
 		return

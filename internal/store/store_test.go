@@ -106,6 +106,30 @@ func TestMemoryRejectsInvalidInputAndHonorsContext(t *testing.T) {
 	}
 }
 
+func TestMemoryFiltersRepositoryScopedCollectionsBeforePagination(t *testing.T) {
+	memory := NewMemory()
+	allowed := testBOM("github:acme/allowed", "one", "critical")
+	denied := testBOM("github:acme/denied", "two", "critical")
+	for _, bom := range []model.AgentBOM{allowed, denied} {
+		if _, err := memory.PutSnapshot(context.Background(), bom); err != nil {
+			t.Fatal(err)
+		}
+	}
+	allowedID := RepositoryID(allowed.Metadata.Source)
+	repositories, err := memory.ListRepositories(context.Background(), PageRequest{Limit: 1, RepositoryIDs: []string{allowedID}})
+	if err != nil || len(repositories.Items) != 1 || repositories.Items[0].ID != allowedID || repositories.NextCursor != "" {
+		t.Fatalf("repository-scoped page = %#v, %v", repositories, err)
+	}
+	findings, err := memory.ListFindings(context.Background(), FindingFilter{RepositoryIDs: []string{allowedID}, Page: PageRequest{Limit: 10}})
+	if err != nil || len(findings.Items) != 1 || findings.Items[0].RepositoryID != allowedID {
+		t.Fatalf("repository-scoped findings = %#v, %v", findings, err)
+	}
+	lifecycles, err := memory.ListFindingLifecycle(context.Background(), FindingLifecycleFilter{RepositoryIDs: []string{allowedID}, Page: PageRequest{Limit: 10}})
+	if err != nil || len(lifecycles.Items) != 1 || lifecycles.Items[0].RepositoryID != allowedID {
+		t.Fatalf("repository-scoped lifecycles = %#v, %v", lifecycles, err)
+	}
+}
+
 func TestMemoryComputesFindingLifecycleEpisodes(t *testing.T) {
 	memory := NewMemory()
 	ctx := context.Background()

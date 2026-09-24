@@ -89,8 +89,9 @@ Follow [Integration Testing](INTEGRATION_TESTING.md),
   local contract tests pass, but this real-provider gate remains open.
 - [x] Live GitHub Action produces the expected SARIF/check result on a pull
   request containing a known risky fixture.
-- [ ] At least one real Kubernetes authorization result is compared with the
-  offline effective-access result; discrepancies are documented.
+- [x] Real Kubernetes authorization results are compared with the offline
+  effective-access result for namespaced, cluster-wide, non-resource URL, and
+  wildcard-derived capabilities; no discrepancy was observed.
 
 Use only disposable repositories and least-privilege credentials. Never retain
 tokens, private keys, secret values, or signed download URLs in release evidence.

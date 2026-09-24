@@ -16,8 +16,9 @@ OpsCustodian has completed the offline/core implementation scope of the `v0.4`
 effective-access milestone. Deterministic tests, browser report inspection,
 OPA runtime execution, Docker-backed PostgreSQL/Collector integration, and
 Kubernetes API admission have passed. Upstream compatibility, live runtime
-authorization comparison, and workload-level Kubernetes enforcement remain;
-these results must not be represented as production readiness.
+authorization compatibility beyond the sampled fixture, and workload-level
+Kubernetes enforcement remain; these results must not be represented as
+production readiness.
 
 The control-plane runtime now separates public liveness (`/healthz`) from
 bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
@@ -57,6 +58,9 @@ real-provider gate passed GitHub App token exchange/cache reuse, private
 repository ingestion, unchanged-revision handling, and secret-safe invalid
 installation rejection. PAT parity, expiry-driven refresh, real rate-limit and
 redirect observations, load, HA contention, and failure injection remain open.
+The offline effective-access result was also compared with live Kubernetes
+authorization for four representative namespaced, cluster-wide, non-resource,
+and wildcard-derived capabilities without discrepancy.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,

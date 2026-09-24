@@ -60,6 +60,13 @@ removed their Compose containers, internal network, and volumes. The cached
 disposable PAT returned `401`, so PAT parity was not claimed and requires a new
 least-privilege credential.
 
+On the same date a disposable Kind v1.32.2 cluster compared the offline
+effective-access result for the `production/ops-agent` ServiceAccount with
+live Kubernetes authorization decisions. Namespaced Pod read, cluster-wide Job
+watch, `/healthz` non-resource URL read, and wildcard-derived Secret deletion
+were all allowed as predicted. No discrepancy was observed. The Kind cluster,
+kubeconfig, and comparison output were removed after the run.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -69,8 +76,8 @@ workload readiness, load, or failure injection. The supplemental result above
 closes the TLS, rollback, policy-runtime, Kubernetes API-admission, and listed
 GitHub App checks for this environment only. Certificate rotation/trust
 validation, PAT parity, expiry-driven App refresh, real-provider redirect,
-cancellation and rate-limit observations, real authorization comparison, HA
-contention, load, and failure injection remain explicit gates rather than
+cancellation and rate-limit observations, broader authorization compatibility,
+HA contention, load, and failure injection remain explicit gates rather than
 implied by a passing harness.
 
 ## Execution boundary

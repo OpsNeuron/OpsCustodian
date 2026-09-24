@@ -98,6 +98,13 @@ executed through the PostgreSQL allowlist filter, and a direct request for an
 ungranted repository returned `403`. The disposable resources were removed
 after the successful run.
 
+The historical-drift phase extends the same disposable harness with two
+immutable scope-expansion snapshots submitted through the authenticated API.
+The control plane reads both snapshots from PostgreSQL and returns the expected
+semantic capability-escalation change through the repository-authorized drift
+endpoint. The comparison neither rescans a repository nor accepts a client
+supplied comparison result.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

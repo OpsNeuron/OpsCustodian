@@ -19,6 +19,7 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/api/v1/finding-lifecycles` | Current lifecycle episode for each Finding |
 | `POST` | `/api/v1/snapshots` | Validate and persist an immutable Agent BOM snapshot |
 | `POST` | `/api/v1/policy/evaluate` | Evaluate a bounded policy input and return explicit allow/deny |
+| `GET` | `/api/v1/repositories/{repositoryId}/drift` | Compare two stored snapshots using `beforeSnapshotId` and `afterSnapshotId` |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum

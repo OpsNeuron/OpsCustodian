@@ -58,6 +58,44 @@ func TestReadOnlyAPIListsRepositoriesFindingsAndLatestBOM(t *testing.T) {
 	assertResponse(t, lifecycle, http.StatusOK, `"findingId":"finding-server"`, `"status":"introduced"`, `"firstObservedAt":"2026-08-18T00:00:00Z"`)
 }
 
+func TestHistoricalDriftComparesStoredSnapshotsWithRepositoryAuthorization(t *testing.T) {
+	memory := store.NewMemory()
+	before := serverTestBOM()
+	before.Metadata.Revision = "before"
+	before.Assets[0].Capabilities = []model.Capability{{Action: "kubernetes.deployments.update", Resource: "kubernetes:production/apps/payments", Effect: "write", Environment: "production", EvidenceIDs: []string{"role-evidence"}}}
+	after := serverTestBOM()
+	after.Metadata.Revision = "after"
+	after.Assets[0].Capabilities = []model.Capability{{Action: "kubernetes.deployments.update", Resource: "kubernetes:production/*", Effect: "admin", Environment: "production", EvidenceIDs: []string{"role-evidence"}}}
+	beforeSnapshot, err := memory.PutSnapshot(context.Background(), before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterSnapshot, err := memory.PutSnapshot(context.Background(), after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := "historical-drift-token-0123456789abcdef"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{{
+		ID: "drift-reader", Token: token, Scopes: []string{ScopeFindingsRead}, Repositories: []string{beforeSnapshot.RepositoryID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(memory, "test", &authenticator, &authorizer)
+	path := "/api/v1/repositories/" + beforeSnapshot.RepositoryID + "/drift?beforeSnapshotId=" + beforeSnapshot.SnapshotID + "&afterSnapshotId=" + afterSnapshot.SnapshotID
+	request := httptest.NewRequest(http.MethodGet, path, nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	assertResponse(t, response, http.StatusOK, `"beforeRevision":"before"`, `"afterRevision":"after"`, `"type":"capability-escalated"`, `"changes":[`)
+
+	invalid := httptest.NewRequest(http.MethodGet, "/api/v1/repositories/"+beforeSnapshot.RepositoryID+"/drift", nil)
+	invalid.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalid)
+	assertResponse(t, invalidResponse, http.StatusBadRequest, `"code":"invalid-snapshot-id"`)
+}
+
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
 	handler := NewHandler(store.NewMemory(), "v0.5.0-test")
 	response := performRequest(t, handler, http.MethodGet, "/api/v1/contracts")

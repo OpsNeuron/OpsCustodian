@@ -125,6 +125,30 @@ paths:
         "200": { $ref: "#/components/responses/JSONSuccess" }
         "400": { $ref: "#/components/responses/APIError" }
         "404": { $ref: "#/components/responses/APIError" }
+  /api/v1/repositories/{repositoryId}/drift:
+    get:
+      operationId: compareRepositorySnapshots
+      description: Compare two immutable snapshots from the same repository using semantic drift analysis.
+      x-opscustodian-required-scope: findings:read
+      parameters:
+        - { $ref: "#/components/parameters/RepositoryID" }
+        - name: beforeSnapshotId
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/SnapshotID" }
+        - name: afterSnapshotId
+          in: query
+          required: true
+          schema: { $ref: "#/components/schemas/SnapshotID" }
+      responses:
+        "200":
+          description: Deterministic semantic drift report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DriftResponse" }
+        "400": { $ref: "#/components/responses/APIError" }
+        "403": { $ref: "#/components/responses/APIError" }
+        "404": { $ref: "#/components/responses/APIError" }
   /api/v1/findings:
     get:
       operationId: listFindings
@@ -240,6 +264,22 @@ components:
                 warn:
                   type: array
                   items: { type: object, additionalProperties: true }
+    DriftResponse:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, value]
+      properties:
+        apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+        value:
+          type: object
+          additionalProperties: false
+          required: [beforeRevision, afterRevision, changes]
+          properties:
+            beforeRevision: { type: string }
+            afterRevision: { type: string }
+            changes:
+              type: array
+              items: { type: object, additionalProperties: true }
     RepositoryID:
       type: string
       pattern: ^repository-[0-9a-f]{16}$

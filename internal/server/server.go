@@ -13,7 +13,9 @@ import (
 
 	"github.com/opscustodian/opscustodian/internal/audit"
 	"github.com/opscustodian/opscustodian/internal/contracts"
+	"github.com/opscustodian/opscustodian/internal/drift"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/normalize"
 	"github.com/opscustodian/opscustodian/internal/store"
 	"github.com/opscustodian/opscustodian/internal/validation"
 )
@@ -86,6 +88,7 @@ func newHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, 
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
+	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/drift", api.repositoryDrift)
 	mux.HandleFunc("GET /api/v1/findings", api.findings)
 	mux.HandleFunc("GET /api/v1/finding-lifecycles", api.findingLifecycles)
 	mux.HandleFunc("POST /api/v1/snapshots", api.ingestSnapshot)
@@ -275,6 +278,47 @@ func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, valueResponse[store.Snapshot]{APIVersion: contracts.ControlPlaneAPIVersion, Value: snapshot})
+}
+
+func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
+	repositoryID := request.PathValue("repositoryID")
+	if !validRepositoryID(repositoryID) {
+		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
+		return
+	}
+	if !authorizeRepository(w, request, repositoryID) {
+		return
+	}
+	beforeID, afterID := request.URL.Query().Get("beforeSnapshotId"), request.URL.Query().Get("afterSnapshotId")
+	if !validSnapshotID(beforeID) || !validSnapshotID(afterID) {
+		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "beforeSnapshotId and afterSnapshotId must be valid snapshot IDs")
+		return
+	}
+	before, err := api.reader.Snapshot(request.Context(), repositoryID, beforeID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "snapshot-not-found", "one or more snapshots were not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository snapshots are unavailable")
+		return
+	}
+	after, err := api.reader.Snapshot(request.Context(), repositoryID, afterID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "snapshot-not-found", "one or more snapshots were not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "repository snapshots are unavailable")
+		return
+	}
+	normalize.BOM(&before.BOM)
+	normalize.BOM(&after.BOM)
+	report := drift.Compare(before.BOM, after.BOM)
+	if report.Changes == nil {
+		report.Changes = []drift.Change{}
+	}
+	writeJSON(w, http.StatusOK, valueResponse[drift.Report]{APIVersion: contracts.ControlPlaneAPIVersion, Value: report})
 }
 
 func (api *API) findings(w http.ResponseWriter, request *http.Request) {

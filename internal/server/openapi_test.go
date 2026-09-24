@@ -54,6 +54,7 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 		"/api/v1/repositories/{repositoryId}/bom",
 		"/api/v1/repositories/{repositoryId}/snapshots",
 		"/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom",
+		"/api/v1/repositories/{repositoryId}/drift",
 		"/api/v1/findings",
 		"/api/v1/finding-lifecycles",
 	}

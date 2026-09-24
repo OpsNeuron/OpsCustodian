@@ -51,16 +51,27 @@ the Kind network so the application egress path remained constrained to port
 5432. The Kind cluster, PostgreSQL container, temporary certificates, downloaded
 tools, and image archives were removed after the successful run.
 
+On 2026-09-24 a separate secret-safe real-provider harness used a disposable
+public repository and GitHub App installation. It observed installation-token
+exchange, cache reuse, private API ingestion, and unchanged-revision handling.
+A negative run with an invalid installation returned the expected rejection,
+persisted no snapshot, and passed bounded audit-output secret checks. Both runs
+removed their Compose containers, internal network, and volumes. The cached
+disposable PAT returned `401`, so PAT parity was not claimed and requires a new
+least-privilege credential.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
 The committed Compose harness itself does not cover GitHub PAT/App provider
 behavior, PostgreSQL TLS/CA compatibility, migration rollback, Kubernetes
 workload readiness, load, or failure injection. The supplemental result above
-closes the TLS, rollback, policy-runtime, and Kubernetes API-admission checks
-for this environment only. Certificate rotation/trust validation, real
-authorization comparison, HA contention, load, and failure injection remain
-explicit gates rather than implied by a passing harness.
+closes the TLS, rollback, policy-runtime, Kubernetes API-admission, and listed
+GitHub App checks for this environment only. Certificate rotation/trust
+validation, PAT parity, expiry-driven App refresh, real-provider redirect,
+cancellation and rate-limit observations, real authorization comparison, HA
+contention, load, and failure injection remain explicit gates rather than
+implied by a passing harness.
 
 ## Execution boundary
 

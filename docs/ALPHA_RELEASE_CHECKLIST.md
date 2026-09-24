@@ -76,10 +76,17 @@ Follow [Integration Testing](INTEGRATION_TESTING.md),
 
 ## 5. Real provider gate
 
-- [ ] GitHub PAT scans public and private disposable repositories.
-- [ ] GitHub App installation authentication and token refresh pass.
-- [ ] Redirect, cancellation, unchanged-revision, and provider rate-limit
-  behavior are observed against the real provider.
+- [ ] GitHub PAT scans public and private disposable repositories. The cached
+  disposable credential returned `401` on 2026-09-24 and must be replaced
+  before this gate can be closed.
+- [x] GitHub App installation authentication, installation-token exchange and
+  cache reuse, private-repository ingestion, and unchanged-revision handling
+  pass against a disposable repository.
+- [x] An invalid GitHub App installation is rejected without persisting a
+  snapshot or exposing secret material in the bounded audit output.
+- [ ] Expiry-driven GitHub App token refresh and real-provider redirect,
+  cancellation, and rate-limit behavior are observed. Their deterministic
+  local contract tests pass, but this real-provider gate remains open.
 - [x] Live GitHub Action produces the expected SARIF/check result on a pull
   request containing a known risky fixture.
 - [ ] At least one real Kubernetes authorization result is compared with the

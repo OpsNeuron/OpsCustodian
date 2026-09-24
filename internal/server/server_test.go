@@ -96,6 +96,52 @@ func TestHistoricalDriftComparesStoredSnapshotsWithRepositoryAuthorization(t *te
 	assertResponse(t, invalidResponse, http.StatusBadRequest, `"code":"invalid-snapshot-id"`)
 }
 
+func TestOrganizationGraphReturnsLatestAuthorizedRepositorySubgraphs(t *testing.T) {
+	memory := store.NewMemory()
+	allowed := serverTestBOM()
+	allowed.Metadata.Source = "github:acme/allowed"
+	allowed.Metadata.Revision = "allowed-1"
+	allowed.Relationships = []model.Relationship{{
+		ID: "relationship-self", From: allowed.Assets[0].ID, Type: "depends-on", To: allowed.Assets[0].ID,
+		TargetType: "asset", Confidence: "high", EvidenceIDs: []string{"role-evidence"},
+	}}
+	allowed.AccessPaths = []model.AccessPath{{
+		ID: "path-reader", Origin: allowed.Assets[0].ID,
+		Steps:      []model.AccessPathStep{{Kind: "origin", AssetID: allowed.Assets[0].ID}, {Kind: "entitlement", AssetID: allowed.Assets[0].ID}},
+		Capability: model.Capability{Action: "kubernetes.pods.get", Resource: "kubernetes:production/core/pods/*", Effect: "read", EvidenceIDs: []string{"role-evidence"}},
+		Confidence: "high", EvidenceIDs: []string{"role-evidence"},
+	}}
+	allowedSnapshot, err := memory.PutSnapshot(context.Background(), allowed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied := serverTestBOM()
+	denied.Metadata.Source = "github:acme/denied"
+	denied.Metadata.Revision = "denied-1"
+	deniedSnapshot, err := memory.PutSnapshot(context.Background(), denied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := "organization-graph-token-0123456789abcdef"
+	authenticator, authorizer, err := NewBearerCredentialSecurity([]BearerCredential{{
+		ID: "graph-reader", Token: token, Scopes: []string{ScopeInventoryRead}, Repositories: []string{allowedSnapshot.RepositoryID},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHandler(memory, "test", &authenticator, &authorizer)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/graph", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	assertResponse(t, response, http.StatusOK,
+		`"repositoryId":"`+allowedSnapshot.RepositoryID+`"`, `"revision":"allowed-1"`,
+		`"relationships":[{"id":"relationship-self"`, `"accessPaths":[{"id":"path-reader"`)
+	if strings.Contains(response.Body.String(), deniedSnapshot.RepositoryID) || strings.Contains(response.Body.String(), "github:acme/denied") {
+		t.Fatalf("organization graph leaked unauthorized repository: %s", response.Body.String())
+	}
+}
+
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
 	handler := NewHandler(store.NewMemory(), "v0.5.0-test")
 	response := performRequest(t, handler, http.MethodGet, "/api/v1/contracts")

@@ -165,6 +165,7 @@ runtime authorization system.
 - Keyset pagination, repository snapshot history, and OpenAPI contract. *(implemented in the read-only handler)*
 - Cross-snapshot Finding lifecycle projection and filtering. *(episode-aware in-memory and PostgreSQL query implementations complete; real database validation pending)*
 - Historical semantic drift API. *(repository-authorized comparison of immutable stored snapshots implemented with OpenAPI, unit, and PostgreSQL-backed integration coverage)*
+- Organization relationship graph API. *(latest repository subgraphs, authorization filtering, bounded pagination, OpenAPI, and PostgreSQL-backed integration coverage implemented)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*

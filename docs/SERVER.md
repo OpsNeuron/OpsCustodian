@@ -12,6 +12,7 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/readyz` | Bounded dependency readiness |
 | `GET` | `/api/v1/contracts` | Build and supported contract discovery |
 | `GET` | `/api/v1/repositories` | Deterministic repository summaries |
+| `GET` | `/api/v1/graph` | Latest asset, relationship, and effective-access subgraphs across authorized repositories |
 | `GET` | `/api/v1/repositories/{repositoryId}/bom` | Latest repository snapshot |
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots` | Repository snapshot history |
 | `GET` | `/api/v1/repositories/{repositoryId}/snapshots/{snapshotId}/bom` | One immutable snapshot |

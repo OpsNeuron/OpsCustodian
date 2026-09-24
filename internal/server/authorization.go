@@ -117,6 +117,8 @@ func requiredScope(method, path string) string {
 		return ScopePolicyEvaluate
 	case path == "/api/v1/contracts":
 		return ScopeContractsRead
+	case path == "/api/v1/graph":
+		return ScopeInventoryRead
 	case path == "/api/v1/findings", path == "/api/v1/finding-lifecycles":
 		return ScopeFindingsRead
 	case strings.HasPrefix(path, "/api/v1/repositories/") && strings.HasSuffix(path, "/drift"):

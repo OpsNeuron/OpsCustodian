@@ -92,6 +92,21 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/JSONSuccess" }
         "400": { $ref: "#/components/responses/APIError" }
+  /api/v1/graph:
+    get:
+      operationId: getOrganizationGraph
+      description: Page through latest repository subgraphs visible to the authenticated identity.
+      x-opscustodian-required-scope: inventory:read
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200":
+          description: Latest graph material for an authorized page of repositories
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrganizationGraphPage" }
+        "400": { $ref: "#/components/responses/APIError" }
   /api/v1/repositories/{repositoryId}/bom:
     get:
       operationId: getLatestRepositoryBOM
@@ -280,6 +295,32 @@ components:
             changes:
               type: array
               items: { type: object, additionalProperties: true }
+    OrganizationGraphPage:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, items]
+      properties:
+        apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [repositoryId, source, revision, assets, relationships, accessPaths]
+            properties:
+              repositoryId: { $ref: "#/components/schemas/RepositoryID" }
+              source: { type: string }
+              revision: { type: string }
+              assets:
+                type: array
+                items: { type: object, additionalProperties: true }
+              relationships:
+                type: array
+                items: { type: object, additionalProperties: true }
+              accessPaths:
+                type: array
+                items: { type: object, additionalProperties: true }
+        nextCursor: { type: string }
     RepositoryID:
       type: string
       pattern: ^repository-[0-9a-f]{16}$

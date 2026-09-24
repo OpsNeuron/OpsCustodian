@@ -105,6 +105,11 @@ semantic capability-escalation change through the repository-authorized drift
 endpoint. The comparison neither rescans a repository nor accepts a client
 supplied comparison result.
 
+The organization-graph phase queries the latest persisted graph material from
+the same PostgreSQL-backed repositories. The harness verifies that the bounded
+graph page contains the authorized scope-expansion repository after ingestion;
+repository filtering remains enforced by the shared collection boundary.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

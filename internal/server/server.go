@@ -50,6 +50,15 @@ type snapshotIngestionResponse struct {
 	FindingCount int    `json:"findingCount"`
 }
 
+type organizationGraph struct {
+	RepositoryID  string               `json:"repositoryId"`
+	Source        string               `json:"source"`
+	Revision      string               `json:"revision"`
+	Assets        []model.Asset        `json:"assets"`
+	Relationships []model.Relationship `json:"relationships"`
+	AccessPaths   []model.AccessPath   `json:"accessPaths"`
+}
+
 type errorResponse struct {
 	APIVersion string `json:"apiVersion"`
 	Error      struct {
@@ -85,6 +94,7 @@ func newHandlerWithReadinessAndPolicy(reader store.Reader, buildVersion string, 
 	mux.HandleFunc("GET /readyz", api.ready)
 	mux.HandleFunc("GET /api/v1/contracts", api.contracts)
 	mux.HandleFunc("GET /api/v1/repositories", api.repositories)
+	mux.HandleFunc("GET /api/v1/graph", api.organizationGraph)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/bom", api.latestBOM)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots", api.snapshots)
 	mux.HandleFunc("GET /api/v1/repositories/{repositoryID}/snapshots/{snapshotID}/bom", api.snapshotBOM)
@@ -204,6 +214,42 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 		result.Items = []store.RepositorySummary{}
 	}
 	writeJSON(w, http.StatusOK, listResponse[store.RepositorySummary]{APIVersion: contracts.ControlPlaneAPIVersion, Items: result.Items, NextCursor: encodeCursor("repositories", result.NextCursor)})
+}
+
+func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) {
+	page, ok := requestPage(w, request, "graph")
+	if !ok {
+		return
+	}
+	page.RepositoryIDs = authorizedRepositoryIDs(request)
+	repositories, err := api.reader.ListRepositories(request.Context(), page)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "store-read-failed", "organization graph is unavailable")
+		return
+	}
+	items := make([]organizationGraph, 0, len(repositories.Items))
+	for _, repository := range repositories.Items {
+		snapshot, err := api.reader.LatestSnapshot(request.Context(), repository.ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "store-read-failed", "organization graph is unavailable")
+			return
+		}
+		normalize.BOM(&snapshot.BOM)
+		if snapshot.BOM.Assets == nil {
+			snapshot.BOM.Assets = []model.Asset{}
+		}
+		if snapshot.BOM.Relationships == nil {
+			snapshot.BOM.Relationships = []model.Relationship{}
+		}
+		if snapshot.BOM.AccessPaths == nil {
+			snapshot.BOM.AccessPaths = []model.AccessPath{}
+		}
+		items = append(items, organizationGraph{
+			RepositoryID: repository.ID, Source: repository.Source, Revision: snapshot.BOM.Metadata.Revision,
+			Assets: snapshot.BOM.Assets, Relationships: snapshot.BOM.Relationships, AccessPaths: snapshot.BOM.AccessPaths,
+		})
+	}
+	writeJSON(w, http.StatusOK, listResponse[organizationGraph]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items, NextCursor: encodeCursor("graph", repositories.NextCursor)})
 }
 
 func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {

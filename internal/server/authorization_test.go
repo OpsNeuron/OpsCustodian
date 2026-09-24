@@ -65,6 +65,7 @@ func TestGranularScopesCannotCrossAPIBoundaries(t *testing.T) {
 	}{
 		{ScopeContractsRead, "/api/v1/contracts", http.StatusOK},
 		{ScopeInventoryRead, "/api/v1/repositories", http.StatusOK},
+		{ScopeInventoryRead, "/api/v1/graph", http.StatusOK},
 		{ScopeFindingsRead, "/api/v1/findings", http.StatusOK},
 		{ScopeFindingsRead, "/api/v1/repositories/repository-0123456789abcdef/drift", http.StatusBadRequest},
 	} {

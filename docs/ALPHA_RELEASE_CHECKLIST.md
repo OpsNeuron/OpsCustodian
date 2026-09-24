@@ -111,9 +111,9 @@ tokens, private keys, secret values, or signed download URLs in release evidence
   source verification, race detection, five platform builds, CycloneDX SBOM
   generation, provenance attestation, and prerelease publication passed in
   [Release run #1](https://github.com/OpsNeuron/OpsCustodian/actions/runs/33249640513).
-- [ ] Publish limitations: alpha contracts, experimental server, unsupported
+- [x] Publish limitations: alpha contracts, experimental server, unsupported
   production HA, and the difference between offline evidence and live runtime
-  authorization.
+  authorization in [Public Alpha Limitations](LIMITATIONS.md).
 
 The alpha is ready to announce only when sections 1–3 and the applicable
 single-instance portions of sections 4–6 have evidence. Experimental HA is not

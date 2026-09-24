@@ -3,6 +3,8 @@
 This document distinguishes implementation from validation. A capability marked
 implemented is present in source code; it is not considered production-ready
 until its build, automated tests, fixtures, and integration gates pass.
+The current public support boundary is maintained in
+[Public Alpha Limitations](LIMITATIONS.md).
 
 ## Current position
 

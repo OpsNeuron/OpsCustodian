@@ -18,6 +18,7 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/api/v1/findings` | Findings across latest repository snapshots |
 | `GET` | `/api/v1/finding-lifecycles` | Current lifecycle episode for each Finding |
 | `POST` | `/api/v1/snapshots` | Validate and persist an immutable Agent BOM snapshot |
+| `POST` | `/api/v1/policy/evaluate` | Evaluate a bounded policy input and return explicit allow/deny |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
@@ -48,6 +49,13 @@ liveness remains healthy; a later successful probe restores readiness without
 restarting the process.
 A Go conformance test ensures every implemented route remains
 documented under the same API contract version.
+
+Policy evaluation requires the dedicated `policy:evaluate` scope or
+`control-plane:admin`; the read umbrella does not grant it. The endpoint returns
+an explicit `allowed` boolean plus the normalized deny/warn decision and fails
+closed with `503` when no evaluator is wired, evaluation fails, or the evaluator
+returns an invalid decision. The endpoint does not persist its input. Runtime
+OPA wiring remains a separate experimental step.
 
 Snapshot ingestion requires `Content-Type: application/json`, accepts exactly
 one strict Agent BOM JSON document, and limits request bodies to 10 MiB. Contract

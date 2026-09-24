@@ -103,6 +103,9 @@ the offline CLI and a single control-plane replica.
 ### v0.2 CI guardrail — implemented, pending integration validation
 
 - OPA/Rego adapter and starter policies.
+- Versioned, bounded, scope-isolated policy evaluation API with explicit
+  allow/deny output and fail-closed evaluator behavior; process-level OPA wiring
+  remains pending.
 - SARIF 2.1 reporter with source locations and fingerprints.
 - Docker-based GitHub Action and example workflow.
 - Stable process exit contract.

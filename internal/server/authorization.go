@@ -14,6 +14,7 @@ const (
 	ScopeInventoryRead     = "inventory:read"
 	ScopeFindingsRead      = "findings:read"
 	ScopeSnapshotsWrite    = "snapshots:write"
+	ScopePolicyEvaluate    = "policy:evaluate"
 )
 
 var supportedScopes = map[string]struct{}{
@@ -23,6 +24,7 @@ var supportedScopes = map[string]struct{}{
 	ScopeInventoryRead:     {},
 	ScopeFindingsRead:      {},
 	ScopeSnapshotsWrite:    {},
+	ScopePolicyEvaluate:    {},
 }
 
 type ScopeAuthorizer struct {
@@ -96,7 +98,7 @@ func (authorizer ScopeAuthorizer) middleware(next http.Handler) http.Handler {
 		_, broad := scopes[ScopeControlPlaneRead]
 		_, admin := scopes[ScopeControlPlaneAdmin]
 		_, specific := scopes[required]
-		broadRead := broad && required != ScopeSnapshotsWrite
+		broadRead := broad && required != ScopeSnapshotsWrite && required != ScopePolicyEvaluate
 		if !admin && !broadRead && !specific {
 			setRequestAuthorization(request, "denied")
 			writeError(w, http.StatusForbidden, "authorization-denied", "the authenticated identity is not authorized for this operation")
@@ -111,6 +113,8 @@ func requiredScope(method, path string) string {
 	switch {
 	case method == http.MethodPost && path == "/api/v1/snapshots":
 		return ScopeSnapshotsWrite
+	case method == http.MethodPost && path == "/api/v1/policy/evaluate":
+		return ScopePolicyEvaluate
 	case path == "/api/v1/contracts":
 		return ScopeContractsRead
 	case path == "/api/v1/findings", path == "/api/v1/finding-lifecycles":

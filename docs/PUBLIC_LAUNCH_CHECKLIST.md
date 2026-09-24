@@ -15,19 +15,22 @@ keep the offline evidence workflow separate from production-runtime claims.
   retaining the deliberate `examples/**` and `internal/**/testdata/**` fixtures.
 - [x] Push the current clean commit and observe Linux, race, and Windows CI pass.
 - [x] Enable GitHub private vulnerability reporting before changing visibility.
-- [ ] Confirm no real secret, private repository data, personal identifier, or
-  internal organization reference exists in Git history or the public tree.
-  A secret-safe scan of 221 revisions found no private-key/token patterns or
-  local filesystem paths. Historical commit metadata still contains one email
-  from a consumer mail provider; repository-local identity is now configured to
-  use the GitHub noreply address for future commits.
+- [x] Review the public tree and history for real secrets, private repository
+  data, personal paths, and internal organization references. A secret-safe
+  scan of 221 revisions found no private-key/token patterns or local filesystem
+  paths. One author email remains as ordinary historical Git metadata;
+  repository-local identity uses the GitHub noreply address for future commits.
 - [x] Configure repository description, topics, website/documentation link, and
   default branch protection. The homepage links to the tagged
   `v0.5.0-alpha` Quick Start.
 
 ## Blockers before the first social announcement
 
-- [ ] Complete all public-repository blockers above.
+- [x] Complete all public-repository blockers above.
+- [ ] Merge the final hardening branch into `main` and observe required Linux,
+  race, and Windows CI checks on the resulting pull request. The public `main`
+  branch must display the current README, demo GIF, and limitations before the
+  first social announcement.
 - [x] Capture current, synthetic screenshots of the self-contained HTML report.
 - [x] Run the Windows Quick Start from a fresh, depth-one clone of tag
   `v0.5.0-alpha` at commit `20e32b56f4e46802f32002d9d259e62640f355fd`.
@@ -71,7 +74,7 @@ policy-as-code opa sbom governance go
 
 ## Launch readiness decision
 
-The repository is ready to become public when every item in **Blockers before
-making the repository public** is checked. Social promotion should wait for the
-second list because the screenshot, clean-clone proof, and working public links
-materially affect first impressions.
+The repository is public and its original publication blockers are complete.
+Social promotion should wait until the final hardening branch is merged into
+`main` and its required CI checks pass, because the updated README, demo GIF,
+limitations, and environment evidence materially affect first impressions.

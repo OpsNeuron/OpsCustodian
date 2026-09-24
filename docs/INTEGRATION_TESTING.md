@@ -87,8 +87,9 @@ The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
 running control-plane process. The valid fixture returned `allowed: true`, all
-three Rego contract tests passed, and the disposable containers, network, and
-volumes were removed.
+three Rego contract tests passed, the request audit contained only the bounded
+allowed outcome and decision counts, and the disposable containers, network,
+and volumes were removed.
 
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.

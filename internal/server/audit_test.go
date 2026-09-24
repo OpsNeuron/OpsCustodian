@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/opscustodian/opscustodian/internal/audit"
+	"github.com/opscustodian/opscustodian/internal/policy"
 	"github.com/opscustodian/opscustodian/internal/store"
 )
 
@@ -121,6 +122,40 @@ func TestRequestAuditRejectsSnapshotWithoutRecordingUntrustedMetadata(t *testing
 	content, _ := json.Marshal(sink.events[0])
 	if strings.Contains(string(content), "secret-source") || strings.Contains(string(content), "secret-revision") {
 		t.Fatalf("snapshot audit leaked untrusted metadata: %s", content)
+	}
+}
+
+func TestRequestAuditCapturesBoundedPolicyDecisionSummary(t *testing.T) {
+	authenticator, _ := NewBearerAuthenticator(serverTestBearerToken)
+	authorizer, _ := NewScopeAuthorizer([]string{ScopePolicyEvaluate})
+	sink := &recordingRequestAuditSink{}
+	evaluator := PolicyEvaluatorFunc(func(context.Context, policy.Input) (policy.Decision, error) {
+		return policy.Decision{
+			Deny: []policy.Message{{Rule: "deny-admin", Title: "Admin access", Message: "admin access is denied", Severity: "critical"}},
+			Warn: []policy.Message{{Rule: "warn-owner", Title: "Owner missing", Message: "owner is missing", Severity: "medium"}},
+		}, nil
+	})
+	handler, err := newAuditedAuthenticatedHandlerWithReadinessAndPolicy(store.NewMemory(), "test", authenticator, authorizer, "organization-0123456789abcdef", sink, func(err error) { t.Fatalf("audit failure: %v", err) }, readyReadiness{}, evaluator, requestAuditOptions{
+		Now: time.Now, RequestID: func() (string, error) { return "request-0123456789abcdef0123456789abcdef", nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/policy/evaluate", strings.NewReader(validPolicyInput(t)))
+	request.Header.Set("Authorization", "Bearer "+serverTestBearerToken)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || len(sink.events) != 1 {
+		t.Fatalf("response = %d, events = %#v", response.Code, sink.events)
+	}
+	attributes := sink.events[0].Attributes
+	if attributes["opscustodian.policy.evaluation.result"] != "denied" || attributes["opscustodian.policy.deny.count"] != 1 || attributes["opscustodian.policy.warn.count"] != 1 {
+		t.Fatalf("policy audit attributes = %#v", attributes)
+	}
+	content, _ := json.Marshal(sink.events[0])
+	if strings.Contains(string(content), "deny-admin") || strings.Contains(string(content), "Admin access") || strings.Contains(string(content), serverTestBearerToken) {
+		t.Fatalf("policy audit leaked decision or credential data: %s", content)
 	}
 }
 

@@ -93,7 +93,7 @@ Exit condition: a local demo reliably identifies production permission drift.
 
 ## v0.2 — CI guardrail
 
-- OPA/Rego policy adapter and open starter policy pack. *(implemented with current-state finding gates and deterministic Rego tests; pending final runtime validation)*
+- OPA/Rego policy adapter and open starter policy pack. *(implemented with current-state finding gates, deterministic Rego tests, authenticated server runtime wiring, and Docker-backed validation)*
 - GitHub Action packaging.
 - SARIF and pull-request annotations. *(initial SARIF and Action implemented, pending validation)*
 - Stable exit-code contract.

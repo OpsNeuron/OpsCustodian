@@ -41,6 +41,7 @@ type HTTPRequestObservation struct {
 	Authorization  string
 	Identity       string
 	Snapshot       *SnapshotIngestionObservation
+	Policy         *PolicyEvaluationObservation
 }
 
 type SnapshotIngestionObservation struct {
@@ -50,6 +51,12 @@ type SnapshotIngestionObservation struct {
 	Revision     string
 	AssetCount   int
 	FindingCount int
+}
+
+type PolicyEvaluationObservation struct {
+	Result    string
+	DenyCount int
+	WarnCount int
 }
 
 type CredentialReloadObservation struct {
@@ -160,6 +167,13 @@ func FromHTTPRequest(observation HTTPRequestObservation) Event {
 		if snapshot.Result == "persisted" {
 			attributes["opscustodian.snapshot.asset.count"] = snapshot.AssetCount
 			attributes["opscustodian.snapshot.finding.count"] = snapshot.FindingCount
+		}
+	}
+	if policy := observation.Policy; policy != nil {
+		attributes["opscustodian.policy.evaluation.result"] = policy.Result
+		if policy.Result == "allowed" || policy.Result == "denied" {
+			attributes["opscustodian.policy.deny.count"] = max(policy.DenyCount, 0)
+			attributes["opscustodian.policy.warn.count"] = max(policy.WarnCount, 0)
 		}
 	}
 	return newEvent(observation.OccurredAt.UTC().Format(time.RFC3339Nano), "opscustodian.http.request.completed", severity, "OpsCustodian control-plane HTTP request completed", attributes)

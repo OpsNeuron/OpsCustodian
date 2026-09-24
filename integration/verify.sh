@@ -58,7 +58,7 @@ if ! printf '%s\n' "$drift_response" | grep -q '"type":"capability-escalated"'; 
   printf 'unexpected historical drift response: %s\n' "$drift_response" >&2
   exit 1
 fi
-compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" "http://127.0.0.1:8080/api/v1/graph?limit=2"' | grep -q '"repositoryId":"repository-4b70fe32f822b795"'
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" "http://127.0.0.1:8080/api/v1/graph?limit=2&action=kubernetes.deployments.update"' | grep -q '"repositoryId":"repository-4b70fe32f822b795"'
 compose exec -T opscustodian opscustodian scan --output /work/agentbom.integration.json /fixtures/scan-input
 compose exec -T opscustodian opscustodian events --bom /work/agentbom.integration.json --output /work/events.integration.jsonl --otlp-endpoint http://collector:4318/v1/logs --allow-insecure-otlp
 compose run --rm opa

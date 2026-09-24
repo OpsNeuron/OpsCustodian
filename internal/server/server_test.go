@@ -140,6 +140,30 @@ func TestOrganizationGraphReturnsLatestAuthorizedRepositorySubgraphs(t *testing.
 	if strings.Contains(response.Body.String(), deniedSnapshot.RepositoryID) || strings.Contains(response.Body.String(), "github:acme/denied") {
 		t.Fatalf("organization graph leaked unauthorized repository: %s", response.Body.String())
 	}
+
+	matching := httptest.NewRequest(http.MethodGet, "/api/v1/graph?action=kubernetes.pods.get&relationshipType=depends-on", nil)
+	matching.Header.Set("Authorization", "Bearer "+token)
+	matchingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(matchingResponse, matching)
+	assertResponse(t, matchingResponse, http.StatusOK, `"repositoryId":"`+allowedSnapshot.RepositoryID+`"`)
+
+	notMatching := httptest.NewRequest(http.MethodGet, "/api/v1/graph?owner=security-team", nil)
+	notMatching.Header.Set("Authorization", "Bearer "+token)
+	notMatchingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(notMatchingResponse, notMatching)
+	assertResponse(t, notMatchingResponse, http.StatusOK, `"items":[]`)
+
+	deniedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/graph?repositoryId="+deniedSnapshot.RepositoryID, nil)
+	deniedRequest.Header.Set("Authorization", "Bearer "+token)
+	deniedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(deniedResponse, deniedRequest)
+	assertResponse(t, deniedResponse, http.StatusForbidden, `"code":"repository-authorization-denied"`)
+
+	invalid := httptest.NewRequest(http.MethodGet, "/api/v1/graph?action=%20shell.execute", nil)
+	invalid.Header.Set("Authorization", "Bearer "+token)
+	invalidResponse := httptest.NewRecorder()
+	handler.ServeHTTP(invalidResponse, invalid)
+	assertResponse(t, invalidResponse, http.StatusBadRequest, `"code":"invalid-graph-filter"`)
 }
 
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {

@@ -23,6 +23,11 @@ snapshot ingestion. The thread-safe memory store and PostgreSQL implement both.
 | `GET` | `/api/v1/repositories/{repositoryId}/drift` | Compare two stored snapshots using `beforeSnapshotId` and `afterSnapshotId` |
 
 The findings endpoint accepts exact `repositoryId` and `severity` filters.
+The organization graph accepts exact `repositoryId`, `assetType`, `owner`,
+`component`, `action`, and `relationshipType` filters. Filters select matching
+repositories while returning each complete latest subgraph so relationships
+and access paths are never truncated into invalid fragments. Graph cursors are
+bound to the complete filter set and cannot be reused for a different query.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
 200) and an opaque versioned `cursor`. All API envelopes use
 `opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit

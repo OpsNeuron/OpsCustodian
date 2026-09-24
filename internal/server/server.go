@@ -217,11 +217,22 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) {
-	page, ok := requestPage(w, request, "graph")
+	filter, ok := requestGraphFilter(w, request)
 	if !ok {
 		return
 	}
-	page.RepositoryIDs = authorizedRepositoryIDs(request)
+	if filter.RepositoryID != "" && !authorizeRepository(w, request, filter.RepositoryID) {
+		return
+	}
+	page, ok := requestPage(w, request, filter.cursorScope())
+	if !ok {
+		return
+	}
+	if filter.RepositoryID != "" {
+		page.RepositoryIDs = []string{filter.RepositoryID}
+	} else {
+		page.RepositoryIDs = authorizedRepositoryIDs(request)
+	}
 	repositories, err := api.reader.ListRepositories(request.Context(), page)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "store-read-failed", "organization graph is unavailable")
@@ -235,6 +246,9 @@ func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) 
 			return
 		}
 		normalize.BOM(&snapshot.BOM)
+		if !filter.matches(snapshot.BOM) {
+			continue
+		}
 		if snapshot.BOM.Assets == nil {
 			snapshot.BOM.Assets = []model.Asset{}
 		}
@@ -249,7 +263,7 @@ func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) 
 			Assets: snapshot.BOM.Assets, Relationships: snapshot.BOM.Relationships, AccessPaths: snapshot.BOM.AccessPaths,
 		})
 	}
-	writeJSON(w, http.StatusOK, listResponse[organizationGraph]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items, NextCursor: encodeCursor("graph", repositories.NextCursor)})
+	writeJSON(w, http.StatusOK, listResponse[organizationGraph]{APIVersion: contracts.ControlPlaneAPIVersion, Items: items, NextCursor: encodeCursor(filter.cursorScope(), repositories.NextCursor)})
 }
 
 func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {

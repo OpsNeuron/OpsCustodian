@@ -100,6 +100,24 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
+        - name: repositoryId
+          in: query
+          schema: { $ref: "#/components/schemas/RepositoryID" }
+        - name: assetType
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: owner
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: component
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: action
+          in: query
+          schema: { type: string, maxLength: 200 }
+        - name: relationshipType
+          in: query
+          schema: { type: string, maxLength: 200 }
       responses:
         "200":
           description: Latest graph material for an authorized page of repositories

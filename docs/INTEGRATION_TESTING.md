@@ -74,6 +74,14 @@ liveness. Restarting PostgreSQL restored readiness and authenticated repository
 reads without restarting the control plane. The Compose containers, network,
 and volumes were removed after the successful recovery.
 
+A bounded read-load baseline sent 2,000 authenticated repository-list requests
+at concurrency 20 through the control plane loopback boundary. All 2,000
+requests succeeded, readiness remained healthy, throughput was 2,407.6
+requests/second, and observed latency was 5.374 ms p50, 24.526 ms p95, and
+30.822 ms p99 on this Docker Desktop host. This is a regression baseline for
+one machine, not a capacity, soak, or service-level objective claim. The
+Compose resources were removed after the run.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -84,8 +92,8 @@ closes the TLS, rollback, policy-runtime, Kubernetes API-admission, and listed
 GitHub App checks for this environment only. Certificate rotation/trust
 validation, PAT parity, expiry-driven App refresh, real-provider redirect,
 cancellation and rate-limit observations, broader authorization compatibility,
-HA contention, load, and broader failure injection remain explicit gates
-rather than implied by a passing harness.
+HA contention, sustained/maximum load, and broader failure injection remain
+explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
 

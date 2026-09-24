@@ -65,7 +65,9 @@ and wildcard-derived capabilities without discrepancy.
 Database readiness now performs bounded periodic PostgreSQL probes. A Docker
 Compose outage/recovery test observed readiness degradation with uninterrupted
 liveness, followed by readiness and authenticated API recovery after PostgreSQL
-returned. Broader dependency failure injection and load testing remain open.
+returned. A bounded 2,000-request authenticated read baseline at concurrency 20
+completed with zero errors and healthy readiness; sustained load, capacity,
+write contention, and broader dependency failure injection remain open.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,

@@ -60,6 +60,11 @@ preservation and fail-closed version-skew checks. Mixed-version rolling
 upgrades, skip-version paths, in-place production downgrade, and migration
 timing on large databases remain unvalidated.
 
+Bounded CI fuzzing covers credential JSON, RepositorySet JSON, and OPA decision
+output. Module checksum and tidy-diff gates also run in CI. These controls do
+not constitute a vulnerability-database scan, penetration test, sustained
+resource-exhaustion test, or complete fuzz coverage of every parser.
+
 ## Provider validation is incomplete
 
 Real GitHub App token exchange, cache reuse, private-repository ingestion,

@@ -34,3 +34,8 @@ policy bundles, and external connector responses as untrusted. The initial
 threat model will cover path traversal, symlink escape, resource exhaustion,
 malformed serialization, secret leakage, policy tampering, baseline tampering,
 and unsafe terminal/SARIF rendering.
+
+The current bounded fuzzing and dependency-integrity gates are documented in
+[Security testing](docs/SECURITY_TESTING.md). Passing those gates is evidence
+for specific input boundaries, not a general penetration-test or production-
+security claim.

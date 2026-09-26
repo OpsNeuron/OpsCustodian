@@ -223,6 +223,8 @@ Missing exit items:
 - Integrity-preserving organization-graph filters for repository, asset type, owner, component, capability action, and relationship type with filter-bound opaque cursors.
 - Tenant-scoped PostgreSQL audit retention with secret-minimized event validation, fail-closed dual sinks, repository-aware filtering, dedicated `audit:read` authorization, and a paginated query API.
 - Bounded audit lifecycle enforcement with configurable 24-hour-to-10-year retention, startup and periodic pruning, tenant-isolated delete batches, safe operational projection, and fail-closed process coordination.
+- Bounded snapshot lifecycle enforcement with server-time age calculation, a configurable per-repository history floor, latest-snapshot preservation, tenant-isolated delete batches, and fail-closed process coordination.
+- Docker-backed snapshot-retention evidence covering real PostgreSQL deletion, batch limiting, latest-history preservation, and dependent-Finding cascade cleanup.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.
@@ -280,7 +282,7 @@ runtime authorization system without collecting credential values.
 - PostgreSQL persistence and migrations.
 - Multi-repository ingestion and incremental scans.
 - Organization relationship graph and historical drift.
-- Authentication, authorization, tenant boundaries, and audit retention.
+- Authentication, authorization, tenant boundaries, audit retention, and snapshot retention.
 
 Exit gate: a platform team can query inventory and findings across multiple
 repositories with reproducible history and least-privilege connectors.

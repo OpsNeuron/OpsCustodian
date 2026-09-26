@@ -279,6 +279,20 @@ through 10 years, intervals to one minute through 24 hours, and batches to
 1 through 10,000. Pruning is tenant-scoped, and a database failure stops the
 process rather than silently disabling retention.
 
+Snapshot history defaults to 180 days, while retaining at least the newest 10
+snapshots for every repository regardless of age. Cleanup runs at startup and
+every 24 hours in tenant-scoped batches of 500. Operators can set
+`OPSCUSTODIAN_SNAPSHOT_RETENTION`,
+`OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY`,
+`OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL`, and
+`OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH`. Retention is bounded from 24 hours through
+10 years, the per-repository floor from 1 through 1,000, the interval from one
+minute through 24 hours, and the batch from 1 through 10,000. Age is based on
+the server-controlled ingestion timestamp, not repository-supplied metadata.
+The newest snapshot is therefore never removed, and dependent snapshot
+findings are deleted only by the schema's scoped foreign-key cascade. A
+database failure stops the process instead of silently disabling retention.
+
 ## Request audit middleware
 
 The authenticated API has a request-audit middleware contract that emits the

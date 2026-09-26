@@ -33,32 +33,39 @@ func TestConfigFromEnvironmentUsesBoundedOperationalDefaults(t *testing.T) {
 	if config.SchedulerLeaseTTL != time.Minute || config.SchedulerRenewInterval != 20*time.Second {
 		t.Fatalf("unexpected scheduler defaults: %#v", config.Safe())
 	}
+	if config.SnapshotRetention != 180*24*time.Hour || config.SnapshotMinimum != 10 || config.SnapshotPruneInterval != 24*time.Hour || config.SnapshotPruneBatch != 500 {
+		t.Fatalf("unexpected snapshot retention defaults: %#v", config.Safe())
+	}
 }
 
 func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing.T) {
 	config, err := ConfigFromEnvironment(environment(map[string]string{
-		"OPSCUSTODIAN_ORGANIZATION_ID":            "organization-0123456789abcdef",
-		"OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME":  "Agent Platform",
-		"OPSCUSTODIAN_DATABASE_DSN":               "postgres://database/controlplane",
-		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE":    "true",
-		"OPSCUSTODIAN_API_TOKEN":                  controlPlaneTestAPIToken,
-		"OPSCUSTODIAN_API_TOKEN_ID":               "platform-reader",
-		"OPSCUSTODIAN_API_SCOPES":                 "control-plane:read",
-		"OPSCUSTODIAN_DATABASE_MIGRATE":           "false",
-		"OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT":   "15s",
-		"OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT": "3m",
-		"OPSCUSTODIAN_SHUTDOWN_TIMEOUT":           "25s",
-		"OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS":    "40",
-		"OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS":    "10",
-		"OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME": "2h",
-		"OPSCUSTODIAN_SCHEDULER_LEASE_TTL":        "90s",
-		"OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL":   "30s",
-		"OPSCUSTODIAN_HTTP_LISTEN_ADDRESS":        "[::1]:9090",
-		"OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT":   "4s",
-		"OPSCUSTODIAN_HTTP_READ_TIMEOUT":          "12s",
-		"OPSCUSTODIAN_HTTP_WRITE_TIMEOUT":         "20s",
-		"OPSCUSTODIAN_HTTP_IDLE_TIMEOUT":          "45s",
-		"OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES":      "32768",
+		"OPSCUSTODIAN_ORGANIZATION_ID":                 "organization-0123456789abcdef",
+		"OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME":       "Agent Platform",
+		"OPSCUSTODIAN_DATABASE_DSN":                    "postgres://database/controlplane",
+		"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE":         "true",
+		"OPSCUSTODIAN_API_TOKEN":                       controlPlaneTestAPIToken,
+		"OPSCUSTODIAN_API_TOKEN_ID":                    "platform-reader",
+		"OPSCUSTODIAN_API_SCOPES":                      "control-plane:read",
+		"OPSCUSTODIAN_DATABASE_MIGRATE":                "false",
+		"OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT":        "15s",
+		"OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT":      "3m",
+		"OPSCUSTODIAN_SHUTDOWN_TIMEOUT":                "25s",
+		"OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS":         "40",
+		"OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS":         "10",
+		"OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME":      "2h",
+		"OPSCUSTODIAN_SCHEDULER_LEASE_TTL":             "90s",
+		"OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL":        "30s",
+		"OPSCUSTODIAN_SNAPSHOT_RETENTION":              "720h",
+		"OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY": "25",
+		"OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL":         "2h",
+		"OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH":            "250",
+		"OPSCUSTODIAN_HTTP_LISTEN_ADDRESS":             "[::1]:9090",
+		"OPSCUSTODIAN_HTTP_READ_HEADER_TIMEOUT":        "4s",
+		"OPSCUSTODIAN_HTTP_READ_TIMEOUT":               "12s",
+		"OPSCUSTODIAN_HTTP_WRITE_TIMEOUT":              "20s",
+		"OPSCUSTODIAN_HTTP_IDLE_TIMEOUT":               "45s",
+		"OPSCUSTODIAN_HTTP_MAX_HEADER_BYTES":           "32768",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -72,6 +79,9 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 	if config.SchedulerLeaseTTL != 90*time.Second || config.SchedulerRenewInterval != 30*time.Second {
 		t.Fatalf("explicit scheduler settings were not preserved: %#v", config.Safe())
 	}
+	if config.SnapshotRetention != 30*24*time.Hour || config.SnapshotMinimum != 25 || config.SnapshotPruneInterval != 2*time.Hour || config.SnapshotPruneBatch != 250 {
+		t.Fatalf("explicit snapshot retention settings were not preserved: %#v", config.Safe())
+	}
 }
 
 func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
@@ -83,6 +93,8 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 		{"unbounded connect", "OPSCUSTODIAN_DATABASE_CONNECT_TIMEOUT", "2m", "between"},
 		{"unbounded migration", "OPSCUSTODIAN_DATABASE_MIGRATION_TIMEOUT", "16m", "between"},
 		{"unbounded pool", "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", "1001", "between"},
+		{"zero snapshot minimum", "OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY", "0", "between"},
+		{"unbounded snapshot batch", "OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH", "10001", "between"},
 		{"idle exceeds open", "OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS", "21", "max open"},
 		{"short scheduler lease", "OPSCUSTODIAN_SCHEDULER_LEASE_TTL", "10s", "between"},
 		{"slow scheduler renewal", "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", "1m", "less than"},

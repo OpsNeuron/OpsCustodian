@@ -12,25 +12,29 @@ import (
 )
 
 const (
-	defaultConnectTimeout     = 5 * time.Second
-	defaultMigrationTimeout   = 2 * time.Minute
-	defaultShutdownTimeout    = 10 * time.Second
-	defaultMaxOpenConns       = 20
-	defaultMaxIdleConns       = 5
-	defaultConnMaxLifetime    = 30 * time.Minute
-	defaultListenAddress      = "127.0.0.1:8080"
-	defaultReadHeaderTimeout  = 5 * time.Second
-	defaultReadTimeout        = 15 * time.Second
-	defaultWriteTimeout       = 30 * time.Second
-	defaultIdleTimeout        = 60 * time.Second
-	defaultMaxHeaderBytes     = 64 << 10
-	defaultSchedulerLeaseTTL  = time.Minute
-	defaultSchedulerRenewal   = 20 * time.Second
-	defaultPolicyQuery        = "data.opscustodian.decision"
-	defaultPolicyTimeout      = 5 * time.Second
-	defaultAuditRetention     = 90 * 24 * time.Hour
-	defaultAuditPruneInterval = 24 * time.Hour
-	defaultAuditPruneBatch    = 1000
+	defaultConnectTimeout        = 5 * time.Second
+	defaultMigrationTimeout      = 2 * time.Minute
+	defaultShutdownTimeout       = 10 * time.Second
+	defaultMaxOpenConns          = 20
+	defaultMaxIdleConns          = 5
+	defaultConnMaxLifetime       = 30 * time.Minute
+	defaultListenAddress         = "127.0.0.1:8080"
+	defaultReadHeaderTimeout     = 5 * time.Second
+	defaultReadTimeout           = 15 * time.Second
+	defaultWriteTimeout          = 30 * time.Second
+	defaultIdleTimeout           = 60 * time.Second
+	defaultMaxHeaderBytes        = 64 << 10
+	defaultSchedulerLeaseTTL     = time.Minute
+	defaultSchedulerRenewal      = 20 * time.Second
+	defaultPolicyQuery           = "data.opscustodian.decision"
+	defaultPolicyTimeout         = 5 * time.Second
+	defaultAuditRetention        = 90 * 24 * time.Hour
+	defaultAuditPruneInterval    = 24 * time.Hour
+	defaultAuditPruneBatch       = 1000
+	defaultSnapshotRetention     = 180 * 24 * time.Hour
+	defaultSnapshotMinimum       = 10
+	defaultSnapshotPruneInterval = 24 * time.Hour
+	defaultSnapshotPruneBatch    = 500
 )
 
 type LookupEnv func(string) (string, bool)
@@ -68,6 +72,10 @@ type Config struct {
 	AuditRetention           time.Duration
 	AuditPruneInterval       time.Duration
 	AuditPruneBatch          int
+	SnapshotRetention        time.Duration
+	SnapshotMinimum          int
+	SnapshotPruneInterval    time.Duration
+	SnapshotPruneBatch       int
 }
 
 type HTTPConfig struct {
@@ -109,6 +117,10 @@ type SafeConfig struct {
 	AuditRetention           time.Duration `json:"auditRetention"`
 	AuditPruneInterval       time.Duration `json:"auditPruneInterval"`
 	AuditPruneBatch          int           `json:"auditPruneBatch"`
+	SnapshotRetention        time.Duration `json:"snapshotRetention"`
+	SnapshotMinimum          int           `json:"snapshotMinimumPerRepository"`
+	SnapshotPruneInterval    time.Duration `json:"snapshotPruneInterval"`
+	SnapshotPruneBatch       int           `json:"snapshotPruneBatch"`
 }
 
 func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
@@ -133,6 +145,10 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		AuditRetention:          defaultAuditRetention,
 		AuditPruneInterval:      defaultAuditPruneInterval,
 		AuditPruneBatch:         defaultAuditPruneBatch,
+		SnapshotRetention:       defaultSnapshotRetention,
+		SnapshotMinimum:         defaultSnapshotMinimum,
+		SnapshotPruneInterval:   defaultSnapshotPruneInterval,
+		SnapshotPruneBatch:      defaultSnapshotPruneBatch,
 		HTTP:                    defaultHTTPConfig(),
 	}
 	var err error
@@ -245,6 +261,18 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.AuditPruneBatch, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_BATCH", config.AuditPruneBatch); err != nil {
 		return Config{}, err
 	}
+	if config.SnapshotRetention, err = environmentDuration(lookup, "OPSCUSTODIAN_SNAPSHOT_RETENTION", config.SnapshotRetention); err != nil {
+		return Config{}, err
+	}
+	if config.SnapshotMinimum, err = environmentInt(lookup, "OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY", config.SnapshotMinimum); err != nil {
+		return Config{}, err
+	}
+	if config.SnapshotPruneInterval, err = environmentDuration(lookup, "OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL", config.SnapshotPruneInterval); err != nil {
+		return Config{}, err
+	}
+	if config.SnapshotPruneBatch, err = environmentInt(lookup, "OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH", config.SnapshotPruneBatch); err != nil {
+		return Config{}, err
+	}
 	if config.MaxOpenConns, err = environmentInt(lookup, "OPSCUSTODIAN_DATABASE_MAX_OPEN_CONNS", config.MaxOpenConns); err != nil {
 		return Config{}, err
 	}
@@ -327,6 +355,18 @@ func (config Config) Validate() error {
 	if config.AuditPruneBatch < 1 || config.AuditPruneBatch > 10000 {
 		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_BATCH must be between 1 and 10000")
 	}
+	if config.SnapshotRetention < 24*time.Hour || config.SnapshotRetention > 10*365*24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_RETENTION must be between 24h and 87600h")
+	}
+	if config.SnapshotMinimum < 1 || config.SnapshotMinimum > 1000 {
+		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY must be between 1 and 1000")
+	}
+	if config.SnapshotPruneInterval < time.Minute || config.SnapshotPruneInterval > 24*time.Hour {
+		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL must be between 1m and 24h")
+	}
+	if config.SnapshotPruneBatch < 1 || config.SnapshotPruneBatch > 10000 {
+		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH must be between 1 and 10000")
+	}
 	if err := config.HTTP.Validate(); err != nil {
 		return err
 	}
@@ -400,6 +440,10 @@ func (config Config) Safe() SafeConfig {
 		AuditRetention:           config.AuditRetention,
 		AuditPruneInterval:       config.AuditPruneInterval,
 		AuditPruneBatch:          config.AuditPruneBatch,
+		SnapshotRetention:        config.SnapshotRetention,
+		SnapshotMinimum:          config.SnapshotMinimum,
+		SnapshotPruneInterval:    config.SnapshotPruneInterval,
+		SnapshotPruneBatch:       config.SnapshotPruneBatch,
 	}
 }
 

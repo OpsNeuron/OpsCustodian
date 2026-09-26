@@ -149,10 +149,18 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		return fmt.Errorf("initialize persistent audit sink: %w", err)
 	}
 	dependencies.AuditSink = persistentAuditSink
+	retentionContext, cancelRetention := context.WithCancel(ctx)
+	defer cancelRetention()
 	retentionFailures := make(chan error, 1)
 	go func() {
-		if err := runAuditRetention(ctx, runtime.Store, config.AuditRetention, config.AuditPruneInterval, config.AuditPruneBatch); err != nil {
+		if err := runAuditRetention(retentionContext, runtime.Store, config.AuditRetention, config.AuditPruneInterval, config.AuditPruneBatch); err != nil {
 			retentionFailures <- err
+		}
+	}()
+	snapshotRetentionFailures := make(chan error, 1)
+	go func() {
+		if err := runSnapshotRetention(retentionContext, runtime.Store, config.SnapshotRetention, config.SnapshotMinimum, config.SnapshotPruneInterval, config.SnapshotPruneBatch); err != nil {
+			snapshotRetentionFailures <- err
 		}
 	}()
 	var ingestionRunner ingestion.BatchRunner
@@ -291,6 +299,10 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 		cancelServe()
 		serveErr := <-serveResult
 		return errors.Join(retentionErr, serveErr)
+	case retentionErr := <-snapshotRetentionFailures:
+		cancelServe()
+		serveErr := <-serveResult
+		return errors.Join(retentionErr, serveErr)
 	}
 }
 
@@ -301,6 +313,33 @@ func runAuditRetention(ctx context.Context, auditStore store.AuditStore, retenti
 	prune := func() error {
 		if _, err := auditStore.PruneAuditEvents(ctx, time.Now().UTC().Add(-retention), batch); err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("prune retained audit events: %w", err)
+		}
+		return nil
+	}
+	if err := prune(); err != nil {
+		return err
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			if err := prune(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func runSnapshotRetention(ctx context.Context, snapshotStore store.SnapshotRetentionStore, retention time.Duration, minimumPerRepository int, interval time.Duration, batch int) error {
+	if snapshotStore == nil || retention < 24*time.Hour || minimumPerRepository < 1 || minimumPerRepository > 1000 || interval < time.Minute || interval > 24*time.Hour || batch < 1 || batch > 10000 {
+		return fmt.Errorf("valid snapshot retention dependencies and bounds are required")
+	}
+	prune := func() error {
+		if _, err := snapshotStore.PruneSnapshots(ctx, time.Now().UTC().Add(-retention), minimumPerRepository, batch); err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("prune retained snapshots: %w", err)
 		}
 		return nil
 	}

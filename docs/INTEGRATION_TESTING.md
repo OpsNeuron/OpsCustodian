@@ -123,6 +123,15 @@ retention-capable schema and startup worker initialization; long-duration
 wall-clock expiry remains a release-candidate soak-test gate rather than being
 simulated as proof in this short-lived harness.
 
+The snapshot-retention phase adds tenant-scoped, bounded pruning based on the
+server-controlled ingestion timestamp. Deterministic tests prove the deletion
+batch limit, per-repository minimum history, and latest-snapshot preservation.
+The Docker harness inserts two expired snapshots, restarts the control plane,
+and proves that the startup worker deletes only the oldest bounded candidate,
+preserves the newer and latest snapshots, and cascades its dependent Finding.
+Multi-day wall-clock expiry and sustained ingestion remain release-candidate
+soak gates.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

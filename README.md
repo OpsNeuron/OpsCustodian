@@ -125,7 +125,9 @@ through environment variables and binds only to loopback. Validate its
 secret-free effective configuration before startup with `serve --print-config`;
 see [server documentation](docs/SERVER.md) for required database and API-token
 settings. Disposable PostgreSQL integration and outage/recovery tests have
-passed; the server remains an experimental single-replica evaluation path.
+passed, including an isolated logical backup/restore check; the server remains
+an experimental single-replica evaluation path. See the
+[backup and restore runbook](docs/BACKUP_RESTORE.md).
 
 ## Build prerequisites
 

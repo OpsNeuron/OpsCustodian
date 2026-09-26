@@ -170,6 +170,7 @@ runtime authorization system.
 - Persistent audit history. *(tenant-scoped PostgreSQL retention, fail-closed process wiring, repository authorization, bounded filters, pagination, and OpenAPI query contract implemented)*
 - Audit retention policy. *(bounded configurable lifetime, startup/periodic tenant-scoped pruning, safe config visibility, and fail-closed runtime coordination implemented)*
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
+- PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification implemented; physical backup, PITR, scale, and RPO/RTO remain open)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*

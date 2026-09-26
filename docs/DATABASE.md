@@ -1,8 +1,8 @@
 # PostgreSQL persistence
 
-OpsCustodian v0.5 uses PostgreSQL as the planned durable control-plane store.
-The initial schema and migration runner are embedded in the binary, but no
-database driver or network connection is enabled yet.
+OpsCustodian v0.5 uses PostgreSQL as the durable control-plane store. The schema
+and migration runner are embedded in the binary, and the experimental server
+uses the pinned pgx adapter with fail-closed transport validation.
 
 ## Schema model
 
@@ -25,8 +25,8 @@ The active process retains and renews its lease across the complete scheduling
 cadence rather than releasing it after each batch. Standby processes retry at
 the bounded renewal interval, avoiding duplicate cycles while permitting prompt
 takeover after expiry.
-Kubernetes remains intentionally single-replica until snapshot commits enforce
-the same fencing generation.
+The supported evaluation topology remains single-replica; lease fencing is a
+data-integrity control and does not establish a production HA claim.
 
 Repository and snapshot foreign keys include `organization_id`; this prevents a
 record from referencing another organization's parent even if IDs collide.
@@ -51,18 +51,20 @@ a new migration.
 
 ## Immutability and retention
 
-Database triggers reject updates to snapshot and snapshot-Finding rows. Future
-retention workflows may delete complete snapshots, which cascades only to that
+Database triggers reject updates to snapshot and snapshot-Finding rows. The
+bounded retention worker may delete complete expired snapshots after preserving
+the configured per-repository minimum; deletion cascades only to that
 snapshot's Finding projections. Repository and organization deletion remains
-restricted by foreign keys and will require an explicit governed workflow.
+restricted by foreign keys and requires an explicit governed workflow.
 
 ## Validation status
 
 Catalog parsing, ordering, checksums, multi-tenant key structure, immutability
 triggers, scheduler lease fencing/expiry structure, indexes, rollback presence,
-and newer-database rejection are covered by deterministic tests. Applying and
-rolling back against a real PostgreSQL instance, including concurrent lease
-contention, is intentionally deferred to the final integration test phase.
+and newer-database rejection are covered by deterministic tests. Migration
+application and rollback, persistence, retention, outage recovery, and logical
+backup/restore have passed against disposable PostgreSQL. Concurrent multi-
+replica lease contention and production-scale recovery remain open gates.
 
 ## Scheduler lease adapter
 
@@ -110,9 +112,17 @@ continuously persisting Finding.
 
 Driver-neutral tests cover row decoding, tenant arguments, pagination cursors,
 not-found behavior, and rejection of invalid persisted BOMs. SQL execution,
-query plans, migration application, concurrent ingestion, and rollback against
-a real PostgreSQL server remain explicitly deferred to final integration
-validation.
+migration application, ingestion, rollback, retention, and logical restore have
+also passed against disposable PostgreSQL. Production query-plan review,
+concurrent ingestion, and large-history restore remain open gates.
+
+## Backup and recovery
+
+The supported logical workflow uses a complete custom-format `pg_dump`, restores
+into a new empty database with owner and ACL restoration disabled, then validates
+migrations, tenant identity, content fingerprints, and authenticated API reads
+before cutover. See [PostgreSQL backup and restore](BACKUP_RESTORE.md) for the
+operator runbook, security boundary, disposable verification, and exclusions.
 
 ## Operational configuration contract
 
@@ -169,6 +179,6 @@ successful runtimes provide an idempotent close operation.
 
 Lifecycle ordering, skipped migrations, deadline propagation, early
 cancellation, dependency validation, and cleanup on ping, migration, and store
-construction failures are covered without a database process. Registering a
-PostgreSQL driver and exercising this lifecycle against a real server remain
-part of final integration validation.
+construction failures are covered without a database process. The registered
+driver and complete bootstrap lifecycle have also passed against disposable
+PostgreSQL; supported-provider compatibility remains a release gate.

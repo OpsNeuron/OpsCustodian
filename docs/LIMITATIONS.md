@@ -51,6 +51,10 @@ constitute a production HA, failover, disaster-recovery, or multi-region claim.
 PostgreSQL outage/recovery and a bounded authenticated read-load baseline have
 passed on one Docker Desktop host. Those observations are regression evidence,
 not a capacity plan, soak result, latency objective, or availability SLA.
+Custom-format logical backup and restore between isolated PostgreSQL 17.4
+volumes has also passed with content fingerprint and authenticated API checks.
+Physical backups, WAL-based point-in-time recovery, cross-version restore,
+managed-provider snapshots, and production RPO/RTO remain unvalidated.
 
 ## Provider validation is incomplete
 

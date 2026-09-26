@@ -132,6 +132,16 @@ preserves the newer and latest snapshots, and cascades its dependent Finding.
 Multi-day wall-clock expiry and sustained ingestion remain release-candidate
 soak gates.
 
+The backup/restore phase uses two independent PostgreSQL 17.4 volumes. It takes
+a complete custom-format logical dump without owner or ACL metadata, restores
+it into an empty destination, compares migration counts, table counts, and
+content digests for snapshots and audit events, verifies the expected tenant,
+and starts a second control plane that reads the restored repository through
+the authenticated API. The test creates no host backup file and removes both
+database volumes. This proves the documented logical path on one version; it
+does not prove physical backup, point-in-time recovery, cross-version upgrade,
+large-database recovery time, or a production RPO/RTO.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -147,16 +157,18 @@ explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
 
-Do not run this harness as part of ordinary unit tests. It pulls container
-images, builds OpsCustodian, creates an isolated network, and creates two named
-volumes. The verification script removes only resources belonging to the fixed
-Compose project. Set `OPSCUSTODIAN_INTEGRATION_KEEP=true` only when you need to
-inspect the disposable environment after a failure.
+Do not run these harnesses as part of ordinary unit tests. They pull container
+images, build OpsCustodian, and create an isolated network. The primary harness
+creates two named volumes; the recovery profile adds one isolated destination
+database volume. The verification scripts remove only resources belonging to
+the fixed Compose project. Set `OPSCUSTODIAN_INTEGRATION_KEEP=true` only when
+you need to inspect the disposable environment after a failure.
 
 Linux or CI:
 
 ```bash
 sh ./integration/verify.sh
+sh ./integration/verify_backup_restore.sh
 ```
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:
@@ -176,8 +188,9 @@ docker compose --project-directory integration -f integration\compose.yaml down 
 
 Before cleanup, `docker compose ... ps` is the read-only scope check. The blast
 radius is the `opscustodian-integration` containers, its internal network, and
-its `postgres-data` and `integration-output` volumes. Volume deletion is not
-recoverable and must never be used against another Compose project.
+its `postgres-data`, optional `postgres-restore-data`, and `integration-output`
+volumes. Volume deletion is not recoverable and must never be used against
+another Compose project.
 
 The committed image tags and the complete harness must be refreshed and tested
 again from the final release candidate before any production-readiness claim. The

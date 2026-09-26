@@ -123,6 +123,35 @@ retention-capable schema and startup worker initialization; long-duration
 wall-clock expiry remains a release-candidate soak-test gate rather than being
 simulated as proof in this short-lived harness.
 
+The snapshot-retention phase adds tenant-scoped, bounded pruning based on the
+server-controlled ingestion timestamp. Deterministic tests prove the deletion
+batch limit, per-repository minimum history, and latest-snapshot preservation.
+The Docker harness inserts two expired snapshots, restarts the control plane,
+and proves that the startup worker deletes only the oldest bounded candidate,
+preserves the newer and latest snapshots, and cascades its dependent Finding.
+Multi-day wall-clock expiry and sustained ingestion remain release-candidate
+soak gates.
+
+The backup/restore phase uses two independent PostgreSQL 17.4 volumes. It takes
+a complete custom-format logical dump without owner or ACL metadata, restores
+it into an empty destination, compares migration counts, table counts, and
+content digests for snapshots and audit events, verifies the expected tenant,
+and starts a second control plane that reads the restored repository through
+the authenticated API. The test creates no host backup file and removes both
+database volumes. This proves the documented logical path on one version; it
+does not prove physical backup, point-in-time recovery, cross-version upgrade,
+large-database recovery time, or a production RPO/RTO.
+
+The upgrade-compatibility phase builds the immutable `v0.5.0-alpha` tag, uses
+that binary to create a schema-version-2 database with repository history, and
+then starts the current binary on the same PostgreSQL volume. The harness
+verifies migration 3, unchanged snapshot count and content digest,
+authenticated API reads, and idempotent restart. It also proves that the old
+binary rejects the newer schema and the current binary rejects an injected
+unknown future migration. This is a direct one-step upgrade result; mixed-
+version rolling upgrades, skip-version upgrades, production downgrade, and
+large-database migration duration remain open.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
@@ -138,16 +167,20 @@ explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
 
-Do not run this harness as part of ordinary unit tests. It pulls container
-images, builds OpsCustodian, creates an isolated network, and creates two named
-volumes. The verification script removes only resources belonging to the fixed
-Compose project. Set `OPSCUSTODIAN_INTEGRATION_KEEP=true` only when you need to
-inspect the disposable environment after a failure.
+Do not run these harnesses as part of ordinary unit tests. They pull container
+images, build OpsCustodian, and create an isolated network. The primary harness
+creates two named volumes; the recovery and upgrade profiles each add one
+isolated database volume. The verification scripts remove only resources
+belonging to the fixed Compose project. Set
+`OPSCUSTODIAN_INTEGRATION_KEEP=true` only when you need to inspect the
+disposable environment after a failure.
 
 Linux or CI:
 
 ```bash
 sh ./integration/verify.sh
+sh ./integration/verify_backup_restore.sh
+sh ./integration/verify_upgrade.sh
 ```
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:
@@ -167,8 +200,9 @@ docker compose --project-directory integration -f integration\compose.yaml down 
 
 Before cleanup, `docker compose ... ps` is the read-only scope check. The blast
 radius is the `opscustodian-integration` containers, its internal network, and
-its `postgres-data` and `integration-output` volumes. Volume deletion is not
-recoverable and must never be used against another Compose project.
+its `postgres-data`, optional `postgres-restore-data`, optional
+`postgres-upgrade-data`, and `integration-output` volumes. Volume deletion is
+not recoverable and must never be used against another Compose project.
 
 The committed image tags and the complete harness must be refreshed and tested
 again from the final release candidate before any production-readiness claim. The

@@ -67,7 +67,17 @@ func TestIntegrationHarnessIsIsolatedSecretFreeAndContractValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(dockerfile), "FROM golang:1.25-alpine AS build") {
-		t.Fatal("Dockerfile builder does not match the Go module baseline")
+	for _, base := range []string{
+		"FROM golang:1.25.13-alpine@sha256:1e0126852075c9c60731c8ba49088448b91f63e2aed97ca9d1a9791622a05946 AS build",
+		"FROM openpolicyagent/opa:1.21.0-static@sha256:9eb36ac3ceb3b855e776e60926a8a5142f96109a219a5fcd490fa1744c755bec AS opa",
+		"FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS certificates",
+		"FROM busybox:1.37.0-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092",
+	} {
+		if !strings.Contains(string(dockerfile), base) {
+			t.Fatalf("Dockerfile base image is not pinned to reviewed reference %q", base)
+		}
+	}
+	if !strings.Contains(text, "openpolicyagent/opa:1.21.0-static@sha256:9eb36ac3ceb3b855e776e60926a8a5142f96109a219a5fcd490fa1744c755bec") {
+		t.Fatal("integration OPA image is not pinned to the reviewed digest")
 	}
 }

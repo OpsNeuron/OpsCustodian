@@ -143,6 +143,10 @@ type AuditStore interface {
 	PruneAuditEvents(context.Context, time.Time, int) (int64, error)
 }
 
+type SnapshotRetentionStore interface {
+	PruneSnapshots(context.Context, time.Time, int, int) (int64, error)
+}
+
 type Writer interface {
 	PutSnapshot(context.Context, model.AgentBOM) (Snapshot, error)
 }
@@ -167,8 +171,9 @@ type memoryRepository struct {
 }
 
 type memorySnapshot struct {
-	bom      model.AgentBOM
-	sequence uint64
+	bom        model.AgentBOM
+	sequence   uint64
+	ingestedAt time.Time
 }
 
 func NewMemory() *Memory {
@@ -276,6 +281,7 @@ func (memory *Memory) PutSnapshot(ctx context.Context, bom model.AgentBOM) (Snap
 	if !exists {
 		repository.nextSequence++
 		stored.sequence = repository.nextSequence
+		stored.ingestedAt = time.Now().UTC()
 	}
 	stored.bom = cloned
 	repository.snapshots[snapshotID] = stored

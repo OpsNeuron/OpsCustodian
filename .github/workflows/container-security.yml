@@ -1,0 +1,46 @@
+name: Container vulnerability scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GRYPE_VERSION: "0.119.0"
+  GRYPE_LINUX_AMD64_SHA256: "3fa2dc4b924621ab65404cf08d0b8438d896d80ab949c9d5a4ca283c36004c9b"
+
+jobs:
+  scan:
+    name: Final image vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build reviewed image
+        run: docker build --pull --tag opscustodian:security-scan .
+      - name: Install checksum-verified Grype
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            --output "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/${archive}"
+          printf '%s  %s\n' "${GRYPE_LINUX_AMD64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar --extract --gzip --file "${RUNNER_TEMP}/${archive}" --directory "${RUNNER_TEMP}" grype
+          printf '%s\n' "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
+      - name: Reject high and critical vulnerabilities
+        run: grype docker:opscustodian:security-scan --fail-on high --output table

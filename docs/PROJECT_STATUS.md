@@ -206,7 +206,7 @@ Missing exit items:
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.
 - Driver-neutral database bootstrap with bounded ping and migration contexts, deterministic lifecycle ordering, optional migration, fail-closed cleanup, and idempotent shutdown.
-- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25 minimum runtime alignment.
+- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25.13 minimum runtime alignment.
 - Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 - Loopback-only HTTP runtime contract with bounded request lifecycle/header limits and deterministic graceful-shutdown orchestration over an injected listener.
 - Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.
@@ -223,6 +223,11 @@ Missing exit items:
 - Integrity-preserving organization-graph filters for repository, asset type, owner, component, capability action, and relationship type with filter-bound opaque cursors.
 - Tenant-scoped PostgreSQL audit retention with secret-minimized event validation, fail-closed dual sinks, repository-aware filtering, dedicated `audit:read` authorization, and a paginated query API.
 - Bounded audit lifecycle enforcement with configurable 24-hour-to-10-year retention, startup and periodic pruning, tenant-isolated delete batches, safe operational projection, and fail-closed process coordination.
+- Bounded snapshot lifecycle enforcement with server-time age calculation, a configurable per-repository history floor, latest-snapshot preservation, tenant-isolated delete batches, and fail-closed process coordination.
+- Docker-backed snapshot-retention evidence covering real PostgreSQL deletion, batch limiting, latest-history preservation, and dependent-Finding cascade cleanup.
+- Docker-backed logical backup and restore across independent PostgreSQL volumes with migration, tenant, content-fingerprint, and authenticated restored-API verification.
+- Docker-backed upgrade from the immutable `v0.5.0-alpha` binary and schema version 2 to the current schema, preserving snapshot history and proving idempotent restart plus fail-closed downgrade/future-version handling.
+- Bounded native fuzzing for credential JSON, RepositorySet JSON, and OPA decision output, with CI module-integrity and module-graph drift gates.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.
@@ -280,7 +285,7 @@ runtime authorization system without collecting credential values.
 - PostgreSQL persistence and migrations.
 - Multi-repository ingestion and incremental scans.
 - Organization relationship graph and historical drift.
-- Authentication, authorization, tenant boundaries, and audit retention.
+- Authentication, authorization, tenant boundaries, audit retention, and snapshot retention.
 
 Exit gate: a platform team can query inventory and findings across multiple
 repositories with reproducible history and least-privilege connectors.

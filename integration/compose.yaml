@@ -16,6 +16,38 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks: [integration]
 
+  postgres-restore:
+    image: postgres:17.4-alpine
+    profiles: [recovery]
+    environment:
+      POSTGRES_DB: opscustodian
+      POSTGRES_USER: opscustodian
+      POSTGRES_PASSWORD: ${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD:?set an ephemeral integration database password}
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U opscustodian -d opscustodian]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - postgres-restore-data:/var/lib/postgresql/data
+    networks: [integration]
+
+  postgres-upgrade:
+    image: postgres:17.4-alpine
+    profiles: [upgrade]
+    environment:
+      POSTGRES_DB: opscustodian
+      POSTGRES_USER: opscustodian
+      POSTGRES_PASSWORD: ${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD:?set an ephemeral integration database password}
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U opscustodian -d opscustodian]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - postgres-upgrade-data:/var/lib/postgresql/data
+    networks: [integration]
+
   collector:
     image: otel/opentelemetry-collector:0.123.0
     command: [--config=/etc/otelcol/config.yaml]
@@ -40,6 +72,10 @@ services:
       OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
       OPSCUSTODIAN_POLICY_PATH: /policies
       OPSCUSTODIAN_POLICY_TIMEOUT: 5s
+      OPSCUSTODIAN_SNAPSHOT_RETENTION: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_RETENTION:-4320h}
+      OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_MINIMUM:-10}
+      OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_PRUNE_INTERVAL:-24h}
+      OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_PRUNE_BATCH:-500}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,8 +96,85 @@ services:
     working_dir: /work
     networks: [integration]
 
+  opscustodian-restore:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    profiles: [recovery]
+    entrypoint: [/usr/local/bin/opscustodian]
+    command: [serve]
+    environment:
+      OPSCUSTODIAN_ORGANIZATION_ID: organization-0123456789abcdef
+      OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME: Integration Fixture
+      OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres-restore:5432/opscustodian?sslmode=disable
+      OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
+      OPSCUSTODIAN_DATABASE_MIGRATE: "true"
+      OPSCUSTODIAN_API_CREDENTIALS: >-
+        [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","audit:read"]}]
+    depends_on:
+      postgres-restore:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O - http://127.0.0.1:8080/readyz | grep -q '"status":"ready"']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [integration]
+
+  opscustodian-upgrade-source:
+    image: ${OPSCUSTODIAN_INTEGRATION_UPGRADE_SOURCE_IMAGE:-opscustodian-integration-upgrade-source:local}
+    profiles: [upgrade]
+    entrypoint: [/usr/local/bin/opscustodian]
+    command: [serve]
+    environment:
+      OPSCUSTODIAN_ORGANIZATION_ID: organization-0123456789abcdef
+      OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME: Integration Fixture
+      OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres-upgrade:5432/opscustodian?sslmode=disable
+      OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
+      OPSCUSTODIAN_DATABASE_MIGRATE: "true"
+      OPSCUSTODIAN_API_CREDENTIALS: >-
+        [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","snapshots:write"]}]
+      OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
+    depends_on:
+      postgres-upgrade:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O - http://127.0.0.1:8080/readyz | grep -q '"status":"ready"']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    volumes:
+      - ./repository-set.json:/config/repository-set.json:ro
+      - ../examples/scan-input:/fixtures/scan-input:ro
+    networks: [integration]
+
+  opscustodian-upgrade-target:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    profiles: [upgrade]
+    entrypoint: [/usr/local/bin/opscustodian]
+    command: [serve]
+    environment:
+      OPSCUSTODIAN_ORGANIZATION_ID: organization-0123456789abcdef
+      OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME: Integration Fixture
+      OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres-upgrade:5432/opscustodian?sslmode=disable
+      OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
+      OPSCUSTODIAN_DATABASE_MIGRATE: "true"
+      OPSCUSTODIAN_API_CREDENTIALS: >-
+        [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","audit:read"]}]
+    depends_on:
+      postgres-upgrade:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD-SHELL, wget -q -O - http://127.0.0.1:8080/readyz | grep -q '"status":"ready"']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks: [integration]
+
   opa:
-    image: openpolicyagent/opa:1.7.1-static
+    image: openpolicyagent/opa:1.21.0-static@sha256:9eb36ac3ceb3b855e776e60926a8a5142f96109a219a5fcd490fa1744c755bec
     profiles: [verify]
     entrypoint: [/opa]
     command: [test, /policies, -v]
@@ -75,4 +188,6 @@ networks:
 
 volumes:
   postgres-data:
+  postgres-restore-data:
+  postgres-upgrade-data:
   integration-output:

@@ -29,12 +29,36 @@ jobs:
       - name: Check formatting
         shell: bash
         run: test -z "$(gofmt -l .)"
+      - name: Verify module integrity
+        run: go mod verify
+      - name: Check module graph drift
+        run: go mod tidy -diff
       - name: Vet
         run: go vet ./...
       - name: Test
         run: go test -count=1 ./...
       - name: Build
         run: go build -trimpath -o ./bin/opscustodian ./cmd/opscustodian
+
+  fuzz-smoke:
+    name: Security fuzz smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz credential parser
+        run: go test ./internal/server -run=^$ -fuzz=^FuzzParseBearerCredentialsJSON$ -fuzztime=10s -parallel=4
+      - name: Fuzz repository-set parser
+        run: go test ./internal/ingestion -run=^$ -fuzz=^FuzzParseRepositorySet$ -fuzztime=10s -parallel=4
+      - name: Fuzz policy response decoder
+        run: go test ./internal/policy -run=^$ -fuzz=^FuzzDecodeOPAResponse$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector

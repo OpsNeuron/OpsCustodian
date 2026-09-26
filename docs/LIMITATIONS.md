@@ -51,6 +51,23 @@ constitute a production HA, failover, disaster-recovery, or multi-region claim.
 PostgreSQL outage/recovery and a bounded authenticated read-load baseline have
 passed on one Docker Desktop host. Those observations are regression evidence,
 not a capacity plan, soak result, latency objective, or availability SLA.
+Custom-format logical backup and restore between isolated PostgreSQL 17.4
+volumes has also passed with content fingerprint and authenticated API checks.
+Physical backups, WAL-based point-in-time recovery, cross-version restore,
+managed-provider snapshots, and production RPO/RTO remain unvalidated.
+The direct `v0.5.0-alpha` to current schema upgrade has passed with history
+preservation and fail-closed version-skew checks. Mixed-version rolling
+upgrades, skip-version paths, in-place production downgrade, and migration
+timing on large databases remain unvalidated.
+
+Bounded CI fuzzing covers credential JSON, RepositorySet JSON, and OPA decision
+output. Module checksum, tidy-diff, reachable Go vulnerability, final-image
+vulnerability, and Go dependency-license gates also run in CI. The image gate rebuilds digest-pinned bases
+and rejects known high or critical findings in the final runtime, including
+operating-system and embedded binary packages. These gates do not cover private
+advisories, non-Go and deployment dependency licenses, legal compliance,
+penetration testing, sustained resource exhaustion, every parser input, or
+vulnerabilities absent from their databases at execution time.
 
 ## Provider validation is incomplete
 

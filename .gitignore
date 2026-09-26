@@ -20,6 +20,7 @@ coverage.out
 /drift*.json
 /drift*.txt
 /findings*.txt
+/license-report.csv
 /*.sarif
 /*.jsonl
 /reports/

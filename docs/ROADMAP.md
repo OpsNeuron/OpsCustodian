@@ -173,7 +173,8 @@ runtime authorization system.
 - PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification implemented; physical backup, PITR, scale, and RPO/RTO remain open)*
 - Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew verified; mixed-version, skip-version, and scale gates remain open)*
 - Security fuzz smoke gate. *(credential, ingestion, and policy decoding boundaries plus module-integrity checks implemented; extended campaigns and broader parser coverage remain open)*
-- Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented; container, operating-system, and license scans remain open)*
+- Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
+- Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented; license policy remains open)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*

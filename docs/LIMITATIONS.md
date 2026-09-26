@@ -61,11 +61,13 @@ upgrades, skip-version paths, in-place production downgrade, and migration
 timing on large databases remain unvalidated.
 
 Bounded CI fuzzing covers credential JSON, RepositorySet JSON, and OPA decision
-output. Module checksum, tidy-diff, and reachable Go vulnerability gates also
-run in CI. The vulnerability gate uses the live Go vulnerability database; it
-does not cover container images, operating-system packages, unreachable code,
-private advisories, penetration testing, sustained resource exhaustion, or
-every parser input.
+output. Module checksum, tidy-diff, reachable Go vulnerability, and final-image
+vulnerability gates also run in CI. The image gate rebuilds digest-pinned bases
+and rejects known high or critical findings in the final runtime, including
+operating-system and embedded binary packages. These gates do not cover private
+advisories, dependency licenses, penetration testing, sustained resource
+exhaustion, every parser input, or vulnerabilities absent from their databases
+at execution time.
 
 ## Provider validation is incomplete
 

@@ -35,7 +35,8 @@ threat model will cover path traversal, symlink escape, resource exhaustion,
 malformed serialization, secret leakage, policy tampering, baseline tampering,
 and unsafe terminal/SARIF rendering.
 
-The current bounded fuzzing and dependency-integrity gates are documented in
+The current bounded fuzzing, dependency-integrity, and reachable Go
+vulnerability gates are documented in
 [Security testing](docs/SECURITY_TESTING.md). Passing those gates is evidence
-for specific input boundaries, not a general penetration-test or production-
-security claim.
+for specific input boundaries and advisories known at scan time, not a general
+penetration-test or production-security claim.

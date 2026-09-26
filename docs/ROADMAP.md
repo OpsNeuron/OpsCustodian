@@ -174,7 +174,8 @@ runtime authorization system.
 - Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew verified; mixed-version, skip-version, and scale gates remain open)*
 - Security fuzz smoke gate. *(credential, ingestion, and policy decoding boundaries plus module-integrity checks implemented; extended campaigns and broader parser coverage remain open)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
-- Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented; license policy remains open)*
+- Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
+- Go dependency-license gate. *(explicit permissive allowlist, test dependency coverage, pinned go-licenses 2.0.1, pull-request enforcement, and retained CSV evidence implemented; non-Go and legal review remain open)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*

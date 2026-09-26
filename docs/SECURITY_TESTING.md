@@ -106,11 +106,40 @@ The scanner image digest is the reviewed multi-platform manifest for Grype
 archive because hosted runners should not require access to the local Docker
 daemon from another container.
 
+## Dependency license gate
+
+Every pull request and push to `main` checks the complete Go package graph,
+including test-only dependencies, with go-licenses 2.0.1. The reviewed policy
+allows only Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, and MIT. An unknown or
+unlisted license fails the workflow; additions require an explicit policy and
+contract-test change rather than a command-line exception.
+
+The same run emits `license-report.csv` and retains it as a fourteen-day CI
+artifact. Each row records the library, classified license, and a versioned
+license source URL when the scanner can discover one; an `Unknown` URL does not
+weaken the license-classification allowlist check. Generate the same report
+locally:
+
+```bash
+bash ./scripts/verify-licenses.sh license-report.csv
+```
+
+From Windows Command Prompt:
+
+```bat
+scripts\verify-licenses.cmd license-report.csv
+```
+
+The generated root report is ignored by Git. It is evidence for the resolved Go
+dependency graph, not legal advice and not a scan of base-image packages,
+external policy bundles, deployment manifests, or separately installed tools.
+
 ## Current evidence boundary
 
 The initial local campaign completed bounded fuzz runs for all three targets
-without a panic or accepted-contract violation. Passing Go and final-image
-vulnerability runs cover only their analyzed software and advisories known at
-execution time. These results do not prove parser correctness for every input,
-resistance to sustained resource exhaustion, or the security of PostgreSQL,
-Kubernetes, the host, or deployment-specific configuration.
+without a panic or accepted-contract violation. Passing Go, final-image
+vulnerability, and license runs cover only their analyzed software and data
+known at execution time. These results do not prove parser correctness for
+every input, resistance to sustained resource exhaustion, legal compliance, or
+the security of PostgreSQL, Kubernetes, the host, or deployment-specific
+configuration.

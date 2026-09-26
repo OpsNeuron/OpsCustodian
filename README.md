@@ -128,6 +128,8 @@ settings. Disposable PostgreSQL integration and outage/recovery tests have
 passed, including an isolated logical backup/restore check; the server remains
 an experimental single-replica evaluation path. See the
 [backup and restore runbook](docs/BACKUP_RESTORE.md).
+Database upgrades are forward-only and fail closed on unknown versions; follow
+the [control-plane upgrade runbook](docs/UPGRADES.md).
 
 ## Build prerequisites
 

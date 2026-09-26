@@ -124,6 +124,17 @@ migrations, tenant identity, content fingerprints, and authenticated API reads
 before cutover. See [PostgreSQL backup and restore](BACKUP_RESTORE.md) for the
 operator runbook, security boundary, disposable verification, and exclusions.
 
+## Version upgrades
+
+The verified upgrade path starts the released `v0.5.0-alpha` binary against a
+fresh PostgreSQL database, persists repository history under schema versions 1
+and 2, then starts the current binary against the same volume to apply version
+3. Snapshot count and content digest remain unchanged, API reads succeed, and
+repeated current-version startup is idempotent. Both an older binary facing a
+newer schema and a current binary facing an unknown future migration fail
+closed. See [Control-plane upgrades](UPGRADES.md) for the operator sequence and
+rollback boundary.
+
 ## Operational configuration contract
 
 Control-plane database settings are environment-only so credentials do not

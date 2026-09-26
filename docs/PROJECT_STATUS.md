@@ -226,6 +226,7 @@ Missing exit items:
 - Bounded snapshot lifecycle enforcement with server-time age calculation, a configurable per-repository history floor, latest-snapshot preservation, tenant-isolated delete batches, and fail-closed process coordination.
 - Docker-backed snapshot-retention evidence covering real PostgreSQL deletion, batch limiting, latest-history preservation, and dependent-Finding cascade cleanup.
 - Docker-backed logical backup and restore across independent PostgreSQL volumes with migration, tenant, content-fingerprint, and authenticated restored-API verification.
+- Docker-backed upgrade from the immutable `v0.5.0-alpha` binary and schema version 2 to the current schema, preserving snapshot history and proving idempotent restart plus fail-closed downgrade/future-version handling.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.

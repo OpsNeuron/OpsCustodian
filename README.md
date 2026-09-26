@@ -133,7 +133,7 @@ the [control-plane upgrade runbook](docs/UPGRADES.md).
 
 ## Build prerequisites
 
-- Go 1.25 or newer
+- Go 1.25.13 or newer supported patch release
 
 ```bash
 go mod download

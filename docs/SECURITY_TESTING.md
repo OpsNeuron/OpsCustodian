@@ -38,15 +38,47 @@ CI runs `go mod verify` to authenticate downloaded module contents against
 module graph. Release automation separately emits the CycloneDX SBOM and build
 provenance.
 
-These checks are integrity and reproducibility controls; they are not a live
-vulnerability-database scan. Vulnerability scanning, dependency-license review,
-manual security review, and platform penetration testing remain separate
-release gates.
+These checks are integrity and reproducibility controls; they do not determine
+whether a vulnerable dependency is reachable from OpsCustodian.
+
+## Go vulnerability gate
+
+Every pull request and push to `main` runs the official Go vulnerability
+analyzer against all packages. A scheduled run repeats the scan each Monday so
+that a newly published advisory can fail the gate even when the repository has
+not changed. The scanner version is pinned to remain compatible with the
+minimum Go version in `go.mod`; its vulnerability database is queried live on
+each run.
+
+Run the same blocking gate locally:
+
+```bash
+bash ./scripts/verify-vulnerabilities.sh
+```
+
+From Windows Command Prompt, use the equivalent wrapper:
+
+```bat
+scripts\verify-vulnerabilities.cmd
+```
+
+The text-mode command exits non-zero when it finds a reachable vulnerability or
+cannot complete the scan. CI does not maintain a blanket ignore list. A finding
+must be fixed by upgrading, removing, or making the vulnerable call unreachable.
+Any temporary exception requires a public issue with an owner, expiry date,
+affected surface, and compensating control; the workflow remains failing until
+that decision is explicitly implemented and reviewed.
+
+This gate covers vulnerabilities known to the Go vulnerability database and
+reachable through analyzed Go call graphs. Dependency-license review, container
+and operating-system package scanning, manual security review, and platform
+penetration testing remain separate release gates.
 
 ## Current evidence boundary
 
 The initial local campaign completed bounded fuzz runs for all three targets
-without a panic or accepted-contract violation. This result covers only the
-executed corpus and duration. It does not prove parser correctness for every
-input, resistance to sustained resource exhaustion, or the security of OPA,
-PostgreSQL, container, Kubernetes, or operating-system dependencies.
+without a panic or accepted-contract violation. A passing Go vulnerability run
+covers only the source graph and advisories known at execution time. These
+results do not prove parser correctness for every input, resistance to sustained
+resource exhaustion, or the security of OPA, PostgreSQL, container, Kubernetes,
+or operating-system dependencies.

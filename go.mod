@@ -3,7 +3,7 @@ module github.com/opscustodian/opscustodian
 go 1.25.13
 
 require (
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

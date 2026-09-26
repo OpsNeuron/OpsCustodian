@@ -67,7 +67,7 @@ func TestIntegrationHarnessIsIsolatedSecretFreeAndContractValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(dockerfile), "FROM golang:1.25-alpine AS build") {
+	if !strings.Contains(string(dockerfile), "FROM golang:1.25.13-alpine AS build") {
 		t.Fatal("Dockerfile builder does not match the Go module baseline")
 	}
 }

@@ -206,7 +206,7 @@ Missing exit items:
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.
 - Driver-neutral database bootstrap with bounded ping and migration contexts, deterministic lifecycle ordering, optional migration, fail-closed cleanup, and idempotent shutdown.
-- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25 minimum runtime alignment.
+- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25.13 minimum runtime alignment.
 - Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 - Loopback-only HTTP runtime contract with bounded request lifecycle/header limits and deterministic graceful-shutdown orchestration over an injected listener.
 - Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.

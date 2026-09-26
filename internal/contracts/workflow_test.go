@@ -20,6 +20,7 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := map[string]bool{
+		"container-security.yml": false,
 		"ci.yml":                 false,
 		"release.yml":            false,
 		"vulnerability-scan.yml": false,
@@ -59,6 +60,28 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		if !found {
 			t.Errorf("expected workflow %s was not found", name)
 		}
+	}
+}
+
+func TestContainerScannerAndBaseImagesStayPinned(t *testing.T) {
+	root := filepath.Join("..", "..")
+	workflow, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "container-security.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		`GRYPE_VERSION: "0.119.0"`,
+		`GRYPE_LINUX_AMD64_SHA256: "3fa2dc4b924621ab65404cf08d0b8438d896d80ab949c9d5a4ca283c36004c9b"`,
+		"sha256sum --check --strict",
+		"grype docker:opscustodian:security-scan --fail-on high --output table",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("container security workflow is missing reviewed contract %q", required)
+		}
+	}
+	if strings.Contains(text, "only-fixed") || strings.Contains(text, "continue-on-error") {
+		t.Fatal("container security workflow weakens the blocking vulnerability gate")
 	}
 }
 

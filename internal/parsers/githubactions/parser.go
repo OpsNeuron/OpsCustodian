@@ -98,6 +98,9 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		return nil, fmt.Errorf("workflow %s must be a mapping", a.RelPath)
 	}
 	doc := root.Content[0]
+	if err := validateWorkflowMappingKeys(doc); err != nil {
+		return nil, fmt.Errorf("workflow %s: %w", a.RelPath, err)
+	}
 	name := scalarValue(mappingValue(doc, "name"))
 	if name == "" {
 		name = strings.TrimSuffix(filepath.Base(a.RelPath), filepath.Ext(a.RelPath))
@@ -289,6 +292,33 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 	})
 	agent.Capabilities = uniqueCapabilities(agent.Capabilities)
 	return []model.Agent{agent}, nil
+}
+
+func validateWorkflowMappingKeys(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.MappingNode:
+		seen := make(map[string]struct{}, len(node.Content)/2)
+		for index := 0; index+1 < len(node.Content); index += 2 {
+			key := node.Content[index]
+			if key.Kind != yaml.ScalarNode {
+				return fmt.Errorf("mapping key at line %d must be scalar", key.Line)
+			}
+			if _, exists := seen[key.Value]; exists {
+				return fmt.Errorf("duplicate mapping key at line %d", key.Line)
+			}
+			seen[key.Value] = struct{}{}
+			if err := validateWorkflowMappingKeys(node.Content[index+1]); err != nil {
+				return err
+			}
+		}
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range node.Content {
+			if err := validateWorkflowMappingKeys(child); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func permissionCapabilities(node *yaml.Node, evidenceIDs []string, jobScope, environment string) []model.Capability {

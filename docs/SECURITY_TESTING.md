@@ -7,11 +7,13 @@ JSON are treated as untrusted.
 
 ## Continuous fuzz smoke tests
 
-CI runs bounded native Go fuzzing against three high-value decoding boundaries:
+CI runs bounded native Go fuzzing against five high-value decoding boundaries:
 
 - API credential JSON, including unknown fields and trailing values;
 - RepositorySet JSON, including schedule, retry, path, and cardinality rules;
-- OPA JSON output, including missing, malformed, and invalid decisions.
+- OPA JSON output, including missing, malformed, and invalid decisions;
+- GitHub Actions YAML, including malformed roots and attacker-influenced workflow structures;
+- multi-document Kubernetes YAML, including malformed documents and supported asset contracts.
 
 Each target includes valid and adversarial seeds, limits accepted fuzz input to
 the corresponding operational payload ceiling, and asserts that every accepted
@@ -24,6 +26,8 @@ Run the same gate locally:
 go test ./internal/server -run=^$ -fuzz=^FuzzParseBearerCredentialsJSON$ -fuzztime=10s -parallel=4
 go test ./internal/ingestion -run=^$ -fuzz=^FuzzParseRepositorySet$ -fuzztime=10s -parallel=4
 go test ./internal/policy -run=^$ -fuzz=^FuzzDecodeOPAResponse$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/githubactions -run=^$ -fuzz=^FuzzParseWorkflow$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/kubernetes -run=^$ -fuzz=^FuzzParseManifest$ -fuzztime=10s -parallel=4
 ```
 
 For release candidates, increase `-fuzztime` in a disposable environment and

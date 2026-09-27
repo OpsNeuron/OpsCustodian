@@ -61,6 +61,10 @@ jobs:
         run: go test ./internal/ingestion -run=^$ -fuzz=^FuzzParseRepositorySet$ -fuzztime=10s -parallel=4
       - name: Fuzz policy response decoder
         run: go test ./internal/policy -run=^$ -fuzz=^FuzzDecodeOPAResponse$ -fuzztime=10s -parallel=4
+      - name: Fuzz GitHub Actions parser
+        run: go test ./internal/parsers/githubactions -run=^$ -fuzz=^FuzzParseWorkflow$ -fuzztime=10s -parallel=4
+      - name: Fuzz Kubernetes parser
+        run: go test ./internal/parsers/kubernetes -run=^$ -fuzz=^FuzzParseManifest$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector

@@ -116,6 +116,29 @@ func TestCIExercisesEverySupportedDesktopPlatform(t *testing.T) {
 	}
 }
 
+func TestCIFuzzSmokeKeepsReviewedBoundaries(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, target := range []string{
+		"FuzzParseBearerCredentialsJSON",
+		"FuzzParseRepositorySet",
+		"FuzzDecodeOPAResponse",
+		"FuzzParseWorkflow",
+		"FuzzParseManifest",
+	} {
+		invocation := "-fuzz=^" + target + "$ -fuzztime=10s -parallel=4"
+		if !strings.Contains(text, invocation) {
+			t.Fatalf("CI fuzz smoke is missing reviewed invocation %q", invocation)
+		}
+	}
+	if count := strings.Count(text, "-fuzztime=10s -parallel=4"); count != 5 {
+		t.Fatalf("CI fuzz target count = %d, expected 5", count)
+	}
+}
+
 func TestLicenseScannerVersionPolicyAndEntryPointsStayAligned(t *testing.T) {
 	root := filepath.Join("..", "..")
 	paths := []string{

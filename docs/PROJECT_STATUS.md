@@ -42,6 +42,11 @@ statement whose subject matched the downloaded archive digest and tagged
 release workflow. The macOS compatibility gate is implemented and awaits its
 first hosted-runner evidence.
 
+The custom CodeQL workflow is implemented for Go and GitHub Actions, but its
+first SARIF upload remains blocked until the organization security
+configuration permits advanced setup. This external enablement is deferred and
+must not be reported as a passing gate.
+
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, and release licensing. It is deliberately secret-free and does not

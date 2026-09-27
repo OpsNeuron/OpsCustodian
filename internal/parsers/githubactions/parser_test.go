@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/opscustodian/opscustodian/internal/discovery"
@@ -62,6 +63,24 @@ jobs:
 	}
 	if controlOfType(asset.Controls, "githubTokenPermissionsUnspecified") != nil {
 		t.Fatalf("inherited permissions must not be classified as unspecified: %#v", asset.Controls)
+	}
+}
+
+func TestParseRejectsDuplicateMappingKeys(t *testing.T) {
+	artifact := discovery.Artifact{
+		RelPath: ".github/workflows/duplicate.yml",
+		Content: []byte(`name: duplicate jobs
+jobs:
+  review:
+    runs-on: ubuntu-latest
+  review:
+    runs-on: self-hosted
+`),
+	}
+
+	_, err := (Parser{}).Parse(context.Background(), artifact)
+	if err == nil || !strings.Contains(err.Error(), "duplicate mapping key") {
+		t.Fatalf("Parse() error = %v, expected duplicate mapping key rejection", err)
 	}
 }
 

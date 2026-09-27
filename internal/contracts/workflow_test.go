@@ -91,6 +91,31 @@ func TestCodeQLWorkflowKeepsReviewedSecurityCoverage(t *testing.T) {
 	}
 }
 
+func TestCIExercisesEverySupportedDesktopPlatform(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		"runs-on: ubuntu-latest",
+		"runs-on: windows-latest",
+		"runs-on: macos-latest",
+		"name: Linux race detector",
+		"name: Windows compatibility",
+		"name: macOS compatibility",
+		"GOOS=darwin GOARCH=amd64",
+		"GOOS=darwin GOARCH=arm64",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("CI workflow is missing supported-platform contract %q", required)
+		}
+	}
+	if count := strings.Count(text, "timeout-minutes:"); count != 5 {
+		t.Fatalf("CI timeout count = %d, expected one for each of 5 jobs", count)
+	}
+}
+
 func TestLicenseScannerVersionPolicyAndEntryPointsStayAligned(t *testing.T) {
 	root := filepath.Join("..", "..")
 	paths := []string{

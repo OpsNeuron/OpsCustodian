@@ -27,18 +27,20 @@ bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
 ingestion outcomes, and GitHub App authentication update fixed low-cardinality
 component states without exposing repository, credential, path, or error data.
 
-Release automation now defines and has executed SHA-pinned least-privilege CI,
-Linux race and Windows compatibility gates, cross-platform tagged builds,
-checksums, CycloneDX SBOM, provenance attestation, and dependency updates for
-`v0.5.0-alpha`. Passing release automation does not imply that every
-real-provider or production-runtime gate has passed.
+Release automation has executed SHA-pinned least-privilege CI, Linux race and
+Windows compatibility gates, cross-platform tagged builds, checksums,
+CycloneDX SBOM, provenance attestation, and dependency updates for
+`v0.5.0-alpha`. It now also defines a native macOS compatibility gate. Passing
+release automation does not imply that every real-provider or
+production-runtime gate has passed.
 
 The published Windows amd64 archive has also passed an independent consumer
 check: its digest matched `SHA256SUMS`, the archive contained the binary,
 license, README, and security policy, the binary reported `v0.5.0-alpha`, the
 CycloneDX 1.6 SBOM was populated, and GitHub returned an in-toto SLSA provenance
 statement whose subject matched the downloaded archive digest and tagged
-release workflow.
+release workflow. The macOS compatibility gate is implemented and awaits its
+first hosted-runner evidence.
 
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy

@@ -134,6 +134,23 @@ The generated root report is ignored by Git. It is evidence for the resolved Go
 dependency graph, not legal advice and not a scan of base-image packages,
 external policy bundles, deployment manifests, or separately installed tools.
 
+## CodeQL static-analysis gate
+
+Pull requests, pushes to `main`, weekly refreshes, and manual runs execute the
+GitHub CodeQL action for both Go source and GitHub Actions workflows. The action
+is pinned to the reviewed v4.38.2 commit, uses the `security-extended` query
+suite, and uploads SARIF through the repository's code-scanning boundary.
+
+The Go job uses CodeQL's `autobuild` mode. Workflow analysis uses the native
+`actions` language with no build step. Both jobs are blocking; the workflow does
+not use `continue-on-error`. Its token is restricted to reading repository,
+Actions, and package metadata plus the required `security-events: write` scope.
+
+CodeQL findings are static signals rather than proof of exploitability or the
+absence of vulnerabilities. Manual review, dependency and image scanning,
+runtime integration tests, and deployment-specific penetration testing remain
+separate gates.
+
 ## Current evidence boundary
 
 The initial local campaign completed bounded fuzz runs for all three targets

@@ -73,6 +73,36 @@ func TestParseTreatsVersionRangeAndOutsideRepositoryPathAsUnpinned(t *testing.T)
 	}
 }
 
+func TestParseRejectsEmptyServerName(t *testing.T) {
+	_, err := (Parser{}).Parse(context.Background(), discovery.Artifact{
+		RelPath: "mcp.json",
+		Content: []byte(`{"mcpServers":{"":{}}}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "server name cannot be empty") {
+		t.Fatalf("Parse() error = %v, expected empty server name rejection", err)
+	}
+}
+
+func TestParseRejectsEmptyEnvironmentVariableName(t *testing.T) {
+	_, err := (Parser{}).Parse(context.Background(), discovery.Artifact{
+		RelPath: "mcp.json",
+		Content: []byte(`{"mcpServers":{"review":{"env":{"":"ignored"}}}}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "environment variable name cannot be empty") {
+		t.Fatalf("Parse() error = %v, expected empty environment variable name rejection", err)
+	}
+}
+
+func TestParseRejectsDuplicateMappingKeys(t *testing.T) {
+	_, err := (Parser{}).Parse(context.Background(), discovery.Artifact{
+		RelPath: "mcp.json",
+		Content: []byte(`{"mcpServers":{"review":{"command":"first","command":"second"}}}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "duplicate mapping key") {
+		t.Fatalf("Parse() error = %v, expected duplicate mapping key rejection", err)
+	}
+}
+
 func mcpAssetByName(t *testing.T, assets []model.Agent, name string) model.Agent {
 	t.Helper()
 	for _, asset := range assets {

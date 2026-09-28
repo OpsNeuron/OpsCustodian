@@ -12,6 +12,7 @@ import (
 
 	"github.com/opscustodian/opscustodian/internal/discovery"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/parsers/yamlguard"
 	"gopkg.in/yaml.v3"
 )
 
@@ -186,6 +187,9 @@ func parseFrontmatter(content []byte) (*yaml.Node, error) {
 	}
 	if len(document.Content) == 0 || document.Content[0].Kind != yaml.MappingNode {
 		return nil, fmt.Errorf("frontmatter must be a mapping")
+	}
+	if err := yamlguard.ValidateMappingKeys(&document); err != nil {
+		return nil, err
 	}
 	return document.Content[0], nil
 }

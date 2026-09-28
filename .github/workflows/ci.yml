@@ -65,6 +65,12 @@ jobs:
         run: go test ./internal/parsers/githubactions -run=^$ -fuzz=^FuzzParseWorkflow$ -fuzztime=10s -parallel=4
       - name: Fuzz Kubernetes parser
         run: go test ./internal/parsers/kubernetes -run=^$ -fuzz=^FuzzParseManifest$ -fuzztime=10s -parallel=4
+      - name: Fuzz MCP configuration parser
+        run: go test ./internal/parsers/mcp -run=^$ -fuzz=^FuzzParseConfiguration$ -fuzztime=10s -parallel=4
+      - name: Fuzz agent Markdown parser
+        run: go test ./internal/parsers/agentmarkdown -run=^$ -fuzz=^FuzzParseAgentMarkdown$ -fuzztime=10s -parallel=4
+      - name: Fuzz GitHub Agentic Workflows parser
+        run: go test ./internal/parsers/ghaw -run=^$ -fuzz=^FuzzParseAgenticWorkflow$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector

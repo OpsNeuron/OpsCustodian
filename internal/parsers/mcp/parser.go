@@ -13,6 +13,7 @@ import (
 
 	"github.com/opscustodian/opscustodian/internal/discovery"
 	"github.com/opscustodian/opscustodian/internal/model"
+	"github.com/opscustodian/opscustodian/internal/parsers/yamlguard"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,6 +42,14 @@ func (Parser) Supports(a discovery.Artifact) bool {
 }
 
 func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, error) {
+	var syntax yaml.Node
+	if err := yaml.Unmarshal(a.Content, &syntax); err != nil {
+		return nil, fmt.Errorf("parse MCP configuration %s: %w", a.RelPath, err)
+	}
+	if err := yamlguard.ValidateMappingKeys(&syntax); err != nil {
+		return nil, fmt.Errorf("parse MCP configuration %s: %w", a.RelPath, err)
+	}
+
 	var doc document
 	var err error
 	if strings.HasSuffix(strings.ToLower(a.RelPath), ".json") {
@@ -67,6 +76,9 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 	sort.Strings(names)
 	agents := make([]model.Agent, 0, len(names))
 	for _, name := range names {
+		if strings.TrimSpace(name) == "" {
+			return nil, fmt.Errorf("parse MCP configuration %s: server name cannot be empty", a.RelPath)
+		}
 		value := doc.MCPServers[name]
 		evidenceID := stableID(a.RelPath + ":" + name)
 		provenance, reference := classifyProvenance(value, evidenceID)
@@ -100,6 +112,9 @@ func (Parser) Parse(_ context.Context, a discovery.Artifact) ([]model.Agent, err
 		}
 		sort.Strings(envNames)
 		for _, envName := range envNames {
+			if strings.TrimSpace(envName) == "" {
+				return nil, fmt.Errorf("parse MCP configuration %s: environment variable name cannot be empty for server %q", a.RelPath, name)
+			}
 			agent.Credentials = append(agent.Credentials, model.CredentialReference{
 				Type: "environment-reference", Reference: envName, ValueCaptured: false,
 			})

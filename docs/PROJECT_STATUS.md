@@ -234,7 +234,7 @@ Missing exit items:
 - Docker-backed snapshot-retention evidence covering real PostgreSQL deletion, batch limiting, latest-history preservation, and dependent-Finding cascade cleanup.
 - Docker-backed logical backup and restore across independent PostgreSQL volumes with migration, tenant, content-fingerprint, and authenticated restored-API verification.
 - Docker-backed upgrade from the immutable `v0.5.0-alpha` binary and schema version 2 to the current schema, preserving snapshot history and proving idempotent restart plus fail-closed downgrade/future-version handling.
-- Bounded native fuzzing for credential JSON, RepositorySet JSON, OPA decision output, GitHub Actions, Kubernetes, MCP configuration, agent Markdown, and GitHub Agentic Workflows, with CI module-integrity and module-graph drift gates.
+- Bounded native fuzzing for credential JSON, RepositorySet JSON, OPA decision output, GitHub Actions, Kubernetes, MCP configuration, agent Markdown, GitHub Agentic Workflows, and API pagination, with CI module-integrity and module-graph drift gates.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.

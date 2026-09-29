@@ -524,7 +524,12 @@ func validOpaqueID(value, prefix string) bool {
 
 func requestPage(w http.ResponseWriter, request *http.Request, scope string) (store.PageRequest, bool) {
 	page := store.PageRequest{Limit: 50}
-	if raw := request.URL.Query().Get("limit"); raw != "" {
+	query := request.URL.Query()
+	if len(query["limit"]) > 1 {
+		writeError(w, http.StatusBadRequest, "invalid-limit", "limit must be provided at most once")
+		return store.PageRequest{}, false
+	}
+	if raw := query.Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)
 		if err != nil || limit < 1 || limit > 200 {
 			writeError(w, http.StatusBadRequest, "invalid-limit", "limit must be an integer between 1 and 200")
@@ -532,10 +537,19 @@ func requestPage(w http.ResponseWriter, request *http.Request, scope string) (st
 		}
 		page.Limit = limit
 	}
-	if raw := request.URL.Query().Get("cursor"); raw != "" {
+	if len(query["cursor"]) > 1 {
+		writeError(w, http.StatusBadRequest, "invalid-cursor", "cursor must be provided at most once")
+		return store.PageRequest{}, false
+	}
+	if raw := query.Get("cursor"); raw != "" {
+		const maxDecodedCursorBytes = 512
+		if len(raw) > base64.RawURLEncoding.EncodedLen(maxDecodedCursorBytes) {
+			writeError(w, http.StatusBadRequest, "invalid-cursor", "cursor is invalid or unsupported")
+			return store.PageRequest{}, false
+		}
 		decoded, err := base64.RawURLEncoding.DecodeString(raw)
 		prefix := "v1\x00" + scope + "\x00"
-		if err != nil || len(decoded) > 512 || !strings.HasPrefix(string(decoded), prefix) {
+		if err != nil || len(decoded) > maxDecodedCursorBytes || len(decoded) <= len(prefix) || !strings.HasPrefix(string(decoded), prefix) {
 			writeError(w, http.StatusBadRequest, "invalid-cursor", "cursor is invalid or unsupported")
 			return store.PageRequest{}, false
 		}

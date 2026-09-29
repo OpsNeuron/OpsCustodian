@@ -201,6 +201,9 @@ func (api *API) contracts(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "limit", "cursor") {
+		return
+	}
 	page, ok := requestPage(w, request, "repositories")
 	if !ok {
 		return
@@ -218,6 +221,9 @@ func (api *API) repositories(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "repositoryId", "assetType", "owner", "component", "action", "relationshipType", "limit", "cursor") {
+		return
+	}
 	filter, ok := requestGraphFilter(w, request)
 	if !ok {
 		return
@@ -268,6 +274,9 @@ func (api *API) organizationGraph(w http.ResponseWriter, request *http.Request) 
 }
 
 func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "repositoryId", "eventName", "identityId", "limit", "cursor") {
+		return
+	}
 	auditStore, ok := api.reader.(store.AuditStore)
 	if !ok {
 		writeError(w, http.StatusServiceUnavailable, "audit-store-unavailable", "audit history is unavailable")
@@ -312,6 +321,9 @@ func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "limit", "cursor") {
+		return
+	}
 	repositoryID := request.PathValue("repositoryID")
 	if !validRepositoryID(repositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -340,6 +352,9 @@ func (api *API) snapshots(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) snapshotBOM(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request) {
+		return
+	}
 	repositoryID, snapshotID := request.PathValue("repositoryID"), request.PathValue("snapshotID")
 	if !validRepositoryID(repositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -365,6 +380,9 @@ func (api *API) snapshotBOM(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request) {
+		return
+	}
 	id := request.PathValue("repositoryID")
 	if !validRepositoryID(id) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -386,6 +404,9 @@ func (api *API) latestBOM(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "beforeSnapshotId", "afterSnapshotId") {
+		return
+	}
 	repositoryID := request.PathValue("repositoryID")
 	if !validRepositoryID(repositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -434,6 +455,9 @@ func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) findings(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "repositoryId", "severity", "limit", "cursor") {
+		return
+	}
 	repositoryID, valid := requestBoundedQueryValue(w, request, "repositoryId", "invalid-repository-id", "repositoryId must be a single trimmed value of at most 200 bytes")
 	if !valid {
 		return
@@ -473,6 +497,9 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) findingLifecycles(w http.ResponseWriter, request *http.Request) {
+	if !rejectUnknownQueryParameters(w, request, "repositoryId", "severity", "status", "limit", "cursor") {
+		return
+	}
 	repositoryID, valid := requestBoundedQueryValue(w, request, "repositoryId", "invalid-repository-id", "repositoryId must be a single trimmed value of at most 200 bytes")
 	if !valid {
 		return
@@ -568,6 +595,20 @@ func requestBoundedQueryValue(w http.ResponseWriter, request *http.Request, name
 		return "", false
 	}
 	return value, true
+}
+
+func rejectUnknownQueryParameters(w http.ResponseWriter, request *http.Request, allowed ...string) bool {
+	allowlist := make(map[string]struct{}, len(allowed))
+	for _, name := range allowed {
+		allowlist[name] = struct{}{}
+	}
+	for name := range request.URL.Query() {
+		if _, ok := allowlist[name]; !ok {
+			writeError(w, http.StatusBadRequest, "unknown-query-parameter", "query contains an unsupported parameter")
+			return false
+		}
+	}
+	return true
 }
 
 func requestPage(w http.ResponseWriter, request *http.Request, scope string) (store.PageRequest, bool) {

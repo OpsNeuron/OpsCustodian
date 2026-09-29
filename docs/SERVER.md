@@ -32,7 +32,9 @@ bound to the complete filter set and cannot be reused for a different query.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
 200) and an opaque versioned `cursor`. All API envelopes use
 `opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit
-empty arrays. Repository and snapshot IDs are deterministic hash-derived
+empty arrays. Query parameters are route-specific and fail closed when a name
+is unsupported, repeated, untrimmed, oversized, or contains control characters.
+Repository and snapshot IDs are deterministic hash-derived
 identifiers rather than raw filesystem paths or revisions.
 
 Finding lifecycle queries accept `repositoryId`, `severity`, and `status`

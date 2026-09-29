@@ -172,7 +172,7 @@ runtime authorization system.
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
 - PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification implemented; physical backup, PITR, scale, and RPO/RTO remain open)*
 - Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew verified; mixed-version, skip-version, and scale gates remain open)*
-- Security fuzz smoke gate. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, and API pagination boundaries plus module-integrity checks implemented; extended release-candidate campaigns remain open)*
+- Security fuzz smoke gate. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, API pagination, and API query-filter boundaries plus module-integrity checks implemented; extended release-candidate campaigns remain open)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
 - Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
 - Go dependency-license gate. *(explicit permissive allowlist, test dependency coverage, pinned go-licenses 2.0.1, pull-request enforcement, and retained CSV evidence implemented; non-Go and legal review remain open)*

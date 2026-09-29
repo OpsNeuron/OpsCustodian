@@ -73,6 +73,8 @@ jobs:
         run: go test ./internal/parsers/ghaw -run=^$ -fuzz=^FuzzParseAgenticWorkflow$ -fuzztime=10s -parallel=4
       - name: Fuzz API pagination boundary
         run: go test ./internal/server -run=^$ -fuzz=^FuzzRequestPage$ -fuzztime=10s -parallel=4
+      - name: Fuzz API query-filter boundary
+        run: go test ./internal/server -run=^$ -fuzz=^FuzzRequestBoundedQueryValue$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector

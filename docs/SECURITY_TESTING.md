@@ -7,7 +7,7 @@ JSON are treated as untrusted.
 
 ## Continuous fuzz smoke tests
 
-CI runs bounded native Go fuzzing against nine high-value decoding boundaries:
+CI runs bounded native Go fuzzing against ten high-value decoding boundaries:
 
 - API credential JSON, including unknown fields and trailing values;
 - RepositorySet JSON, including schedule, retry, path, and cardinality rules;
@@ -17,7 +17,8 @@ CI runs bounded native Go fuzzing against nine high-value decoding boundaries:
 - MCP JSON/YAML configuration, including runtime provenance and credential references;
 - agent Markdown frontmatter, including declared tools, skills, models, and MCP references; and
 - GitHub Agentic Workflows frontmatter, imports, permissions, tools, network rules, and safe outputs; and
-- API pagination input, including oversized, cross-scope, empty-payload, malformed, and duplicate cursor or limit parameters.
+- API pagination input, including oversized, cross-scope, empty-payload, malformed, and duplicate cursor or limit parameters; and
+- API query filters, including duplicate, untrimmed, oversized, and control-character values.
 
 Each target includes valid and adversarial seeds, limits accepted fuzz input to
 the corresponding operational payload ceiling, and asserts that every accepted
@@ -36,6 +37,7 @@ go test ./internal/parsers/mcp -run=^$ -fuzz=^FuzzParseConfiguration$ -fuzztime=
 go test ./internal/parsers/agentmarkdown -run=^$ -fuzz=^FuzzParseAgentMarkdown$ -fuzztime=10s -parallel=4
 go test ./internal/parsers/ghaw -run=^$ -fuzz=^FuzzParseAgenticWorkflow$ -fuzztime=10s -parallel=4
 go test ./internal/server -run=^$ -fuzz=^FuzzRequestPage$ -fuzztime=10s -parallel=4
+go test ./internal/server -run=^$ -fuzz=^FuzzRequestBoundedQueryValue$ -fuzztime=10s -parallel=4
 ```
 
 For release candidates, increase `-fuzztime` in a disposable environment and
@@ -165,7 +167,7 @@ separate gates.
 
 ## Current evidence boundary
 
-The initial local campaigns completed bounded fuzz runs for all nine targets.
+The initial local campaigns completed bounded fuzz runs for all ten targets.
 They discovered and retained regression cases for invalid GitHub Actions and
 MCP inputs; all reviewed targets now pass without a panic or accepted-contract
 violation. Passing Go, final-image

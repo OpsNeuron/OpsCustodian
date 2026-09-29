@@ -273,7 +273,10 @@ func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "audit-store-unavailable", "audit history is unavailable")
 		return
 	}
-	repositoryID := request.URL.Query().Get("repositoryId")
+	repositoryID, valid := requestBoundedQueryValue(w, request, "repositoryId", "invalid-repository-id", "repositoryId must be a single trimmed value of at most 200 bytes")
+	if !valid {
+		return
+	}
 	if repositoryID != "" {
 		if !validRepositoryID(repositoryID) {
 			writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -283,12 +286,13 @@ func (api *API) auditEvents(w http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-	eventName, identityID := request.URL.Query().Get("eventName"), request.URL.Query().Get("identityId")
-	for _, value := range []string{eventName, identityID} {
-		if value != strings.TrimSpace(value) || len(value) > 200 || strings.ContainsAny(value, "\x00\r\n") {
-			writeError(w, http.StatusBadRequest, "invalid-audit-filter", "audit filters must be trimmed values of at most 200 bytes")
-			return
-		}
+	eventName, valid := requestBoundedQueryValue(w, request, "eventName", "invalid-audit-filter", "audit filters must be single trimmed values of at most 200 bytes")
+	if !valid {
+		return
+	}
+	identityID, valid := requestBoundedQueryValue(w, request, "identityId", "invalid-audit-filter", "audit filters must be single trimmed values of at most 200 bytes")
+	if !valid {
+		return
 	}
 	scope := boundedCursorScope("audit-events", repositoryID, eventName, identityID)
 	page, ok := requestPage(w, request, scope)
@@ -390,7 +394,14 @@ func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
 	if !authorizeRepository(w, request, repositoryID) {
 		return
 	}
-	beforeID, afterID := request.URL.Query().Get("beforeSnapshotId"), request.URL.Query().Get("afterSnapshotId")
+	beforeID, valid := requestBoundedQueryValue(w, request, "beforeSnapshotId", "invalid-snapshot-id", "beforeSnapshotId and afterSnapshotId must each be provided once")
+	if !valid {
+		return
+	}
+	afterID, valid := requestBoundedQueryValue(w, request, "afterSnapshotId", "invalid-snapshot-id", "beforeSnapshotId and afterSnapshotId must each be provided once")
+	if !valid {
+		return
+	}
 	if !validSnapshotID(beforeID) || !validSnapshotID(afterID) {
 		writeError(w, http.StatusBadRequest, "invalid-snapshot-id", "beforeSnapshotId and afterSnapshotId must be valid snapshot IDs")
 		return
@@ -423,7 +434,15 @@ func (api *API) repositoryDrift(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) findings(w http.ResponseWriter, request *http.Request) {
-	filter := store.FindingFilter{RepositoryID: request.URL.Query().Get("repositoryId"), Severity: strings.ToLower(request.URL.Query().Get("severity"))}
+	repositoryID, valid := requestBoundedQueryValue(w, request, "repositoryId", "invalid-repository-id", "repositoryId must be a single trimmed value of at most 200 bytes")
+	if !valid {
+		return
+	}
+	severity, valid := requestBoundedQueryValue(w, request, "severity", "invalid-severity", "severity must be a single trimmed value")
+	if !valid {
+		return
+	}
+	filter := store.FindingFilter{RepositoryID: repositoryID, Severity: strings.ToLower(severity)}
 	if filter.RepositoryID != "" && !validRepositoryID(filter.RepositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
 		return
@@ -454,10 +473,22 @@ func (api *API) findings(w http.ResponseWriter, request *http.Request) {
 }
 
 func (api *API) findingLifecycles(w http.ResponseWriter, request *http.Request) {
+	repositoryID, valid := requestBoundedQueryValue(w, request, "repositoryId", "invalid-repository-id", "repositoryId must be a single trimmed value of at most 200 bytes")
+	if !valid {
+		return
+	}
+	severity, valid := requestBoundedQueryValue(w, request, "severity", "invalid-severity", "severity must be a single trimmed value")
+	if !valid {
+		return
+	}
+	status, valid := requestBoundedQueryValue(w, request, "status", "invalid-lifecycle-status", "status must be a single trimmed value")
+	if !valid {
+		return
+	}
 	filter := store.FindingLifecycleFilter{
-		RepositoryID: request.URL.Query().Get("repositoryId"),
-		Severity:     strings.ToLower(request.URL.Query().Get("severity")),
-		Status:       strings.ToLower(request.URL.Query().Get("status")),
+		RepositoryID: repositoryID,
+		Severity:     strings.ToLower(severity),
+		Status:       strings.ToLower(status),
 	}
 	if filter.RepositoryID != "" && !validRepositoryID(filter.RepositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")
@@ -520,6 +551,23 @@ func validOpaqueID(value, prefix string) bool {
 		}
 	}
 	return true
+}
+
+func requestBoundedQueryValue(w http.ResponseWriter, request *http.Request, name, code, message string) (string, bool) {
+	values := request.URL.Query()[name]
+	if len(values) > 1 {
+		writeError(w, http.StatusBadRequest, code, message)
+		return "", false
+	}
+	if len(values) == 0 {
+		return "", true
+	}
+	value := values[0]
+	if value != strings.TrimSpace(value) || len(value) > 200 || strings.ContainsAny(value, "\x00\r\n") {
+		writeError(w, http.StatusBadRequest, code, message)
+		return "", false
+	}
+	return value, true
 }
 
 func requestPage(w http.ResponseWriter, request *http.Request, scope string) (store.PageRequest, bool) {

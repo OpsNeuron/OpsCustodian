@@ -19,19 +19,22 @@ type graphFilter struct {
 }
 
 func requestGraphFilter(w http.ResponseWriter, request *http.Request) (graphFilter, bool) {
-	filter := graphFilter{
-		RepositoryID: request.URL.Query().Get("repositoryId"), AssetType: request.URL.Query().Get("assetType"),
-		Owner: request.URL.Query().Get("owner"), Component: request.URL.Query().Get("component"),
-		Action: request.URL.Query().Get("action"), RelationshipType: request.URL.Query().Get("relationshipType"),
-	}
-	for name, value := range map[string]string{
-		"assetType": filter.AssetType, "owner": filter.Owner, "component": filter.Component,
-		"action": filter.Action, "relationshipType": filter.RelationshipType,
-	} {
-		if value != strings.TrimSpace(value) || len(value) > 200 || strings.ContainsAny(value, "\x00\r\n") {
-			writeError(w, http.StatusBadRequest, "invalid-graph-filter", fmt.Sprintf("%s must be a trimmed value of at most 200 bytes", name))
+	values := make(map[string]string, 6)
+	for _, name := range []string{"repositoryId", "assetType", "owner", "component", "action", "relationshipType"} {
+		code := "invalid-graph-filter"
+		message := name + " must be a single trimmed value of at most 200 bytes"
+		if name == "repositoryId" {
+			code = "invalid-repository-id"
+		}
+		value, ok := requestBoundedQueryValue(w, request, name, code, message)
+		if !ok {
 			return graphFilter{}, false
 		}
+		values[name] = value
+	}
+	filter := graphFilter{
+		RepositoryID: values["repositoryId"], AssetType: values["assetType"], Owner: values["owner"],
+		Component: values["component"], Action: values["action"], RelationshipType: values["relationshipType"],
 	}
 	if filter.RepositoryID != "" && !validRepositoryID(filter.RepositoryID) {
 		writeError(w, http.StatusBadRequest, "invalid-repository-id", "repository ID is invalid")

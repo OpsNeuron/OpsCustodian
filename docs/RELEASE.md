@@ -38,17 +38,19 @@ Dependabot tracks Go modules and Actions pins.
 
 Before creating a public tag:
 
-1. run `opscustodian doctor --profile release --format json` and retain the
+1. manually run the `Extended security fuzzing` workflow for the exact release
+   commit and retain the successful run as release evidence;
+2. run `opscustodian doctor --profile release --format json` and retain the
    secret-free result with the release evidence;
-2. verify the committed Apache-2.0 `LICENSE` is included in every archive;
-3. require the CI workflow and review on the protected `main` branch;
-4. run the deferred real PostgreSQL migration/rollback and container tests;
-5. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;
-6. validate a real OpenTelemetry Collector/backend path;
-7. validate real Kubernetes ingestion and readiness behavior;
-8. validate GitHub PAT and GitHub App access against public/private test
+3. verify the committed Apache-2.0 `LICENSE` is included in every archive;
+4. require the CI workflow and review on the protected `main` branch;
+5. run the deferred real PostgreSQL migration/rollback and container tests;
+6. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;
+7. validate a real OpenTelemetry Collector/backend path;
+8. validate real Kubernetes ingestion and readiness behavior;
+9. validate GitHub PAT and GitHub App access against public/private test
    repositories, including provider rate limits;
-9. verify the release archives, `SHA256SUMS`, SBOM, and provenance from a
+10. verify the release archives, `SHA256SUMS`, SBOM, and provenance from a
 disposable consumer environment.
 
 Kubernetes release validation must render and exercise the contract documented

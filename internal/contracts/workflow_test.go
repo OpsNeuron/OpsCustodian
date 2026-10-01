@@ -23,6 +23,7 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		"codeql.yml":             false,
 		"container-security.yml": false,
 		"ci.yml":                 false,
+		"fuzz-extended.yml":      false,
 		"license-scan.yml":       false,
 		"release.yml":            false,
 		"vulnerability-scan.yml": false,
@@ -62,6 +63,45 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		if !found {
 			t.Errorf("expected workflow %s was not found", name)
 		}
+	}
+}
+
+func TestExtendedFuzzWorkflowKeepsReviewedReleaseCandidateBoundaries(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "fuzz-extended.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, target := range []string{
+		"FuzzParseBearerCredentialsJSON",
+		"FuzzParseRepositorySet",
+		"FuzzDecodeOPAResponse",
+		"FuzzParseWorkflow",
+		"FuzzParseManifest",
+		"FuzzParseConfiguration",
+		"FuzzParseAgentMarkdown",
+		"FuzzParseAgenticWorkflow",
+		"FuzzRequestPage",
+		"FuzzRequestBoundedQueryValue",
+		"FuzzRejectUnknownQueryParameters",
+		"FuzzValidateEvent",
+	} {
+		if !strings.Contains(text, "target: "+target) {
+			t.Fatalf("extended fuzz workflow is missing reviewed target %q", target)
+		}
+	}
+	for _, required := range []string{"workflow_dispatch:", "fail-fast: false", "-fuzztime=2m -parallel=4", "persist-credentials: false"} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("extended fuzz workflow is missing reviewed contract %q", required)
+		}
+	}
+	for _, forbidden := range []string{"pull_request:", "schedule:", "branches: [main]"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("extended fuzz workflow unexpectedly contains automatic trigger %q", forbidden)
+		}
+	}
+	if count := strings.Count(text, "target: Fuzz"); count != 12 {
+		t.Fatalf("extended fuzz target count = %d, expected 12", count)
 	}
 }
 

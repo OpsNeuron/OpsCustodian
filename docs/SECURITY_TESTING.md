@@ -44,9 +44,12 @@ go test ./internal/server -run=^$ -fuzz=^FuzzRejectUnknownQueryParameters$ -fuzz
 go test ./internal/audit -run=^$ -fuzz=^FuzzValidateEvent$ -fuzztime=10s -parallel=4
 ```
 
-For release candidates, increase `-fuzztime` in a disposable environment and
-retain any minimized crashing corpus as a reviewed regression fixture. Never
-seed fuzzing with production credentials, private repository content, or
+For release candidates, manually run the `Extended security fuzzing` workflow.
+Its fail-independent matrix gives every reviewed boundary a two-minute campaign
+with four workers, without adding twelve long-running jobs to every push. A
+successful workflow run is release evidence; the presence of the workflow alone
+is not. Retain any minimized crashing corpus as a reviewed regression fixture.
+Never seed fuzzing with production credentials, private repository content, or
 customer data.
 
 ## Dependency reproducibility gate

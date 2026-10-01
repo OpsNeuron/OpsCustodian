@@ -1,0 +1,70 @@
+name: Extended security fuzzing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-extended-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: credentials
+            package: ./internal/server
+            target: FuzzParseBearerCredentialsJSON
+          - name: repository-set
+            package: ./internal/ingestion
+            target: FuzzParseRepositorySet
+          - name: policy-response
+            package: ./internal/policy
+            target: FuzzDecodeOPAResponse
+          - name: github-actions
+            package: ./internal/parsers/githubactions
+            target: FuzzParseWorkflow
+          - name: kubernetes
+            package: ./internal/parsers/kubernetes
+            target: FuzzParseManifest
+          - name: mcp
+            package: ./internal/parsers/mcp
+            target: FuzzParseConfiguration
+          - name: agent-markdown
+            package: ./internal/parsers/agentmarkdown
+            target: FuzzParseAgentMarkdown
+          - name: agentic-workflows
+            package: ./internal/parsers/ghaw
+            target: FuzzParseAgenticWorkflow
+          - name: pagination
+            package: ./internal/server
+            target: FuzzRequestPage
+          - name: query-filter
+            package: ./internal/server
+            target: FuzzRequestBoundedQueryValue
+          - name: query-allowlist
+            package: ./internal/server
+            target: FuzzRejectUnknownQueryParameters
+          - name: audit-envelope
+            package: ./internal/audit
+            target: FuzzValidateEvent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run extended fuzz campaign
+        shell: bash
+        run: go test "${{ matrix.package }}" -run='^$' -fuzz="^${{ matrix.target }}$" -fuzztime=2m -parallel=4

@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   verify:
@@ -15,6 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up Go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
@@ -23,9 +25,23 @@ jobs:
           cache: true
       - name: Validate release tag and legal files
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           [[ "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
           test -f LICENSE || { echo "LICENSE must be selected and committed before public release" >&2; exit 1; }
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main || {
+            echo "release tag must point to a commit reachable from origin/main" >&2
+            exit 1
+          }
+          fuzz_run_id="$(gh run list --workflow fuzz-extended.yml --commit "${GITHUB_SHA}" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          test -n "${fuzz_run_id}" || {
+            echo "a successful Extended security fuzzing run is required for commit ${GITHUB_SHA}" >&2
+            exit 1
+          }
+          printf 'verified extended fuzz run: %s\n' "${fuzz_run_id}"
       - name: Verify source
         run: |
           test -z "$(gofmt -l .)"

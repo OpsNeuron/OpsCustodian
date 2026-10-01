@@ -143,6 +143,26 @@ func TestCodeQLWorkflowKeepsReviewedSecurityCoverage(t *testing.T) {
 	}
 }
 
+func TestReleaseWorkflowRequiresMainLineageAndCommitBoundFuzzEvidence(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		"actions: read",
+		"fetch-depth: 0",
+		"git fetch --no-tags origin main:refs/remotes/origin/main",
+		"git merge-base --is-ancestor \"${GITHUB_SHA}\" origin/main",
+		"gh run list --workflow fuzz-extended.yml --commit \"${GITHUB_SHA}\" --status success --limit 1",
+		"test -n \"${fuzz_run_id}\"",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("release workflow is missing reviewed gate %q", required)
+		}
+	}
+}
+
 func TestCIExercisesEverySupportedDesktopPlatform(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
 	if err != nil {

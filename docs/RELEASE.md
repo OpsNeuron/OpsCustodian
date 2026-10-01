@@ -6,6 +6,12 @@ Only tags matching semantic `vMAJOR.MINOR.PATCH` or prerelease
 planned as `v0.5.0-alpha`; its evidence gate is the
 [`v0.5.0-alpha` checklist](ALPHA_RELEASE_CHECKLIST.md).
 
+The tagged commit must be reachable from `origin/main`. The release verification
+job also queries GitHub Actions for a successful `Extended security fuzzing` run
+whose commit exactly equals the tagged commit. A run for an earlier commit does
+not satisfy this gate, and build or publication jobs cannot start when either
+lineage or fuzz evidence is missing.
+
 Release notes may be committed as `docs/releases/<tag>.md`. The publish job
 uses that reviewed file when present and otherwise falls back to GitHub's
 generated notes. The first alpha notes are

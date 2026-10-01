@@ -77,6 +77,8 @@ jobs:
         run: go test ./internal/server -run=^$ -fuzz=^FuzzRequestBoundedQueryValue$ -fuzztime=10s -parallel=4
       - name: Fuzz API query allowlist
         run: go test ./internal/server -run=^$ -fuzz=^FuzzRejectUnknownQueryParameters$ -fuzztime=10s -parallel=4
+      - name: Fuzz audit event contract
+        run: go test ./internal/audit -run=^$ -fuzz=^FuzzValidateEvent$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector

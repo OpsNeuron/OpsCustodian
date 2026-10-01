@@ -134,14 +134,15 @@ func TestCIFuzzSmokeKeepsReviewedBoundaries(t *testing.T) {
 		"FuzzRequestPage",
 		"FuzzRequestBoundedQueryValue",
 		"FuzzRejectUnknownQueryParameters",
+		"FuzzValidateEvent",
 	} {
 		invocation := "-fuzz=^" + target + "$ -fuzztime=10s -parallel=4"
 		if !strings.Contains(text, invocation) {
 			t.Fatalf("CI fuzz smoke is missing reviewed invocation %q", invocation)
 		}
 	}
-	if count := strings.Count(text, "-fuzztime=10s -parallel=4"); count != 11 {
-		t.Fatalf("CI fuzz target count = %d, expected 11", count)
+	if count := strings.Count(text, "-fuzztime=10s -parallel=4"); count != 12 {
+		t.Fatalf("CI fuzz target count = %d, expected 12", count)
 	}
 }
 

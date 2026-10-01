@@ -90,7 +90,19 @@ func TestExtendedFuzzWorkflowKeepsReviewedReleaseCandidateBoundaries(t *testing.
 			t.Fatalf("extended fuzz workflow is missing reviewed target %q", target)
 		}
 	}
-	for _, required := range []string{"workflow_dispatch:", "fail-fast: false", "-fuzztime=2m -parallel=4", "persist-credentials: false"} {
+	for _, required := range []string{
+		"workflow_dispatch:",
+		"fail-fast: false",
+		"-fuzztime=2m -parallel=4",
+		"persist-credentials: false",
+		"if: always()",
+		"actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+		"if-no-files-found: error",
+		"retention-days: 30",
+		"commit=%s",
+		"outcome=%s",
+		"sha256sum",
+	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("extended fuzz workflow is missing reviewed contract %q", required)
 		}

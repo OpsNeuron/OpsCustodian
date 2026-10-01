@@ -67,4 +67,38 @@ jobs:
           cache: true
       - name: Run extended fuzz campaign
         shell: bash
-        run: go test "${{ matrix.package }}" -run='^$' -fuzz="^${{ matrix.target }}$" -fuzztime=2m -parallel=4
+        env:
+          FUZZ_NAME: ${{ matrix.name }}
+          FUZZ_PACKAGE: ${{ matrix.package }}
+          FUZZ_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          log="evidence/${FUZZ_NAME}.log"
+          set +e
+          go test "${FUZZ_PACKAGE}" -run='^$' -fuzz="^${FUZZ_TARGET}$" -fuzztime=2m -parallel=4 2>&1 | tee "${log}"
+          test_status=${PIPESTATUS[0]}
+          set -e
+          outcome=passed
+          if [[ ${test_status} -ne 0 ]]; then outcome=failed; fi
+          {
+            printf 'repository=%s\n' "${GITHUB_REPOSITORY}"
+            printf 'commit=%s\n' "${GITHUB_SHA}"
+            printf 'workflow_run=%s\n' "${GITHUB_RUN_ID}"
+            printf 'workflow_attempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            printf 'target=%s\n' "${FUZZ_TARGET}"
+            printf 'package=%s\n' "${FUZZ_PACKAGE}"
+            printf 'duration=2m\n'
+            printf 'parallelism=4\n'
+            printf 'outcome=%s\n' "${outcome}"
+          } > "evidence/${FUZZ_NAME}.manifest"
+          (cd evidence && sha256sum "${FUZZ_NAME}.log" "${FUZZ_NAME}.manifest" > SHA256SUMS)
+          exit "${test_status}"
+      - name: Retain fuzz evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fuzz-evidence-${{ matrix.name }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30

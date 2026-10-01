@@ -39,7 +39,8 @@ Dependabot tracks Go modules and Actions pins.
 Before creating a public tag:
 
 1. manually run the `Extended security fuzzing` workflow for the exact release
-   commit and retain the successful run as release evidence;
+   commit and retain the successful run plus all twelve checksummed evidence
+   artifacts as release evidence;
 2. run `opscustodian doctor --profile release --format json` and retain the
    secret-free result with the release evidence;
 3. verify the committed Apache-2.0 `LICENSE` is included in every archive;

@@ -48,8 +48,11 @@ For release candidates, manually run the `Extended security fuzzing` workflow.
 Its fail-independent matrix gives every reviewed boundary a two-minute campaign
 with four workers, without adding twelve long-running jobs to every push. A
 successful workflow run is release evidence; the presence of the workflow alone
-is not. Retain any minimized crashing corpus as a reviewed regression fixture.
-Never seed fuzzing with production credentials, private repository content, or
+is not. Every matrix job retains a 30-day evidence artifact containing its full
+test log, exact commit and workflow identity, target, duration, outcome, and
+SHA-256 checksums. Failed jobs upload the same bounded evidence for diagnosis.
+Retain any minimized crashing corpus as a reviewed regression fixture. Never
+seed fuzzing with production credentials, private repository content, or
 customer data.
 
 ## Dependency reproducibility gate

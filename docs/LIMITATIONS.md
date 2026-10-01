@@ -62,7 +62,8 @@ timing on large databases remain unvalidated.
 
 Bounded CI fuzzing covers credential JSON, RepositorySet JSON, and OPA decision
 output. Module checksum, tidy-diff, reachable Go vulnerability, final-image
-vulnerability, and Go dependency-license gates also run in CI. The image gate rebuilds digest-pinned bases
+vulnerability, Go dependency-license, and CodeQL Go/GitHub Actions gates also
+run in CI. The image gate rebuilds digest-pinned bases
 and rejects known high or critical findings in the final runtime, including
 operating-system and embedded binary packages. These gates do not cover private
 advisories, non-Go and deployment dependency licenses, legal compliance,

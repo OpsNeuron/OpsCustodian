@@ -172,10 +172,11 @@ runtime authorization system.
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
 - PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification implemented; physical backup, PITR, scale, and RPO/RTO remain open)*
 - Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew verified; mixed-version, skip-version, and scale gates remain open)*
-- Security fuzz smoke gate. *(credential, ingestion, and policy decoding boundaries plus module-integrity checks implemented; extended campaigns and broader parser coverage remain open)*
+- Security fuzz smoke gate. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, API pagination, query-filter, and route-allowlist boundaries plus module-integrity checks implemented; extended release-candidate campaigns remain open)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
 - Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
 - Go dependency-license gate. *(explicit permissive allowlist, test dependency coverage, pinned go-licenses 2.0.1, pull-request enforcement, and retained CSV evidence implemented; non-Go and legal review remain open)*
+- CodeQL static-analysis gate. *(SHA-pinned v4 analysis for Go and GitHub Actions with security-extended queries, least-privilege SARIF upload, scheduled refresh, and contract enforcement implemented; organization-level advanced-setup enablement and a passing hosted upload remain pending)*
 - PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
 - PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*
@@ -197,7 +198,7 @@ runtime authorization system.
 - Operational credential reload wiring. *(environment configuration, process lifecycle, minimized audit events, and fail-closed audit handling implemented; real secret rotation validation deferred)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
-- Request audit pipeline. *(shared OTel-compatible envelope, synchronized JSONL stderr sink, fail-closed process shutdown, and bounded snapshot-ingestion outcomes implemented; durable buffering and retention pending)*
+- Request audit pipeline. *(shared bounded OTel-compatible envelope validation, synchronized JSONL stderr plus tenant-scoped PostgreSQL persistence, all-destination fan-out, fail-closed process shutdown, bounded outcomes, and retention implemented; durable retry buffering and external backend delivery remain open)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.
@@ -212,7 +213,7 @@ history across multiple repositories through an authenticated control plane.
 - Signed baselines and governed exceptions.
 - Retention, upgrade, migration, and compatibility policies.
 - Security review and performance benchmarks.
-- Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race and Windows compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, tag validation, and Apache-2.0 license implemented; tagged workflow and independent Windows consumer verification passed)*
+- Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race plus Windows and macOS compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, tag validation, and Apache-2.0 license implemented; tagged workflow and independent Windows consumer verification passed, while hosted macOS evidence is pending)*
 
 Exit condition: the project can be operated as a dependable organization-wide
 control plane while preserving the offline CLI workflow.

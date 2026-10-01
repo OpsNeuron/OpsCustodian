@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var pinnedAction = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}$`)
+var pinnedAction = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[0-9a-f]{40}$`)
 var semanticVersion = regexp.MustCompile(`v[0-9]+\.[0-9]+\.[0-9]+`)
 
 func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
@@ -20,6 +20,7 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := map[string]bool{
+		"codeql.yml":             false,
 		"container-security.yml": false,
 		"ci.yml":                 false,
 		"license-scan.yml":       false,
@@ -61,6 +62,86 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		if !found {
 			t.Errorf("expected workflow %s was not found", name)
 		}
+	}
+}
+
+func TestCodeQLWorkflowKeepsReviewedSecurityCoverage(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "codeql.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		"security-events: write",
+		"language: go",
+		"build-mode: autobuild",
+		"language: actions",
+		"build-mode: none",
+		"queries: security-extended",
+		"github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+		"github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+		"github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("CodeQL workflow is missing reviewed contract %q", required)
+		}
+	}
+	if strings.Contains(text, "continue-on-error") {
+		t.Fatal("CodeQL workflow weakens the blocking analysis gate")
+	}
+}
+
+func TestCIExercisesEverySupportedDesktopPlatform(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		"runs-on: ubuntu-latest",
+		"runs-on: windows-latest",
+		"runs-on: macos-latest",
+		"name: Linux race detector",
+		"name: Windows compatibility",
+		"name: macOS compatibility",
+		"GOOS=darwin GOARCH=amd64",
+		"GOOS=darwin GOARCH=arm64",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("CI workflow is missing supported-platform contract %q", required)
+		}
+	}
+	if count := strings.Count(text, "timeout-minutes:"); count != 5 {
+		t.Fatalf("CI timeout count = %d, expected one for each of 5 jobs", count)
+	}
+}
+
+func TestCIFuzzSmokeKeepsReviewedBoundaries(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "ci.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, target := range []string{
+		"FuzzParseBearerCredentialsJSON",
+		"FuzzParseRepositorySet",
+		"FuzzDecodeOPAResponse",
+		"FuzzParseWorkflow",
+		"FuzzParseManifest",
+		"FuzzParseConfiguration",
+		"FuzzParseAgentMarkdown",
+		"FuzzParseAgenticWorkflow",
+		"FuzzRequestPage",
+		"FuzzRequestBoundedQueryValue",
+		"FuzzRejectUnknownQueryParameters",
+	} {
+		invocation := "-fuzz=^" + target + "$ -fuzztime=10s -parallel=4"
+		if !strings.Contains(text, invocation) {
+			t.Fatalf("CI fuzz smoke is missing reviewed invocation %q", invocation)
+		}
+	}
+	if count := strings.Count(text, "-fuzztime=10s -parallel=4"); count != 11 {
+		t.Fatalf("CI fuzz target count = %d, expected 11", count)
 	}
 }
 

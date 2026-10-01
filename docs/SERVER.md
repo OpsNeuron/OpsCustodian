@@ -32,7 +32,9 @@ bound to the complete filter set and cannot be reused for a different query.
 Collection endpoints use keyset pagination with `limit` (default 50, maximum
 200) and an opaque versioned `cursor`. All API envelopes use
 `opscustodian.dev/control-plane/v1alpha1`. Collection responses emit explicit
-empty arrays. Repository and snapshot IDs are deterministic hash-derived
+empty arrays. Query parameters are route-specific and fail closed when a name
+is unsupported, repeated, untrimmed, oversized, or contains control characters.
+Repository and snapshot IDs are deterministic hash-derived
 identifiers rather than raw filesystem paths or revisions.
 
 Finding lifecycle queries accept `repositoryId`, `severity`, and `status`
@@ -310,7 +312,9 @@ never copied from the request into audit attributes.
 Public health, rejected authentication, successful API requests, and API errors
 are distinguished without exposing credential material. The middleware requires
 an explicit sink. The `serve` composition installs a thread-safe JSONL sink on
-standard error. A sink write failure triggers process cancellation, graceful
+standard error plus tenant-scoped PostgreSQL persistence. Every configured sink
+is attempted once and any joined failure triggers process cancellation, graceful
 HTTP shutdown, listener cleanup, and database close; the server does not
-continue in an unaudited state. Long-term retention and rotation still belong
-to the service supervisor or a future durable exporter.
+continue in an unaudited state. PostgreSQL retention is bounded and configurable;
+durable retry buffering, JSONL rotation, and additional backend delivery remain
+future exporter or service-supervisor responsibilities.

@@ -13,6 +13,10 @@ generated notes. The first alpha notes are
 The workflow independently repeats formatting, vet, unit/contract tests, and
 the Linux race detector before building artifacts.
 
+Pull-request CI separately runs the full Go test suite on hosted Windows and
+macOS runners. The macOS job also cross-builds both supported Darwin
+architectures so ordinary changes cannot silently break either release target.
+
 ## Artifacts
 
 The release matrix produces statically linked CLI archives for:

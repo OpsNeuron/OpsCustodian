@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -35,12 +36,16 @@ func (sink *MultiSink) Record(ctx context.Context, event Event) error {
 	if sink == nil {
 		return fmt.Errorf("audit sink is not initialized")
 	}
-	for _, target := range sink.sinks {
+	if err := ValidateEvent(event); err != nil {
+		return err
+	}
+	var failures []error
+	for index, target := range sink.sinks {
 		if err := target.Record(ctx, event); err != nil {
-			return err
+			failures = append(failures, fmt.Errorf("record audit sink %d: %w", index+1, err))
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 func NewJSONLineSink(writer io.Writer) (*JSONLineSink, error) {
@@ -55,6 +60,9 @@ func NewJSONLineSink(writer io.Writer) (*JSONLineSink, error) {
 func (sink *JSONLineSink) Record(_ context.Context, event Event) error {
 	if sink == nil || sink.encoder == nil {
 		return fmt.Errorf("audit sink is not initialized")
+	}
+	if err := ValidateEvent(event); err != nil {
+		return err
 	}
 	sink.mu.Lock()
 	defer sink.mu.Unlock()

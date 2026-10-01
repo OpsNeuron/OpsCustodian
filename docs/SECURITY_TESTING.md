@@ -7,11 +7,19 @@ JSON are treated as untrusted.
 
 ## Continuous fuzz smoke tests
 
-CI runs bounded native Go fuzzing against three high-value decoding boundaries:
+CI runs bounded native Go fuzzing against eleven high-value decoding boundaries:
 
 - API credential JSON, including unknown fields and trailing values;
 - RepositorySet JSON, including schedule, retry, path, and cardinality rules;
-- OPA JSON output, including missing, malformed, and invalid decisions.
+- OPA JSON output, including missing, malformed, and invalid decisions;
+- GitHub Actions YAML, including malformed roots and attacker-influenced workflow structures;
+- multi-document Kubernetes YAML, including malformed documents and supported asset contracts;
+- MCP JSON/YAML configuration, including runtime provenance and credential references;
+- agent Markdown frontmatter, including declared tools, skills, models, and MCP references; and
+- GitHub Agentic Workflows frontmatter, imports, permissions, tools, network rules, and safe outputs; and
+- API pagination input, including oversized, cross-scope, empty-payload, malformed, and duplicate cursor or limit parameters; and
+- API query filters, including duplicate, untrimmed, oversized, and control-character values; and
+- route-specific API query allowlists, including empty, oversized, encoded, and unknown parameter names.
 
 Each target includes valid and adversarial seeds, limits accepted fuzz input to
 the corresponding operational payload ceiling, and asserts that every accepted
@@ -24,6 +32,14 @@ Run the same gate locally:
 go test ./internal/server -run=^$ -fuzz=^FuzzParseBearerCredentialsJSON$ -fuzztime=10s -parallel=4
 go test ./internal/ingestion -run=^$ -fuzz=^FuzzParseRepositorySet$ -fuzztime=10s -parallel=4
 go test ./internal/policy -run=^$ -fuzz=^FuzzDecodeOPAResponse$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/githubactions -run=^$ -fuzz=^FuzzParseWorkflow$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/kubernetes -run=^$ -fuzz=^FuzzParseManifest$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/mcp -run=^$ -fuzz=^FuzzParseConfiguration$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/agentmarkdown -run=^$ -fuzz=^FuzzParseAgentMarkdown$ -fuzztime=10s -parallel=4
+go test ./internal/parsers/ghaw -run=^$ -fuzz=^FuzzParseAgenticWorkflow$ -fuzztime=10s -parallel=4
+go test ./internal/server -run=^$ -fuzz=^FuzzRequestPage$ -fuzztime=10s -parallel=4
+go test ./internal/server -run=^$ -fuzz=^FuzzRequestBoundedQueryValue$ -fuzztime=10s -parallel=4
+go test ./internal/server -run=^$ -fuzz=^FuzzRejectUnknownQueryParameters$ -fuzztime=10s -parallel=4
 ```
 
 For release candidates, increase `-fuzztime` in a disposable environment and
@@ -134,10 +150,29 @@ The generated root report is ignored by Git. It is evidence for the resolved Go
 dependency graph, not legal advice and not a scan of base-image packages,
 external policy bundles, deployment manifests, or separately installed tools.
 
+## CodeQL static-analysis gate
+
+Pull requests, pushes to `main`, weekly refreshes, and manual runs execute the
+GitHub CodeQL action for both Go source and GitHub Actions workflows. The action
+is pinned to the reviewed v4.38.2 commit, uses the `security-extended` query
+suite, and uploads SARIF through the repository's code-scanning boundary.
+
+The Go job uses CodeQL's `autobuild` mode. Workflow analysis uses the native
+`actions` language with no build step. Both jobs are blocking; the workflow does
+not use `continue-on-error`. Its token is restricted to reading repository,
+Actions, and package metadata plus the required `security-events: write` scope.
+
+CodeQL findings are static signals rather than proof of exploitability or the
+absence of vulnerabilities. Manual review, dependency and image scanning,
+runtime integration tests, and deployment-specific penetration testing remain
+separate gates.
+
 ## Current evidence boundary
 
-The initial local campaign completed bounded fuzz runs for all three targets
-without a panic or accepted-contract violation. Passing Go, final-image
+The initial local campaigns completed bounded fuzz runs for all eleven targets.
+They discovered and retained regression cases for invalid GitHub Actions and
+MCP inputs; all reviewed targets now pass without a panic or accepted-contract
+violation. Passing Go, final-image
 vulnerability, and license runs cover only their analyzed software and data
 known at execution time. These results do not prove parser correctness for
 every input, resistance to sustained resource exhaustion, legal compliance, or

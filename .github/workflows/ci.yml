@@ -16,6 +16,7 @@ jobs:
   verify:
     name: Verify Go contracts
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -43,6 +44,7 @@ jobs:
   fuzz-smoke:
     name: Security fuzz smoke
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -59,10 +61,27 @@ jobs:
         run: go test ./internal/ingestion -run=^$ -fuzz=^FuzzParseRepositorySet$ -fuzztime=10s -parallel=4
       - name: Fuzz policy response decoder
         run: go test ./internal/policy -run=^$ -fuzz=^FuzzDecodeOPAResponse$ -fuzztime=10s -parallel=4
+      - name: Fuzz GitHub Actions parser
+        run: go test ./internal/parsers/githubactions -run=^$ -fuzz=^FuzzParseWorkflow$ -fuzztime=10s -parallel=4
+      - name: Fuzz Kubernetes parser
+        run: go test ./internal/parsers/kubernetes -run=^$ -fuzz=^FuzzParseManifest$ -fuzztime=10s -parallel=4
+      - name: Fuzz MCP configuration parser
+        run: go test ./internal/parsers/mcp -run=^$ -fuzz=^FuzzParseConfiguration$ -fuzztime=10s -parallel=4
+      - name: Fuzz agent Markdown parser
+        run: go test ./internal/parsers/agentmarkdown -run=^$ -fuzz=^FuzzParseAgentMarkdown$ -fuzztime=10s -parallel=4
+      - name: Fuzz GitHub Agentic Workflows parser
+        run: go test ./internal/parsers/ghaw -run=^$ -fuzz=^FuzzParseAgenticWorkflow$ -fuzztime=10s -parallel=4
+      - name: Fuzz API pagination boundary
+        run: go test ./internal/server -run=^$ -fuzz=^FuzzRequestPage$ -fuzztime=10s -parallel=4
+      - name: Fuzz API query-filter boundary
+        run: go test ./internal/server -run=^$ -fuzz=^FuzzRequestBoundedQueryValue$ -fuzztime=10s -parallel=4
+      - name: Fuzz API query allowlist
+        run: go test ./internal/server -run=^$ -fuzz=^FuzzRejectUnknownQueryParameters$ -fuzztime=10s -parallel=4
 
   race:
     name: Linux race detector
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -81,6 +100,7 @@ jobs:
   windows:
     name: Windows compatibility
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -95,3 +115,25 @@ jobs:
         run: go test -count=1 ./...
       - name: Build
         run: go build -trimpath -o ./bin/opscustodian.exe ./cmd/opscustodian
+
+  macos:
+    name: macOS compatibility
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test natively
+        run: go test -count=1 ./...
+      - name: Build supported macOS architectures
+        shell: bash
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -o ./bin/opscustodian-darwin-amd64 ./cmd/opscustodian
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o ./bin/opscustodian-darwin-arm64 ./cmd/opscustodian

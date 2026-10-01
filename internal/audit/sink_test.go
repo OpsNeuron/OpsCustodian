@@ -53,12 +53,80 @@ func TestJSONLineSinkReportsWriterFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := sink.Record(context.Background(), Event{SchemaVersion: SchemaVersion}); err == nil {
+	if err := sink.Record(context.Background(), validSinkTestEvent()); err == nil {
 		t.Fatal("writer failure was ignored")
 	}
 	if _, err := NewJSONLineSink(nil); err == nil {
 		t.Fatal("nil writer was accepted")
 	}
+}
+
+func TestMultiSinkAttemptsEveryTargetAndReturnsJoinedFailures(t *testing.T) {
+	firstFailure := errors.New("first failure")
+	thirdFailure := errors.New("third failure")
+	first := &recordingAuditSink{err: firstFailure}
+	second := &recordingAuditSink{}
+	third := &recordingAuditSink{err: thirdFailure}
+	sink, err := NewMultiSink(first, second, third)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := validSinkTestEvent()
+	err = sink.Record(context.Background(), event)
+	if !errors.Is(err, firstFailure) || !errors.Is(err, thirdFailure) {
+		t.Fatalf("Record() error = %v, expected both sink failures", err)
+	}
+	for index, target := range []*recordingAuditSink{first, second, third} {
+		if len(target.events) != 1 || target.events[0].SchemaVersion != SchemaVersion {
+			t.Fatalf("sink %d events = %#v, expected one attempted event", index+1, target.events)
+		}
+	}
+}
+
+func TestMultiSinkRejectsInvalidEventBeforeFanout(t *testing.T) {
+	first := &recordingAuditSink{}
+	second := &recordingAuditSink{}
+	sink, err := NewMultiSink(first, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Record(context.Background(), Event{SchemaVersion: SchemaVersion}); err == nil {
+		t.Fatal("invalid audit event was accepted")
+	}
+	if len(first.events) != 0 || len(second.events) != 0 {
+		t.Fatalf("invalid event reached sinks: first=%d second=%d", len(first.events), len(second.events))
+	}
+}
+
+func TestMultiSinkRejectsMissingTargets(t *testing.T) {
+	if _, err := NewMultiSink(); err == nil {
+		t.Fatal("empty sink set was accepted")
+	}
+	if _, err := NewMultiSink(&recordingAuditSink{}, nil); err == nil {
+		t.Fatal("nil sink was accepted")
+	}
+	var sink *MultiSink
+	if err := sink.Record(context.Background(), Event{}); err == nil {
+		t.Fatal("nil multi-sink was accepted")
+	}
+}
+
+type recordingAuditSink struct {
+	events []Event
+	err    error
+}
+
+func validSinkTestEvent() Event {
+	return FromCredentialReload(CredentialReloadObservation{
+		OccurredAt:     time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC),
+		OrganizationID: "organization-0123456789abcdef",
+		Succeeded:      true,
+	})
+}
+
+func (sink *recordingAuditSink) Record(_ context.Context, event Event) error {
+	sink.events = append(sink.events, event)
+	return sink.err
 }
 
 type failingAuditWriter struct{}

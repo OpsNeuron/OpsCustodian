@@ -27,18 +27,25 @@ bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
 ingestion outcomes, and GitHub App authentication update fixed low-cardinality
 component states without exposing repository, credential, path, or error data.
 
-Release automation now defines and has executed SHA-pinned least-privilege CI,
-Linux race and Windows compatibility gates, cross-platform tagged builds,
-checksums, CycloneDX SBOM, provenance attestation, and dependency updates for
-`v0.5.0-alpha`. Passing release automation does not imply that every
-real-provider or production-runtime gate has passed.
+Release automation has executed SHA-pinned least-privilege CI, Linux race and
+Windows compatibility gates, cross-platform tagged builds, checksums,
+CycloneDX SBOM, provenance attestation, and dependency updates for
+`v0.5.0-alpha`. It now also defines a native macOS compatibility gate. Passing
+release automation does not imply that every real-provider or
+production-runtime gate has passed.
 
 The published Windows amd64 archive has also passed an independent consumer
 check: its digest matched `SHA256SUMS`, the archive contained the binary,
 license, README, and security policy, the binary reported `v0.5.0-alpha`, the
 CycloneDX 1.6 SBOM was populated, and GitHub returned an in-toto SLSA provenance
 statement whose subject matched the downloaded archive digest and tagged
-release workflow.
+release workflow. The macOS compatibility gate is implemented and awaits its
+first hosted-runner evidence.
+
+The custom CodeQL workflow is implemented for Go and GitHub Actions, but its
+first SARIF upload remains blocked until the organization security
+configuration permits advanced setup. This external enablement is deferred and
+must not be reported as a passing gate.
 
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
@@ -213,7 +220,7 @@ Missing exit items:
 - Environment-to-digest API-token configuration and fail-closed server composition that cannot construct the operational HTTP server without authentication and a Store reader.
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.
-- Versioned secret-minimized HTTP request audit events, synchronized JSONL stderr sink, and fail-closed process wiring with server-generated correlation IDs, canonical routes, authentication outcomes, status, and latency.
+- Versioned secret-minimized HTTP request audit events, shared bounded envelope validation before delivery, synchronized JSONL stderr and PostgreSQL fan-out that attempts every destination, and fail-closed process wiring with server-generated correlation IDs, canonical routes, authentication outcomes, status, and latency.
 - Authenticated fail-closed policy-evaluation API backed by a locally executed, timeout-bounded OPA runtime with secret-safe configuration and a pinned container executable.
 - Minimized policy request audit summaries containing only bounded outcomes and deny/warn counts, with policy input, decision text, rules, evidence, remediation, and evaluator errors excluded.
 - Explicit scope-based API authorization with granular contracts, inventory, and findings read permissions plus a `control-plane:read` umbrella, separate `401`/`403` semantics, fail-closed environment validation, OpenAPI declarations, and authorization audit outcomes.
@@ -227,7 +234,7 @@ Missing exit items:
 - Docker-backed snapshot-retention evidence covering real PostgreSQL deletion, batch limiting, latest-history preservation, and dependent-Finding cascade cleanup.
 - Docker-backed logical backup and restore across independent PostgreSQL volumes with migration, tenant, content-fingerprint, and authenticated restored-API verification.
 - Docker-backed upgrade from the immutable `v0.5.0-alpha` binary and schema version 2 to the current schema, preserving snapshot history and proving idempotent restart plus fail-closed downgrade/future-version handling.
-- Bounded native fuzzing for credential JSON, RepositorySet JSON, and OPA decision output, with CI module-integrity and module-graph drift gates.
+- Bounded native fuzzing for credential JSON, RepositorySet JSON, OPA decision output, GitHub Actions, Kubernetes, MCP configuration, agent Markdown, GitHub Agentic Workflows, API pagination, query filters, and route-specific query allowlists, with CI module-integrity and module-graph drift gates.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
 - Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.

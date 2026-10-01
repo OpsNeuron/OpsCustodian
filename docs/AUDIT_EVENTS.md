@@ -13,6 +13,11 @@ The envelope follows the OpenTelemetry LogRecord event model with `timestamp`,
 wire representation. A Collector file receiver, custom adapter, or future
 exporter can map the envelope to OTLP.
 
+The shared runtime validator rejects empty or control-character field names,
+nested objects and arrays, non-finite numbers, missing resource/scope identity,
+and envelopes larger than 64 KiB. Multi-destination delivery gives every sink
+an isolated copy so a backend cannot mutate the event observed by another.
+
 ## Event names
 
 - `opscustodian.scan.completed`: one inventory summary per BOM.

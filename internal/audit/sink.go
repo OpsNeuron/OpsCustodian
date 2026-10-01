@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"sync"
 )
 
@@ -41,11 +42,39 @@ func (sink *MultiSink) Record(ctx context.Context, event Event) error {
 	}
 	var failures []error
 	for index, target := range sink.sinks {
-		if err := target.Record(ctx, event); err != nil {
+		if err := target.Record(ctx, cloneEvent(event)); err != nil {
 			failures = append(failures, fmt.Errorf("record audit sink %d: %w", index+1, err))
 		}
 	}
 	return errors.Join(failures...)
+}
+
+func cloneEvent(event Event) Event {
+	cloned := event
+	cloned.Resource = cloneFields(event.Resource)
+	cloned.Attributes = cloneFields(event.Attributes)
+	return cloned
+}
+
+func cloneFields(fields map[string]any) map[string]any {
+	if fields == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(fields))
+	for key, value := range fields {
+		reflected := reflect.ValueOf(value)
+		if reflected.IsValid() && (reflected.Kind() == reflect.Array || reflected.Kind() == reflect.Slice) {
+			copyValue := reflect.New(reflected.Type()).Elem()
+			if reflected.Kind() == reflect.Slice {
+				copyValue = reflect.MakeSlice(reflected.Type(), reflected.Len(), reflected.Len())
+			}
+			reflect.Copy(copyValue, reflected)
+			cloned[key] = copyValue.Interface()
+			continue
+		}
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func NewJSONLineSink(writer io.Writer) (*JSONLineSink, error) {

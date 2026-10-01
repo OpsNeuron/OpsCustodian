@@ -16,6 +16,12 @@ func TestValidateEventRejectsInvalidOrOversizedEnvelope(t *testing.T) {
 		{name: "timestamp", mutate: func(event *Event) { event.Timestamp = "not-a-time" }},
 		{name: "event name", mutate: func(event *Event) { event.EventName = " bad\n" }},
 		{name: "severity", mutate: func(event *Event) { event.SeverityNumber = 25 }},
+		{name: "missing resource", mutate: func(event *Event) { event.Resource = nil }},
+		{name: "missing scope", mutate: func(event *Event) { event.InstrumentationScope.Name = "" }},
+		{name: "invalid attribute key", mutate: func(event *Event) { event.Attributes[" bad\n"] = "value" }},
+		{name: "nested attribute", mutate: func(event *Event) { event.Attributes["nested"] = map[string]any{"value": true} }},
+		{name: "nested attribute array", mutate: func(event *Event) { event.Attributes["nested"] = [][]string{{"value"}} }},
+		{name: "nil attribute", mutate: func(event *Event) { event.Attributes["nil"] = nil }},
 		{name: "non JSON value", mutate: func(event *Event) { event.Attributes["invalid"] = math.NaN() }},
 		{name: "oversized", mutate: func(event *Event) { event.Body = strings.Repeat("x", maxEventBytes) }},
 	}

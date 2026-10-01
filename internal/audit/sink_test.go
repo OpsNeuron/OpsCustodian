@@ -98,6 +98,26 @@ func TestMultiSinkRejectsInvalidEventBeforeFanout(t *testing.T) {
 	}
 }
 
+func TestMultiSinkIsolatesTargetsFromEventMutation(t *testing.T) {
+	recording := &recordingAuditSink{}
+	sink, err := NewMultiSink(mutatingAuditSink{}, recording)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := validSinkTestEvent()
+	event.Attributes["values"] = []string{"original"}
+	if err := sink.Record(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	values, ok := recording.events[0].Attributes["values"].([]string)
+	if !ok || len(values) != 1 || values[0] != "original" || recording.events[0].EventName != event.EventName {
+		t.Fatalf("later sink observed mutated event: %#v", recording.events[0])
+	}
+	if event.Attributes["mutated"] != nil || event.EventName != "opscustodian.credential.reload.completed" {
+		t.Fatalf("caller event was mutated: %#v", event)
+	}
+}
+
 func TestMultiSinkRejectsMissingTargets(t *testing.T) {
 	if _, err := NewMultiSink(); err == nil {
 		t.Fatal("empty sink set was accepted")
@@ -132,3 +152,12 @@ func (sink *recordingAuditSink) Record(_ context.Context, event Event) error {
 type failingAuditWriter struct{}
 
 func (failingAuditWriter) Write([]byte) (int, error) { return 0, errors.New("disk failure") }
+
+type mutatingAuditSink struct{}
+
+func (mutatingAuditSink) Record(_ context.Context, event Event) error {
+	event.EventName = "mutated"
+	event.Attributes["mutated"] = true
+	event.Attributes["values"].([]string)[0] = "mutated"
+	return nil
+}

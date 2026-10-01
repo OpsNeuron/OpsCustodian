@@ -50,11 +50,8 @@ func (memory *Memory) Record(ctx context.Context, event audit.Event) error {
 }
 
 func validateAuditEvent(event audit.Event, organizationID string) ([]byte, string, string, error) {
-	if event.SchemaVersion != audit.SchemaVersion || event.EventName == "" || len(event.EventName) > 200 || event.SeverityNumber < 1 || event.SeverityNumber > 24 {
-		return nil, "", "", fmt.Errorf("audit event contract is invalid")
-	}
-	if _, err := time.Parse(time.RFC3339Nano, event.Timestamp); err != nil {
-		return nil, "", "", fmt.Errorf("audit event timestamp is invalid")
+	if err := audit.ValidateEvent(event); err != nil {
+		return nil, "", "", err
 	}
 	identityID, _ := event.Attributes["opscustodian.identity.id"].(string)
 	repositoryID, _ := event.Attributes["opscustodian.repository.id"].(string)
@@ -66,8 +63,8 @@ func validateAuditEvent(event audit.Event, organizationID string) ([]byte, strin
 		return nil, "", "", fmt.Errorf("audit event repository ID is invalid")
 	}
 	payload, err := json.Marshal(event)
-	if err != nil || len(payload) > 64<<10 {
-		return nil, "", "", fmt.Errorf("audit event payload is invalid or exceeds 64 KiB")
+	if err != nil {
+		return nil, "", "", fmt.Errorf("encode validated audit event: %w", err)
 	}
 	return payload, identityID, repositoryID, nil
 }

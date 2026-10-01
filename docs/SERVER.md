@@ -312,7 +312,9 @@ never copied from the request into audit attributes.
 Public health, rejected authentication, successful API requests, and API errors
 are distinguished without exposing credential material. The middleware requires
 an explicit sink. The `serve` composition installs a thread-safe JSONL sink on
-standard error. A sink write failure triggers process cancellation, graceful
+standard error plus tenant-scoped PostgreSQL persistence. Every configured sink
+is attempted once and any joined failure triggers process cancellation, graceful
 HTTP shutdown, listener cleanup, and database close; the server does not
-continue in an unaudited state. Long-term retention and rotation still belong
-to the service supervisor or a future durable exporter.
+continue in an unaudited state. PostgreSQL retention is bounded and configurable;
+durable retry buffering, JSONL rotation, and additional backend delivery remain
+future exporter or service-supervisor responsibilities.

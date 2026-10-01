@@ -51,6 +51,8 @@ successful workflow run is release evidence; the presence of the workflow alone
 is not. Every matrix job retains a 30-day evidence artifact containing its full
 test log, exact commit and workflow identity, target, duration, outcome, and
 SHA-256 checksums. Failed jobs upload the same bounded evidence for diagnosis.
+The release workflow verifies that all twelve evidence artifacts still exist
+and have not expired before it accepts the matching successful campaign.
 Retain any minimized crashing corpus as a reviewed regression fixture. Never
 seed fuzzing with production credentials, private repository content, or
 customer data.

@@ -156,6 +156,9 @@ func TestReleaseWorkflowRequiresMainLineageAndCommitBoundFuzzEvidence(t *testing
 		"git merge-base --is-ancestor \"${GITHUB_SHA}\" origin/main",
 		"gh run list --workflow fuzz-extended.yml --commit \"${GITHUB_SHA}\" --status success --limit 1",
 		"test -n \"${fuzz_run_id}\"",
+		"actions/runs/${fuzz_run_id}/artifacts",
+		"startswith(\"fuzz-evidence-\")",
+		"[[ \"${fuzz_artifact_count}\" == \"12\" ]]",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("release workflow is missing reviewed gate %q", required)

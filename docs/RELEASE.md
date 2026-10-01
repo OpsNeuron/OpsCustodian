@@ -10,7 +10,9 @@ The tagged commit must be reachable from `origin/main`. The release verification
 job also queries GitHub Actions for a successful `Extended security fuzzing` run
 whose commit exactly equals the tagged commit. A run for an earlier commit does
 not satisfy this gate, and build or publication jobs cannot start when either
-lineage or fuzz evidence is missing.
+lineage or fuzz evidence is missing. The matching run must still retain exactly
+twelve non-expired `fuzz-evidence-*` artifacts; a successful run whose evidence
+has expired is deliberately insufficient for release.
 
 Release notes may be committed as `docs/releases/<tag>.md`. The publish job
 uses that reviewed file when present and otherwise falls back to GitHub's

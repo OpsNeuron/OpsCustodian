@@ -41,7 +41,12 @@ jobs:
             echo "a successful Extended security fuzzing run is required for commit ${GITHUB_SHA}" >&2
             exit 1
           }
-          printf 'verified extended fuzz run: %s\n' "${fuzz_run_id}"
+          fuzz_artifact_count="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${fuzz_run_id}/artifacts" --jq '[.artifacts[] | select((.expired | not) and (.name | startswith("fuzz-evidence-")))] | length')"
+          [[ "${fuzz_artifact_count}" == "12" ]] || {
+            echo "extended fuzz run ${fuzz_run_id} must retain exactly 12 non-expired evidence artifacts; found ${fuzz_artifact_count}" >&2
+            exit 1
+          }
+          printf 'verified extended fuzz run: %s with %s evidence artifacts\n' "${fuzz_run_id}" "${fuzz_artifact_count}"
       - name: Verify source
         run: |
           test -z "$(gofmt -l .)"

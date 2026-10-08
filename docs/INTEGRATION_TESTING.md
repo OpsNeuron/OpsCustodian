@@ -18,6 +18,16 @@ The harness covers:
 
 ## Verified environment
 
+On 2026-10-08 the complete disposable harness was re-run on Docker Desktop
+4.44.1 with Linux Engine 28.3.2 from the current working tree. The main run
+passed PostgreSQL bootstrap and migrations, authenticated ingestion, policy
+evaluation, historical drift, graph filtering, persistent audit queries,
+snapshot retention, and Collector export. The isolated backup/restore run and
+the schema upgrade-compatibility run also passed, including restored API reads,
+history preservation, idempotent restart, and fail-closed version checks. All
+Compose containers, networks, and volumes were removed after each run; no
+generated evidence or credentials were written to the repository.
+
 On 2026-08-23 the complete harness passed on Docker Desktop 4.44.1 with Linux
 Engine 28.3.2. The observed services were PostgreSQL 17.4, OPA 1.7.1, and
 OpenTelemetry Collector 0.123.0. Both committed migrations were present,

@@ -9,10 +9,11 @@ The current public support boundary is maintained in
 ## Current position
 
 The immediate delivery phase is **public-alpha adoption and evidence-backed
-hardening**. The offline onboarding path, tagged release, and initial Docker
-Desktop integration gate have passed. The current priority is compatibility,
-real-provider evidence, and closing the remaining runtime Kubernetes and
-operational gates without expanding the public HA claim.
+hardening**. The offline onboarding path, tagged release, and current Docker
+Desktop integration, backup/restore, and upgrade-compatibility gates have
+passed. The current priority is compatibility, real-provider evidence, and
+closing the remaining runtime Kubernetes and operational gates without
+expanding the public HA claim.
 
 OpsCustodian has completed the offline/core implementation scope of the `v0.4`
 effective-access milestone. Deterministic tests, browser report inspection,
@@ -52,8 +53,9 @@ for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, and release licensing. It is deliberately secret-free and does not
 claim network or runtime validation.
 
-A disposable, internal-network Compose harness has passed on Docker Desktop
-with Linux Engine 28.3.2: PostgreSQL 17.4 bootstrap and forward migrations,
+A disposable, internal-network Compose harness was re-run on 2026-10-08 on
+Docker Desktop 4.44.1 with Linux Engine 28.3.2. It passed PostgreSQL 17.4
+bootstrap and forward migrations,
 authenticated repository ingestion/readiness, OPA 1.7.1 policy tests,
 OTLP/HTTP export to OpenTelemetry Collector 0.123.0, and scoped cleanup were
 observed. Supplemental disposable validation passed PostgreSQL
@@ -67,7 +69,10 @@ real-provider gate passed GitHub App token exchange/cache reuse, private
 repository ingestion, unchanged-revision handling, and secret-safe invalid
 installation rejection. PAT parity, expiry-driven refresh, real rate-limit and
 redirect observations, load, HA contention, and failure injection remain open.
-The offline effective-access result was also compared with live Kubernetes
+The same run passed the isolated PostgreSQL backup/restore and schema upgrade
+compatibility profiles, including restored API reads, preserved history,
+idempotent restart, and fail-closed future-version rejection. The offline
+effective-access result was also compared with live Kubernetes
 authorization for four representative namespaced, cluster-wide, non-resource,
 and wildcard-derived capabilities without discrepancy.
 

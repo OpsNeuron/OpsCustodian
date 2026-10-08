@@ -170,17 +170,17 @@ runtime authorization system.
 - Persistent audit history. *(tenant-scoped PostgreSQL retention, fail-closed process wiring, repository authorization, bounded filters, pagination, and OpenAPI query contract implemented)*
 - Audit retention policy. *(bounded configurable lifetime, startup/periodic tenant-scoped pruning, safe config visibility, and fail-closed runtime coordination implemented)*
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
-- PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification implemented; physical backup, PITR, scale, and RPO/RTO remain open)*
-- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew verified; mixed-version, skip-version, and scale gates remain open)*
+- PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification re-run successfully on 2026-10-08; physical backup, PITR, scale, and RPO/RTO remain open)*
+- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to current schema 3, history preservation, idempotent restart, and fail-closed version skew re-verified on 2026-10-08; mixed-version, skip-version, and scale gates remain open)*
 - Security fuzz gates. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, API pagination, query-filter, route-allowlist, and audit-envelope boundaries plus module-integrity checks implemented; manual two-minute-per-boundary release-candidate workflow implemented, while a passing hosted campaign remains required)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
 - Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
 - Go dependency-license gate. *(explicit permissive allowlist, test dependency coverage, pinned go-licenses 2.0.1, pull-request enforcement, and retained CSV evidence implemented; non-Go and legal review remain open)*
 - CodeQL static-analysis gate. *(SHA-pinned v4 analysis for Go and GitHub Actions with security-extended queries, least-privilege SARIF upload, scheduled refresh, and contract enforcement implemented; organization-level advanced-setup enablement and a passing hosted upload remain pending)*
-- PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; real database validation deferred)*
-- PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; real database validation pending)*
+- PostgreSQL persistence and migrations. *(initial tenant-aware schema and guarded embedded migration runner implemented; Docker-backed PostgreSQL validation passed on 2026-10-08)*
+- PostgreSQL snapshot reader/writer. *(tenant-scoped, transactional, and driver-neutral implementations complete; Docker-backed persistence and authorized API reads passed on 2026-10-08)*
 - Bounded environment-based database and tenant configuration. *(implemented without activating a driver or network listener)*
-- Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; real PostgreSQL driver and integration validation pending)*
+- Database bootstrap and lifecycle orchestration. *(driver-neutral ordering and cleanup implemented; Docker-backed startup, readiness, restart, and cleanup validation passed on 2026-10-08)*
 - Official pgx PostgreSQL driver wiring. *(pinned and registered; live connection and compatibility matrix deferred to final integration)*
 - PostgreSQL transport-security guard. *(verified TLS enforced across effective pgx primary/fallback configuration; certificate-chain integration deferred)*
 - Multi-repository ingestion and historical Finding lifecycle. *(endpoint, immutable persistence, orchestration/scheduler, connector registry, local and GitHub connectors, RepositorySet loader, process wiring, and audit summary implemented; real-provider validation pending)*

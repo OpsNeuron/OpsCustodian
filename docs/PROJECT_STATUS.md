@@ -67,7 +67,9 @@ CNI/controller. A follow-up Kind v1.32.2 and Calico v3.32.1 lab passed both the
 labeled allow path and unlabeled deny path before complete cleanup. A later
 real-provider gate passed GitHub App token exchange/cache reuse, private
 repository ingestion, unchanged-revision handling, and secret-safe invalid
-installation rejection. PAT parity, expiry-driven refresh, real rate-limit and
+installation rejection. Deterministic expiry-aware refresh, cache coalescing,
+and fail-closed token validation are covered by the local ingestion suite. PAT
+parity, provider-observed expiry-driven refresh, real rate-limit and
 redirect observations, load, HA contention, and failure injection remain open.
 The same run passed the isolated PostgreSQL backup/restore and schema upgrade
 compatibility profiles, including restored API reads, preserved history,
@@ -258,7 +260,7 @@ Missing exit items:
 - Hardened GitHub revision-discovery client with strict repository/ref identity, secret-reference-only authentication, redirect prevention, bounded HTTPS requests/responses, immutable SHA validation, and transient rate-limit/server classification.
 - Bounded GitHub ZIP materialization with isolated temporary workspaces, single-root enforcement, Zip Slip/symlink/special-file/duplicate rejection, compressed/extracted/entry ceilings, cancellation, fixed permissions, and idempotent cleanup.
 - Two-stage GitHub archive acquisition with immutable-SHA requests, allowlisted HTTPS redirect targets, single-redirect enforcement, Authorization stripping, signed-URL error minimization, direct-response support, and transient failure classification.
-- Operational GitHub App authentication with strict installation references, expiry-aware cache refresh, per-installation request coalescing, cancellation, RSA-2048+ validation, bounded RS256 JWTs, hardened token exchange, safe private-key files, secret-free config projection, explicit PAT/App routing, and fail-before-database RepositorySet wiring; real-provider exchange, cache reuse, private ingestion, unchanged-revision, and invalid-installation rejection have passed, while expiry-driven refresh remains pending.
+- Operational GitHub App authentication with strict installation references, expiry-aware cache refresh, per-installation request coalescing, cancellation, RSA-2048+ validation, bounded RS256 JWTs, hardened token exchange, safe private-key files, secret-free config projection, explicit PAT/App routing, and fail-before-database RepositorySet wiring; deterministic expiry refresh and coalescing tests pass, as do real-provider exchange, cache reuse, private ingestion, unchanged-revision, and invalid-installation rejection, while provider-observed expiry-driven refresh remains pending.
 - Secret-minimized GitHub authentication audit events for cache and provider outcomes, including bounded rate-limit/status/duration signals and fail-closed observer propagation.
 - End-to-end GitHub connector composition across immutable revision resolution, unchanged short-circuiting, archive acquisition/materialization, production parser scanning, deterministic BOM metadata, and mandatory cleanup propagation.
 - RepositorySet and process integration for GitHub repositories with connector-specific schema validation, allowlisted `OPSCUSTODIAN_GITHUB_TOKEN_*` environment references, arbitrary-environment exfiltration prevention, and shared local/GitHub orchestration.

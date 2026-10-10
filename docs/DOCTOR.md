@@ -24,6 +24,12 @@ integration, release, extended-fuzz, and CodeQL workflow documents. It remains
 an offline file/configuration preflight: it does not claim that hosted workflows
 or external providers have passed.
 
+On a clean checkout without server environment variables or a local `opa`
+binary, `doctor --profile beta` is expected to report `server-config` and
+`opa-binary` as failed while the repository evidence-file checks pass. That is
+an intentional fail-closed result, not a replacement for the Docker integration
+harness or hosted GitHub gates.
+
 JSON output uses `opscustodian.dev/preflight/v1alpha1` and contains `ready` plus
 ordered checks with `passed`, `failed`, or `skipped` status. Required failures
 exit with code `2`. A successful offline preflight is not evidence that the

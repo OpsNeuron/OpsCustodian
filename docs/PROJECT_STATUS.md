@@ -52,6 +52,10 @@ The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, release licensing, and Beta evidence-file readiness. It is deliberately
 secret-free and does not claim network, hosted-workflow, or runtime validation.
+On a clean checkout, Beta preflight intentionally remains not-ready until the
+operator supplies server configuration and a local OPA executable; this keeps
+missing runtime prerequisites visible instead of treating repository files as
+proof of deployment readiness.
 
 A disposable, internal-network Compose harness was re-run on 2026-10-08 on
 Docker Desktop 4.44.1 with Linux Engine 28.3.2. It passed PostgreSQL 17.4

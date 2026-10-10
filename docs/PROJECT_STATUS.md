@@ -177,7 +177,7 @@ Missing exit items:
 - CI exit-contract tests for severity thresholds, fail-fast option validation, report persistence on policy exits, and wrapped exit causes.
 - SARIF regression tests for deterministic rules, GitHub-compatible levels, source regions, stable fingerprints, tool identity, and explicit empty collections.
 - Job-scoped GitHub Actions token-permission resolution with workflow inheritance, job override precedence, explicit disablement, unspecified-default tracking, and evidence-backed parser tests.
-- Semantic GitHub Actions OIDC-token issuance, deployment-environment capabilities, production context propagation, and explicit unknown protection state pending API enrichment.
+- Semantic GitHub Actions OIDC-token issuance, deployment-environment capabilities, production context propagation, evidence-backed job scoping, and explicit unknown protection state are implemented offline; live provider protection-state enrichment remains pending.
 - Deterministic workflow-trigger inventory and conservative privileged trust-boundary exposure for `pull_request_target` and `workflow_run`, integrated into explainable capability risk.
 - Initial evidence-backed GitHub Actions source-to-sink analysis for privileged untrusted checkout refs and cross-run artifact consumption, without flagging safe default checkout behavior.
 - Direct GitHub Actions script-injection paths from attacker-influenced event expressions to runner shells, with safe environment-variable indirection excluded by construction.

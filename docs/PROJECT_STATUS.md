@@ -50,8 +50,8 @@ must not be reported as a passing gate.
 
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
-presence, and release licensing. It is deliberately secret-free and does not
-claim network or runtime validation.
+presence, release licensing, and Beta evidence-file readiness. It is deliberately
+secret-free and does not claim network, hosted-workflow, or runtime validation.
 
 A disposable, internal-network Compose harness was re-run on 2026-10-08 on
 Docker Desktop 4.44.1 with Linux Engine 28.3.2. It passed PostgreSQL 17.4

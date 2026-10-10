@@ -165,7 +165,7 @@ func run(ctx context.Context, args []string) error {
 
 	case "doctor":
 		fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
-		profile := fs.String("profile", "release", "preflight profile: server, policy, or release")
+		profile := fs.String("profile", "release", "preflight profile: server, policy, release, or beta")
 		format := fs.String("format", "terminal", "output format: terminal or json")
 		root := fs.String("root", ".", "repository root for release checks")
 		opa := fs.String("opa", "opa", "path or name of the OPA executable")
@@ -174,7 +174,7 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		if fs.NArg() != 0 {
-			return fmt.Errorf("usage: opscustodian doctor [--profile server|policy|release] [flags]")
+			return fmt.Errorf("usage: opscustodian doctor [--profile server|policy|release|beta] [flags]")
 		}
 		report := preflight.Evaluate(preflight.Options{Profile: *profile, Root: *root, OPAPath: *opa, PolicyPath: *policyPath, LookupEnv: os.LookupEnv})
 		if err := preflight.Write(os.Stdout, report, *format); err != nil {
@@ -262,7 +262,7 @@ Usage:
   opscustodian report --bom <agentbom> [--output report.html]
   opscustodian events (--bom <agentbom> | --drift <drift.json>) [--output events.jsonl] [--otlp-endpoint URL]
   opscustodian serve [--print-config]
-  opscustodian doctor [--profile server|policy|release] [--format terminal|json]
+  opscustodian doctor [--profile server|policy|release|beta] [--format terminal|json]
   opscustodian version [--format terminal|json]
 
 Commands:

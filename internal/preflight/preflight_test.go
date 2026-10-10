@@ -66,3 +66,46 @@ func TestEvaluateServerProfileDetectsMissingGitHubAppConfiguration(t *testing.T)
 		t.Fatalf("report = %#v", report)
 	}
 }
+
+func TestEvaluateBetaProfileRequiresReleaseEvidenceFiles(t *testing.T) {
+	root := t.TempDir()
+	for _, path := range []string{
+		"LICENSE",
+		filepath.Join("docs", "INTEGRATION_TESTING.md"),
+		filepath.Join("docs", "RELEASE.md"),
+		filepath.Join(".github", "workflows", "fuzz-extended.yml"),
+		filepath.Join(".github", "workflows", "codeql.yml"),
+	} {
+		fullPath := filepath.Join(root, path)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte("fixture"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	report := Evaluate(Options{
+		Profile: "beta", Root: root, OPAPath: "opa", PolicyPath: root,
+		LookupEnv: func(name string) (string, bool) {
+			values := map[string]string{
+				"OPSCUSTODIAN_ORGANIZATION_ID":         "organization-0123456789abcdef",
+				"OPSCUSTODIAN_DATABASE_DSN":            "postgres://database/controlplane",
+				"OPSCUSTODIAN_DATABASE_ALLOW_INSECURE": "true",
+				"OPSCUSTODIAN_API_TOKEN":               "doctor-test-token-0123456789abcdefghijkl",
+				"OPSCUSTODIAN_API_TOKEN_ID":            "doctor",
+				"OPSCUSTODIAN_API_SCOPES":              "control-plane:read",
+			}
+			value, ok := values[name]
+			return value, ok
+		},
+		LookPath: func(string) (string, error) { return "/safe/opa", nil },
+	})
+	if !report.Ready || len(report.Checks) != 10 {
+		t.Fatalf("report = %#v", report)
+	}
+	for _, check := range report.Checks {
+		if check.Required && check.Status != StatusPassed {
+			t.Fatalf("required beta check failed: %#v", check)
+		}
+	}
+}

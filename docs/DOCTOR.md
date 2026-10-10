@@ -11,6 +11,7 @@ Profiles:
 opscustodian doctor --profile server
 opscustodian doctor --profile policy --opa opa --policy policies/builtin
 opscustodian doctor --profile release --format json
+opscustodian doctor --profile beta --format json
 ```
 
 The `server` profile validates the secret-safe control-plane configuration,
@@ -18,6 +19,10 @@ strict RepositorySet file, GitHub App requirement matching, and private-key
 shape. The `policy` profile checks that the selected OPA binary can be located
 and the policy file or directory exists. `release` combines both profiles and
 requires `LICENSE` under the selected repository root.
+The `beta` profile includes the release checks and also requires the committed
+integration, release, extended-fuzz, and CodeQL workflow documents. It remains
+an offline file/configuration preflight: it does not claim that hosted workflows
+or external providers have passed.
 
 JSON output uses `opscustodian.dev/preflight/v1alpha1` and contains `ready` plus
 ordered checks with `passed`, `failed`, or `skipped` status. Required failures

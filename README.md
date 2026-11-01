@@ -205,6 +205,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Current project status](docs/PROJECT_STATUS.md)
 - [Installation](docs/INSTALLATION.md)
 - [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
+- [Beta release readiness checklist](docs/BETA_RELEASE_CHECKLIST.md)
 - [Public launch checklist](docs/PUBLIC_LAUNCH_CHECKLIST.md)
 - [Public alpha launch kit](docs/LAUNCH_KIT.md)
 - [Two-minute demo](docs/DEMO.md)

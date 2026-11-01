@@ -20,9 +20,9 @@ shape. The `policy` profile checks that the selected OPA binary can be located
 and the policy file or directory exists. `release` combines both profiles and
 requires `LICENSE` under the selected repository root.
 The `beta` profile includes the release checks and also requires the committed
-integration, release, extended-fuzz, and CodeQL workflow documents. It remains
-an offline file/configuration preflight: it does not claim that hosted workflows
-or external providers have passed.
+beta checklist, integration and release runbooks, extended-fuzz workflow, and
+CodeQL workflow. It remains an offline file/configuration preflight: it does not
+claim that hosted workflows or external providers have passed.
 
 On a clean checkout without server environment variables or a local `opa`
 binary, `doctor --profile beta` is expected to report `server-config` and

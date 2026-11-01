@@ -73,6 +73,7 @@ func Evaluate(options Options) Report {
 		report.Checks = append(report.Checks, policyChecks(options)...)
 		report.Checks = append(report.Checks,
 			fileCheck("license", filepath.Join(options.Root, "LICENSE"), true, options.Stat),
+			fileCheck("beta-checklist", filepath.Join(options.Root, "docs", "BETA_RELEASE_CHECKLIST.md"), true, options.Stat),
 			fileCheck("integration-runbook", filepath.Join(options.Root, "docs", "INTEGRATION_TESTING.md"), true, options.Stat),
 			fileCheck("release-runbook", filepath.Join(options.Root, "docs", "RELEASE.md"), true, options.Stat),
 			fileCheck("extended-fuzz-workflow", filepath.Join(options.Root, ".github", "workflows", "fuzz-extended.yml"), true, options.Stat),

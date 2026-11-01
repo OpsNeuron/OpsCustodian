@@ -46,6 +46,8 @@ The first beta may be cut only after the alpha gate passes. Beta freezes the
 core semantic contracts except for versioned migrations and focuses on upgrade,
 rollback, performance, recovery, and multi-repository operational evidence.
 Beta does not imply production HA unless the separate HA test plan passes.
+The executable evidence gate for the first beta is maintained in the
+[Beta release readiness checklist](BETA_RELEASE_CHECKLIST.md).
 
 Beta exits when:
 

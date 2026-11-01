@@ -5,6 +5,9 @@ Only tags matching semantic `vMAJOR.MINOR.PATCH` or prerelease
 `vMAJOR.MINOR.PATCH-SUFFIX` forms enter the workflow. The first public alpha is
 planned as `v0.5.0-alpha`; its evidence gate is the
 [`v0.5.0-alpha` checklist](ALPHA_RELEASE_CHECKLIST.md).
+The first beta is governed separately by the
+[Beta release readiness checklist](BETA_RELEASE_CHECKLIST.md); a passing alpha
+release does not imply that the beta operational and adoption gates have passed.
 
 The tagged commit must be reachable from `origin/main`. The release verification
 job also queries GitHub Actions for a successful `Extended security fuzzing` run

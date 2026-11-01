@@ -52,6 +52,9 @@ The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
 presence, release licensing, and Beta evidence-file readiness. It is deliberately
 secret-free and does not claim network, hosted-workflow, or runtime validation.
+The reviewed [Beta release readiness checklist](BETA_RELEASE_CHECKLIST.md)
+separates already retained evidence from the remaining hosted, provider,
+security, performance, and external-adoption gates.
 On a clean checkout, Beta preflight intentionally remains not-ready until the
 operator supplies server configuration and a local OPA executable; this keeps
 missing runtime prerequisites visible instead of treating repository files as
@@ -247,7 +250,7 @@ Missing exit items:
 - Docker-backed upgrade from the immutable `v0.5.0-alpha` binary and schema version 2 to the current schema, preserving snapshot history and proving idempotent restart plus fail-closed downgrade/future-version handling.
 - Bounded native fuzzing for credential JSON, RepositorySet JSON, OPA decision output, GitHub Actions, Kubernetes, MCP configuration, agent Markdown, GitHub Agentic Workflows, API pagination, query filters, route-specific query allowlists, and the shared audit envelope, with CI module-integrity and module-graph drift gates.
 - Stable validated credential identity propagated from digest-only Bearer authentication into secret-minimized audit events and safe operational configuration, establishing the contract for multi-token rotation and future OIDC subjects.
-- Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and secret-free operational projection.
+- Bounded multi-credential registry with independent identity scopes, duplicate-ID/token rejection, all-digest authentication checks, mutually exclusive legacy configuration, and canonical secret-free operational projection.
 - Deterministic credential lifecycle enforcement with disablement, RFC3339 activation/expiration windows, bounded zero-downtime rotation overlap, and indistinguishable public rejection responses.
 - Atomic in-process credential reload registry with immutable per-request security snapshots, last-known-good preservation after invalid reloads, and synchronized authentication/authorization publication.
 - Hardened credential-file reload boundary with bounded reads, strict JSON, symlink/non-regular rejection, Unix owner-only permission enforcement, file identity verification, and last-known-good preservation.

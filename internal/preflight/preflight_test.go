@@ -71,6 +71,7 @@ func TestEvaluateBetaProfileRequiresReleaseEvidenceFiles(t *testing.T) {
 	root := t.TempDir()
 	for _, path := range []string{
 		"LICENSE",
+		filepath.Join("docs", "BETA_RELEASE_CHECKLIST.md"),
 		filepath.Join("docs", "INTEGRATION_TESTING.md"),
 		filepath.Join("docs", "RELEASE.md"),
 		filepath.Join(".github", "workflows", "fuzz-extended.yml"),
@@ -100,7 +101,7 @@ func TestEvaluateBetaProfileRequiresReleaseEvidenceFiles(t *testing.T) {
 		},
 		LookPath: func(string) (string, error) { return "/safe/opa", nil },
 	})
-	if !report.Ready || len(report.Checks) != 10 {
+	if !report.Ready || len(report.Checks) != 11 {
 		t.Fatalf("report = %#v", report)
 	}
 	for _, check := range report.Checks {

@@ -16,7 +16,7 @@ their tools, read secret values, or modify the scanned repository.
 
 ## Prerequisite
 
-- Go 1.25.13 or a newer supported patch release
+- Go 1.26.10 or a newer supported patch release
 
 Run all commands from the repository root.
 

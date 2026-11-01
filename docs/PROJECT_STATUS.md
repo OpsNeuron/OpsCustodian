@@ -91,6 +91,10 @@ liveness, followed by readiness and authenticated API recovery after PostgreSQL
 returned. A bounded 2,000-request authenticated read baseline at concurrency 20
 completed with zero errors and healthy readiness; sustained load, capacity,
 write contention, and broader dependency failure injection remain open.
+Repeatable source benchmarks now cover constant-time authentication at the full
+100-credential boundary, atomic credential reload, and bounded audit-envelope
+validation. A manual hosted workflow retains raw benchmark and environment
+evidence, while the sustained reference-environment gate remains open.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
@@ -227,7 +231,7 @@ Missing exit items:
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.
 - Driver-neutral database bootstrap with bounded ping and migration contexts, deterministic lifecycle ordering, optional migration, fail-closed cleanup, and idempotent shutdown.
-- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25.13 minimum runtime alignment.
+- Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.26.10 minimum runtime alignment.
 - Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 - Loopback-only HTTP runtime contract with bounded request lifecycle/header limits and deterministic graceful-shutdown orchestration over an injected listener.
 - Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, RFC 6750 token-alphabet enforcement, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.

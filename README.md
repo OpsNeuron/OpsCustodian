@@ -133,7 +133,7 @@ the [control-plane upgrade runbook](docs/UPGRADES.md).
 
 ## Build prerequisites
 
-- Go 1.25.13 or newer supported patch release
+- Go 1.26.10 or newer supported patch release
 
 ```bash
 go mod download
@@ -218,6 +218,7 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Kubernetes effective access](docs/KUBERNETES.md)
 - [MCP server provenance and pinning](docs/MCP.md)
 - [OpenTelemetry-compatible audit events](docs/AUDIT_EVENTS.md)
+- [Performance evidence](docs/PERFORMANCE.md)
 - [Current-state findings](docs/FINDINGS.md)
 - [Public contract tests](docs/CONTRACT_TESTS.md)
 - [Compatibility and versioning](docs/COMPATIBILITY.md)

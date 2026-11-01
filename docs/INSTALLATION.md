@@ -6,7 +6,7 @@ connection.
 
 ## Build from source
 
-Prerequisite: Go 1.25.13 or a newer supported patch release.
+Prerequisite: Go 1.26.10 or a newer supported patch release.
 
 ```bash
 git clone https://github.com/OpsNeuron/OpsCustodian.git

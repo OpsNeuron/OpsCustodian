@@ -2,8 +2,10 @@ package contracts_test
 
 import (
 	"encoding/json"
+	"go/version"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -67,9 +69,17 @@ func TestIntegrationHarnessIsIsolatedSecretFreeAndContractValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	module, err := os.ReadFile(filepath.Join(root, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	moduleGo := regexp.MustCompile(`(?m)^go ([0-9]+\.[0-9]+\.[0-9]+)\r?$`).FindSubmatch(module)
+	builderGo := regexp.MustCompile(`(?m)^FROM golang:([0-9]+\.[0-9]+\.[0-9]+)-alpine@sha256:[0-9a-f]{64} AS build\r?$`).FindSubmatch(dockerfile)
+	if len(moduleGo) != 2 || len(builderGo) != 2 || version.Compare("go"+string(builderGo[1]), "go"+string(moduleGo[1])) < 0 {
+		t.Fatalf("Dockerfile Go builder must be digest-pinned at or above the go.mod version")
+	}
 	for _, base := range []string{
-		"FROM golang:1.26.10-alpine@sha256:a2012b4a1d1f9f7e9f44e0d39b805a901e856b1dd80b4e6ee4338db547050308 AS build",
-		"FROM openpolicyagent/opa:1.21.0-static@sha256:9eb36ac3ceb3b855e776e60926a8a5142f96109a219a5fcd490fa1744c755bec AS opa",
+		"FROM openpolicyagent/opa:1.21.3-static@sha256:bf27411c17e72f3d16063725a74c69f711fb267eb9a4cebdae78028b72adc847 AS opa",
 		"FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS certificates",
 		"FROM busybox:1.37.0-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092",
 	} {
@@ -77,7 +87,7 @@ func TestIntegrationHarnessIsIsolatedSecretFreeAndContractValid(t *testing.T) {
 			t.Fatalf("Dockerfile base image is not pinned to reviewed reference %q", base)
 		}
 	}
-	if !strings.Contains(text, "openpolicyagent/opa:1.21.0-static@sha256:9eb36ac3ceb3b855e776e60926a8a5142f96109a219a5fcd490fa1744c755bec") {
+	if !strings.Contains(text, "openpolicyagent/opa:1.21.3-static@sha256:bf27411c17e72f3d16063725a74c69f711fb267eb9a4cebdae78028b72adc847") {
 		t.Fatal("integration OPA image is not pinned to the reviewed digest")
 	}
 }

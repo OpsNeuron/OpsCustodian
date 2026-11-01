@@ -162,6 +162,10 @@ unknown future migration. This is a direct one-step upgrade result; mixed-
 version rolling upgrades, skip-version upgrades, production downgrade, and
 large-database migration duration remain open.
 
+Schema 4 adds audit-event idempotency and file-spool replay. The existing
+upgrade evidence predates this migration, so the harness must be extended and
+re-run before the beta upgrade gate can be checked again.
+
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 

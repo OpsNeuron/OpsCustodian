@@ -34,6 +34,7 @@ const (
 	defaultAuditRetryAttempts    = 3
 	defaultAuditRetryInitial     = 50 * time.Millisecond
 	defaultAuditRetryMaximum     = 500 * time.Millisecond
+	defaultAuditSpoolMaxPending  = 10000
 	defaultSnapshotRetention     = 180 * 24 * time.Hour
 	defaultSnapshotMinimum       = 10
 	defaultSnapshotPruneInterval = 24 * time.Hour
@@ -78,6 +79,8 @@ type Config struct {
 	AuditRetryAttempts       int
 	AuditRetryInitialBackoff time.Duration
 	AuditRetryMaxBackoff     time.Duration
+	AuditSpoolDirectory      string
+	AuditSpoolMaxPending     int
 	SnapshotRetention        time.Duration
 	SnapshotMinimum          int
 	SnapshotPruneInterval    time.Duration
@@ -126,6 +129,8 @@ type SafeConfig struct {
 	AuditRetryAttempts       int           `json:"auditRetryAttempts"`
 	AuditRetryInitialBackoff time.Duration `json:"auditRetryInitialBackoff"`
 	AuditRetryMaxBackoff     time.Duration `json:"auditRetryMaxBackoff"`
+	AuditSpoolConfigured     bool          `json:"auditSpoolConfigured"`
+	AuditSpoolMaxPending     int           `json:"auditSpoolMaxPending,omitempty"`
 	SnapshotRetention        time.Duration `json:"snapshotRetention"`
 	SnapshotMinimum          int           `json:"snapshotMinimumPerRepository"`
 	SnapshotPruneInterval    time.Duration `json:"snapshotPruneInterval"`
@@ -157,6 +162,7 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		AuditRetryAttempts:       defaultAuditRetryAttempts,
 		AuditRetryInitialBackoff: defaultAuditRetryInitial,
 		AuditRetryMaxBackoff:     defaultAuditRetryMaximum,
+		AuditSpoolMaxPending:     defaultAuditSpoolMaxPending,
 		SnapshotRetention:        defaultSnapshotRetention,
 		SnapshotMinimum:          defaultSnapshotMinimum,
 		SnapshotPruneInterval:    defaultSnapshotPruneInterval,
@@ -282,6 +288,10 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.AuditRetryMaxBackoff, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF", config.AuditRetryMaxBackoff); err != nil {
 		return Config{}, err
 	}
+	config.AuditSpoolDirectory = environmentValue(lookup, "OPSCUSTODIAN_AUDIT_SPOOL_DIRECTORY")
+	if config.AuditSpoolMaxPending, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_SPOOL_MAX_PENDING", config.AuditSpoolMaxPending); err != nil {
+		return Config{}, err
+	}
 	if config.SnapshotRetention, err = environmentDuration(lookup, "OPSCUSTODIAN_SNAPSHOT_RETENTION", config.SnapshotRetention); err != nil {
 		return Config{}, err
 	}
@@ -385,6 +395,12 @@ func (config Config) Validate() error {
 	if config.AuditRetryMaxBackoff < config.AuditRetryInitialBackoff || config.AuditRetryMaxBackoff > time.Minute {
 		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF must be between initial backoff and 1m")
 	}
+	if config.AuditSpoolDirectory != "" && (!filepath.IsAbs(config.AuditSpoolDirectory) || filepath.Clean(config.AuditSpoolDirectory) != config.AuditSpoolDirectory) {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_SPOOL_DIRECTORY must be a clean absolute path")
+	}
+	if config.AuditSpoolMaxPending < 1 || config.AuditSpoolMaxPending > 100000 {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_SPOOL_MAX_PENDING must be between 1 and 100000")
+	}
 	if config.SnapshotRetention < 24*time.Hour || config.SnapshotRetention > 10*365*24*time.Hour {
 		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_RETENTION must be between 24h and 87600h")
 	}
@@ -473,6 +489,8 @@ func (config Config) Safe() SafeConfig {
 		AuditRetryAttempts:       config.AuditRetryAttempts,
 		AuditRetryInitialBackoff: config.AuditRetryInitialBackoff,
 		AuditRetryMaxBackoff:     config.AuditRetryMaxBackoff,
+		AuditSpoolConfigured:     config.AuditSpoolDirectory != "",
+		AuditSpoolMaxPending:     config.AuditSpoolMaxPending,
 		SnapshotRetention:        config.SnapshotRetention,
 		SnapshotMinimum:          config.SnapshotMinimum,
 		SnapshotPruneInterval:    config.SnapshotPruneInterval,

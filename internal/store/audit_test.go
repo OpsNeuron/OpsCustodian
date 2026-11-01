@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/opscustodian/opscustodian/internal/audit"
 )
 
-func TestPostgresAuditMarksOnlySafeTransientStagesRetryable(t *testing.T) {
+func TestPostgresAuditMarksTransientStagesRetryableWithIdempotentCommit(t *testing.T) {
 	event := audit.FromCredentialReload(audit.CredentialReloadObservation{
 		OccurredAt: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: true,
 	})
@@ -36,8 +37,28 @@ func TestPostgresAuditMarksOnlySafeTransientStagesRetryable(t *testing.T) {
 	commitFailure := &pgconn.PgError{Code: "08006", Message: "connection failure"}
 	commitTransaction := &fakePostgresTransaction{commitErr: commitFailure}
 	postgres, _ = newPostgresWriter(&fakePostgresDatabase{transaction: commitTransaction}, "organization-0123456789abcdef", "Agent Platform")
-	if err := postgres.Record(context.Background(), event); audit.IsRetryableError(err) || !errors.Is(err, commitFailure) {
-		t.Fatalf("ambiguous commit error = %v, retryable = %v", err, audit.IsRetryableError(err))
+	if err := postgres.Record(context.Background(), event); !audit.IsRetryableError(err) || !errors.Is(err, commitFailure) {
+		t.Fatalf("idempotent commit error = %v, retryable = %v", err, audit.IsRetryableError(err))
+	}
+}
+
+func TestPostgresAuditInsertUsesTenantScopedIdempotencyKey(t *testing.T) {
+	transaction := &fakePostgresTransaction{}
+	postgres, err := newPostgresWriter(&fakePostgresDatabase{transaction: transaction}, "organization-0123456789abcdef", "Agent Platform")
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := audit.FromCredentialReload(audit.CredentialReloadObservation{
+		OccurredAt: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: true,
+	})
+	if err := postgres.Record(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	if len(transaction.statements) != 1 || len(transaction.statements[0].args) != 8 || transaction.statements[0].args[1] != event.EventID {
+		t.Fatalf("audit insert statement = %#v", transaction.statements)
+	}
+	if !strings.Contains(transaction.statements[0].query, "ON CONFLICT (organization_id, event_id) DO NOTHING") {
+		t.Fatalf("audit insert is not idempotent: %s", transaction.statements[0].query)
 	}
 }
 

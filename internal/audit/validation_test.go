@@ -13,6 +13,7 @@ func TestValidateEventRejectsInvalidOrOversizedEnvelope(t *testing.T) {
 		mutate func(*Event)
 	}{
 		{name: "schema", mutate: func(event *Event) { event.SchemaVersion = "unsupported" }},
+		{name: "event ID", mutate: func(event *Event) { event.EventID = "invalid" }},
 		{name: "timestamp", mutate: func(event *Event) { event.Timestamp = "not-a-time" }},
 		{name: "event name", mutate: func(event *Event) { event.EventName = " bad\n" }},
 		{name: "severity", mutate: func(event *Event) { event.SeverityNumber = 25 }},
@@ -36,5 +37,18 @@ func TestValidateEventRejectsInvalidOrOversizedEnvelope(t *testing.T) {
 				t.Fatal("invalid audit event was accepted")
 			}
 		})
+	}
+}
+
+func TestEventIDIsDeterministicAndChangesWithContent(t *testing.T) {
+	first := validSinkTestEvent()
+	second := validSinkTestEvent()
+	if first.EventID == "" || first.EventID != second.EventID {
+		t.Fatalf("deterministic event IDs = %q and %q", first.EventID, second.EventID)
+	}
+	second.Attributes["opscustodian.credential.reload.result"] = "failed"
+	second.EventID = deterministicEventID(second)
+	if second.EventID == first.EventID {
+		t.Fatalf("different event content retained ID %q", second.EventID)
 	}
 }

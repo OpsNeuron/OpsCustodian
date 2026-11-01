@@ -1,7 +1,9 @@
 package audit
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sort"
 	"time"
@@ -15,6 +17,7 @@ const SchemaVersion = contracts.AuditEventAPIVersion
 
 type Event struct {
 	SchemaVersion        string               `json:"schemaVersion"`
+	EventID              string               `json:"eventId"`
 	Timestamp            string               `json:"timestamp"`
 	EventName            string               `json:"eventName"`
 	SeverityNumber       int                  `json:"severityNumber"`
@@ -280,12 +283,24 @@ func WriteJSONLines(w io.Writer, events []Event) error {
 }
 
 func newEvent(timestamp, name string, severity int, body string, attributes map[string]any) Event {
-	return Event{
+	event := Event{
 		SchemaVersion: SchemaVersion, Timestamp: timestamp, EventName: name, SeverityNumber: severity, Body: body,
 		Resource:             map[string]any{"service.name": "opscustodian", "service.namespace": "opscustodian.dev"},
 		InstrumentationScope: InstrumentationScope{Name: "github.com/opscustodian/opscustodian/audit"},
 		Attributes:           attributes,
 	}
+	event.EventID = deterministicEventID(event)
+	return event
+}
+
+func deterministicEventID(event Event) string {
+	event.EventID = ""
+	payload, err := json.Marshal(event)
+	if err != nil {
+		panic(fmt.Sprintf("marshal validated audit event identity: %v", err))
+	}
+	sum := sha256.Sum256(payload)
+	return fmt.Sprintf("audit-%x", sum[:16])
 }
 
 func eventTimestamp(generatedAt string, fallback time.Time) string {

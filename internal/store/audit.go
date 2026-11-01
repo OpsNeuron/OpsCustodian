@@ -16,8 +16,9 @@ import (
 )
 
 const insertAuditEventSQL = `INSERT INTO audit_events
-    (organization_id, occurred_at, event_name, severity_number, identity_id, repository_id, event)
-VALUES ($1, $2::timestamptz, $3, $4, NULLIF($5, ''), NULLIF($6, ''), $7::jsonb)`
+    (organization_id, event_id, occurred_at, event_name, severity_number, identity_id, repository_id, event)
+VALUES ($1, $2, $3::timestamptz, $4, $5, NULLIF($6, ''), NULLIF($7, ''), $8::jsonb)
+ON CONFLICT (organization_id, event_id) DO NOTHING`
 
 func (postgres *Postgres) Record(ctx context.Context, event audit.Event) error {
 	payload, identityID, repositoryID, err := validateAuditEvent(event, postgres.organizationID)
@@ -29,13 +30,11 @@ func (postgres *Postgres) Record(ctx context.Context, event audit.Event) error {
 		return fmt.Errorf("begin audit event transaction: %w", classifyRetryableAuditError(err))
 	}
 	defer transaction.Rollback()
-	if _, err := transaction.ExecContext(ctx, insertAuditEventSQL, postgres.organizationID, event.Timestamp, event.EventName, event.SeverityNumber, identityID, repositoryID, payload); err != nil {
+	if _, err := transaction.ExecContext(ctx, insertAuditEventSQL, postgres.organizationID, event.EventID, event.Timestamp, event.EventName, event.SeverityNumber, identityID, repositoryID, payload); err != nil {
 		return fmt.Errorf("insert audit event: %w", classifyRetryableAuditError(err))
 	}
 	if err := transaction.Commit(); err != nil {
-		// A failed commit has an ambiguous outcome. Retrying could duplicate an
-		// event that PostgreSQL committed before the connection failed.
-		return fmt.Errorf("commit audit event transaction: %w", err)
+		return fmt.Errorf("commit audit event transaction: %w", classifyRetryableAuditError(err))
 	}
 	return nil
 }

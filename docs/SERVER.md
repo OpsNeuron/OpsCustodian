@@ -294,6 +294,14 @@ explicitly classified as transient are retried; ambiguous commit failures and
 JSONL errors stop the process immediately. The safe configuration projection
 contains only these numeric and duration bounds.
 
+Operators can enable cross-restart buffering with the clean absolute path
+`OPSCUSTODIAN_AUDIT_SPOOL_DIRECTORY`. The directory must already exist, must
+not be a symlink, and on Unix must be owner-only. The optional
+`OPSCUSTODIAN_AUDIT_SPOOL_MAX_PENDING` limit defaults to 10,000 and is bounded
+from 1 through 100,000. Pending events are validated and replayed into
+PostgreSQL before the HTTP listener opens; an invalid entry, full spool, replay
+failure, or acknowledgement failure prevents serving.
+
 Snapshot history defaults to 180 days, while retaining at least the newest 10
 snapshots for every repository regardless of age. Cleanup runs at startup and
 every 24 hours in tenant-scoped batches of 500. Operators can set

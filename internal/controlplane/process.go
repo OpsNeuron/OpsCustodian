@@ -153,7 +153,18 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	if err != nil {
 		return fmt.Errorf("initialize persistent audit retry sink: %w", err)
 	}
-	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, retryingPersistentAuditSink)
+	var persistentTarget audit.Sink = retryingPersistentAuditSink
+	if config.AuditSpoolDirectory != "" {
+		spool, err := audit.NewFileSpoolSink(persistentTarget, config.AuditSpoolDirectory, config.AuditSpoolMaxPending)
+		if err != nil {
+			return fmt.Errorf("initialize durable audit spool: %w", err)
+		}
+		if err := spool.Replay(ctx); err != nil {
+			return fmt.Errorf("replay durable audit spool: %w", err)
+		}
+		persistentTarget = spool
+	}
+	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, persistentTarget)
 	if err != nil {
 		return fmt.Errorf("initialize persistent audit sink: %w", err)
 	}

@@ -3,10 +3,12 @@ package controlplane
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -131,6 +133,37 @@ func TestRunProcessDoesNotRetryPermanentPersistentAuditFailure(t *testing.T) {
 	err := RunProcess(context.Background(), validRuntimeConfig(), "test", dependencies)
 	if err == nil || !strings.Contains(err.Error(), "permanent audit storage failure") || persistent.attempts != 1 {
 		t.Fatalf("permanent audit result = %v, attempts = %d", err, persistent.attempts)
+	}
+}
+
+func TestRunProcessReplaysDurableAuditSpoolBeforeServing(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	persistent := store.NewMemory()
+	dependencies.Database.BuildStore = func(*sql.DB, string, string) (SnapshotStore, error) { return persistent, nil }
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	event := audit.FromCredentialReload(audit.CredentialReloadObservation{
+		OccurredAt: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: true,
+	})
+	payload, _ := json.Marshal(event)
+	path := filepath.Join(directory, event.EventID+".json")
+	if err := os.WriteFile(path, append(payload, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config := validRuntimeConfig()
+	config.AuditSpoolDirectory = directory
+	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
+		t.Fatal(err)
+	}
+	page, err := persistent.ListAuditEvents(context.Background(), store.AuditFilter{Page: store.PageRequest{Limit: 10}})
+	if err != nil || len(page.Items) != 1 || page.Items[0].Event.EventID != event.EventID {
+		t.Fatalf("replayed audit page = %#v, %v", page, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("replayed spool entry remains: %v", err)
 	}
 }
 

@@ -9,7 +9,7 @@ transaction.
 ## Upgrade procedure
 
 The current verified source is `v0.5.0-alpha`, whose database contains schema
-versions 1 and 2. The current development line adds schema version 3.
+versions 1 and 2. The current development line adds schema versions 3 and 4.
 
 Before upgrading:
 

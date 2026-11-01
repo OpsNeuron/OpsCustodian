@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -14,9 +15,11 @@ const (
 	maxFieldBytes = 200
 )
 
+var eventIDPattern = regexp.MustCompile(`^audit-[0-9a-f]{32}$`)
+
 // ValidateEvent enforces the shared audit envelope before any sink observes it.
 func ValidateEvent(event Event) error {
-	if event.SchemaVersion != SchemaVersion || !validAuditField(event.EventName) {
+	if event.SchemaVersion != SchemaVersion || !eventIDPattern.MatchString(event.EventID) || !validAuditField(event.EventName) {
 		return fmt.Errorf("audit event contract is invalid")
 	}
 	if event.SeverityNumber < 1 || event.SeverityNumber > 24 {

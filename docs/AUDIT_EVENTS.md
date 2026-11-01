@@ -98,10 +98,13 @@ event before every attempt. `serve` enables it only for PostgreSQL failures that
 are safe to repeat before commit, including connection acquisition,
 serialization, deadlock, and temporary availability failures. Commit failures
 are never retried because the database outcome may be ambiguous and a second
-write could duplicate the event. JSONL failures also remain fail-fast. Durable
-buffering across process restarts, JSONL rotation, and delivery to other
-backends remain responsibilities of the service supervisor or a future bounded
-audit exporter.
+write could duplicate the event. Every event now has a deterministic
+`audit-<32 hex>` identity and PostgreSQL enforces tenant-scoped uniqueness, so
+ambiguous transient commits are safe to retry. JSONL failures remain fail-fast.
+An optional private file spool persists one bounded file per event before
+database delivery and replays pending files before the listener opens after a
+restart. JSONL rotation and delivery to other backends remain responsibilities
+of the service supervisor or a future bounded audit exporter.
 
 Credential reload events contain only organization ID and the outcome
 `succeeded` or `failed`. File paths, parser errors, credential IDs, scopes,

@@ -28,6 +28,11 @@ takeover after expiry.
 The supported evaluation topology remains single-replica; lease fencing is a
 data-integrity control and does not establish a production HA claim.
 
+The third migration adds tenant-scoped persistent audit history. The fourth
+adds a deterministic event identity, backfills existing JSONB events, and
+enforces uniqueness on `(organization_id, event_id)` so retries and spool
+replay cannot create duplicate audit records.
+
 Repository and snapshot foreign keys include `organization_id`; this prevents a
 record from referencing another organization's parent even if IDs collide.
 Agent BOM JSONB is retained as the canonical artifact, while selected Finding

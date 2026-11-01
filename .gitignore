@@ -24,6 +24,7 @@ coverage.out
 /*.sarif
 /*.jsonl
 /reports/
+/docs/PRESENTATION_FA.md
 .opscustodian-cache/
 .opscustodian/current.*
 

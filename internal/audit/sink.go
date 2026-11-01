@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"sync"
+	"time"
 )
 
 type JSONLineSink struct {
@@ -19,7 +20,85 @@ type Sink interface {
 	Record(context.Context, Event) error
 }
 
+const (
+	maxRetryAttempts = 10
+	maxRetryBackoff  = time.Minute
+)
+
+type RetryPolicy struct {
+	MaxAttempts    int
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+	Retryable      func(error) bool
+}
+
+type RetrySink struct {
+	target Sink
+	policy RetryPolicy
+	wait   func(context.Context, time.Duration) error
+}
+
 type MultiSink struct{ sinks []Sink }
+
+func NewRetrySink(target Sink, policy RetryPolicy) (*RetrySink, error) {
+	return newRetrySink(target, policy, waitForRetry)
+}
+
+func newRetrySink(target Sink, policy RetryPolicy, wait func(context.Context, time.Duration) error) (*RetrySink, error) {
+	if target == nil || wait == nil {
+		return nil, fmt.Errorf("audit retry dependencies must be initialized")
+	}
+	if policy.MaxAttempts < 1 || policy.MaxAttempts > maxRetryAttempts || policy.InitialBackoff <= 0 || policy.InitialBackoff > maxRetryBackoff || policy.MaxBackoff < policy.InitialBackoff || policy.MaxBackoff > maxRetryBackoff || policy.Retryable == nil {
+		return nil, fmt.Errorf("audit retry policy is invalid")
+	}
+	return &RetrySink{target: target, policy: policy, wait: wait}, nil
+}
+
+func (sink *RetrySink) Record(ctx context.Context, event Event) error {
+	if sink == nil || sink.target == nil || sink.wait == nil {
+		return fmt.Errorf("audit retry sink is not initialized")
+	}
+	if err := ValidateEvent(event); err != nil {
+		return err
+	}
+	if err := context.Cause(ctx); err != nil {
+		return err
+	}
+
+	backoff := sink.policy.InitialBackoff
+	for attempt := 1; attempt <= sink.policy.MaxAttempts; attempt++ {
+		err := sink.target.Record(ctx, cloneEvent(event))
+		if err == nil {
+			return nil
+		}
+		if attempt == sink.policy.MaxAttempts || !sink.policy.Retryable(err) {
+			return fmt.Errorf("record audit event after %d attempt(s): %w", attempt, err)
+		}
+		if err := sink.wait(ctx, backoff); err != nil {
+			return fmt.Errorf("wait to retry audit event after %d attempt(s): %w", attempt, err)
+		}
+		backoff = nextRetryBackoff(backoff, sink.policy.MaxBackoff)
+	}
+	return fmt.Errorf("record audit event retry exhausted")
+}
+
+func nextRetryBackoff(current, maximum time.Duration) time.Duration {
+	if current >= maximum || current > maximum-current {
+		return maximum
+	}
+	return current * 2
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	}
+}
 
 func NewMultiSink(sinks ...Sink) (*MultiSink, error) {
 	for _, sink := range sinks {

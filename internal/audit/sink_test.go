@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -131,9 +132,151 @@ func TestMultiSinkRejectsMissingTargets(t *testing.T) {
 	}
 }
 
+func TestRetrySinkRetriesOnlyTransientFailuresWithBoundedBackoff(t *testing.T) {
+	transient := errors.New("temporary database outage")
+	target := &sequenceAuditSink{failures: []error{transient, transient}}
+	var delays []time.Duration
+	sink, err := newRetrySink(target, RetryPolicy{
+		MaxAttempts: 4, InitialBackoff: 10 * time.Millisecond, MaxBackoff: 15 * time.Millisecond,
+		Retryable: func(err error) bool { return errors.Is(err, transient) },
+	}, func(_ context.Context, delay time.Duration) error {
+		delays = append(delays, delay)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := validSinkTestEvent()
+	event.Attributes["values"] = []string{"original"}
+	if err := sink.Record(context.Background(), event); err != nil {
+		t.Fatal(err)
+	}
+	if target.attempts != 3 || len(delays) != 2 || delays[0] != 10*time.Millisecond || delays[1] != 15*time.Millisecond {
+		t.Fatalf("retry attempts = %d, delays = %v", target.attempts, delays)
+	}
+	for index, recorded := range target.events {
+		values := recorded.Attributes["values"].([]string)
+		if values[0] != "original" {
+			t.Fatalf("attempt %d observed mutated event: %#v", index+1, recorded)
+		}
+		values[0] = "mutated"
+	}
+	if event.Attributes["values"].([]string)[0] != "original" {
+		t.Fatal("retry target mutated caller event")
+	}
+}
+
+func TestRetrySinkStopsForPermanentFailureAndExhaustion(t *testing.T) {
+	permanent := errors.New("invalid destination")
+	target := &sequenceAuditSink{failures: []error{permanent}}
+	sink, err := newRetrySink(target, RetryPolicy{
+		MaxAttempts: 3, InitialBackoff: time.Millisecond, MaxBackoff: time.Second,
+		Retryable: func(error) bool { return false },
+	}, func(context.Context, time.Duration) error {
+		t.Fatal("permanent failure waited for retry")
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Record(context.Background(), validSinkTestEvent()); !errors.Is(err, permanent) || target.attempts != 1 {
+		t.Fatalf("permanent failure result = %v, attempts = %d", err, target.attempts)
+	}
+
+	transient := errors.New("temporary failure")
+	target = &sequenceAuditSink{failures: []error{transient, transient, transient}}
+	sink, err = newRetrySink(target, RetryPolicy{
+		MaxAttempts: 3, InitialBackoff: time.Millisecond, MaxBackoff: time.Second,
+		Retryable: func(error) bool { return true },
+	}, func(context.Context, time.Duration) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Record(context.Background(), validSinkTestEvent()); !errors.Is(err, transient) || target.attempts != 3 || !strings.Contains(err.Error(), "after 3 attempt(s)") {
+		t.Fatalf("exhausted retry result = %v, attempts = %d", err, target.attempts)
+	}
+}
+
+func TestRetrySinkHonorsCancellationAndRejectsInvalidConfiguration(t *testing.T) {
+	transient := errors.New("temporary failure")
+	target := &sequenceAuditSink{failures: []error{transient}}
+	sink, err := newRetrySink(target, RetryPolicy{
+		MaxAttempts: 2, InitialBackoff: time.Millisecond, MaxBackoff: time.Second,
+		Retryable: func(error) bool { return true },
+	}, func(ctx context.Context, _ time.Duration) error {
+		<-ctx.Done()
+		return context.Cause(ctx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancelCause(context.Background())
+	cause := errors.New("shutdown requested")
+	cancel(cause)
+	if err := sink.Record(ctx, validSinkTestEvent()); !errors.Is(err, cause) || target.attempts != 0 {
+		t.Fatalf("pre-cancelled retry result = %v, attempts = %d", err, target.attempts)
+	}
+
+	target = &sequenceAuditSink{failures: []error{transient}}
+	waitContext, cancelWait := context.WithCancelCause(context.Background())
+	sink, err = newRetrySink(target, RetryPolicy{
+		MaxAttempts: 2, InitialBackoff: time.Millisecond, MaxBackoff: time.Second,
+		Retryable: func(error) bool { return true },
+	}, func(ctx context.Context, _ time.Duration) error {
+		cancelWait(cause)
+		<-ctx.Done()
+		return context.Cause(ctx)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink.Record(waitContext, validSinkTestEvent()); !errors.Is(err, cause) || target.attempts != 1 {
+		t.Fatalf("cancelled backoff result = %v, attempts = %d", err, target.attempts)
+	}
+
+	valid := RetryPolicy{MaxAttempts: 2, InitialBackoff: time.Millisecond, MaxBackoff: time.Second, Retryable: func(error) bool { return true }}
+	for name, test := range map[string]struct {
+		target Sink
+		policy RetryPolicy
+	}{
+		"nil target":        {policy: valid},
+		"zero attempts":     {target: target, policy: RetryPolicy{InitialBackoff: time.Millisecond, MaxBackoff: time.Second, Retryable: valid.Retryable}},
+		"too many attempts": {target: target, policy: RetryPolicy{MaxAttempts: maxRetryAttempts + 1, InitialBackoff: time.Millisecond, MaxBackoff: time.Second, Retryable: valid.Retryable}},
+		"zero backoff":      {target: target, policy: RetryPolicy{MaxAttempts: 2, MaxBackoff: time.Second, Retryable: valid.Retryable}},
+		"inverted backoff":  {target: target, policy: RetryPolicy{MaxAttempts: 2, InitialBackoff: time.Second, MaxBackoff: time.Millisecond, Retryable: valid.Retryable}},
+		"nil classifier":    {target: target, policy: RetryPolicy{MaxAttempts: 2, InitialBackoff: time.Millisecond, MaxBackoff: time.Second}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewRetrySink(test.target, test.policy); err == nil {
+				t.Fatal("invalid retry configuration was accepted")
+			}
+		})
+	}
+	var nilSink *RetrySink
+	if err := nilSink.Record(context.Background(), validSinkTestEvent()); err == nil {
+		t.Fatal("nil retry sink was accepted")
+	}
+}
+
 type recordingAuditSink struct {
 	events []Event
 	err    error
+}
+
+type sequenceAuditSink struct {
+	attempts int
+	failures []error
+	events   []Event
+}
+
+func (sink *sequenceAuditSink) Record(_ context.Context, event Event) error {
+	sink.events = append(sink.events, event)
+	index := sink.attempts
+	sink.attempts++
+	if index < len(sink.failures) {
+		return sink.failures[index]
+	}
+	return nil
 }
 
 func validSinkTestEvent() Event {

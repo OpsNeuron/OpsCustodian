@@ -1,0 +1,50 @@
+name: Performance evidence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Security boundary benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Run repeatable benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          {
+            printf 'repository=%s\n' "${GITHUB_REPOSITORY}"
+            printf 'commit=%s\n' "${GITHUB_SHA}"
+            printf 'workflow_run=%s\n' "${GITHUB_RUN_ID}"
+            printf 'workflow_attempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            go env GOOS GOARCH GOVERSION
+            uname -a
+          } > evidence/environment.txt
+          go test -run='^$' -bench='^Benchmark(BearerAuthentication|CredentialRegistryReload)$' -benchmem -benchtime=2s -count=5 ./internal/server | tee evidence/server.txt
+          go test -run='^$' -bench='^BenchmarkAuditEventValidation$' -benchmem -benchtime=2s -count=5 ./internal/audit | tee evidence/audit.txt
+          (cd evidence && sha256sum environment.txt server.txt audit.txt > SHA256SUMS)
+      - name: Retain performance evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: performance-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90

@@ -25,6 +25,7 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 		"ci.yml":                 false,
 		"fuzz-extended.yml":      false,
 		"license-scan.yml":       false,
+		"performance.yml":        false,
 		"release.yml":            false,
 		"vulnerability-scan.yml": false,
 	}
@@ -62,6 +63,35 @@ func TestGitHubWorkflowsUsePinnedActionsAndBoundedPermissions(t *testing.T) {
 	for name, found := range expected {
 		if !found {
 			t.Errorf("expected workflow %s was not found", name)
+		}
+	}
+}
+
+func TestPerformanceWorkflowRetainsReproducibleManualEvidence(t *testing.T) {
+	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "performance.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(workflow)
+	for _, required := range []string{
+		"workflow_dispatch:",
+		"Benchmark(BearerAuthentication|CredentialRegistryReload)",
+		"BenchmarkAuditEventValidation",
+		"-benchmem -benchtime=2s -count=5",
+		"go env GOOS GOARCH GOVERSION",
+		"commit=%s",
+		"sha256sum",
+		"persist-credentials: false",
+		"if-no-files-found: error",
+		"retention-days: 90",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("performance workflow is missing reviewed contract %q", required)
+		}
+	}
+	for _, forbidden := range []string{"pull_request:", "schedule:", "branches: [main]"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("performance workflow unexpectedly contains automatic trigger %q", forbidden)
 		}
 	}
 }

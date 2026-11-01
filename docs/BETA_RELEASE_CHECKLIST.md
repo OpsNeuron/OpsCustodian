@@ -90,7 +90,8 @@ git diff --exit-code
 - [ ] Complete a focused threat-model and security review of tenant isolation,
   credential lifecycle, policy failure modes, ingestion, and audit integrity.
 - [ ] Publish measured performance and capacity envelopes for the supported
-  single-replica deployment.
+  single-replica deployment using the reproducible process in
+  [Performance evidence](PERFORMANCE.md).
 - [ ] Review installation, upgrade, rollback, backup, restore, and incident
   runbooks by executing them from a clean operator environment.
 - [ ] Confirm logs, reports, workflow artifacts, release archives, and examples

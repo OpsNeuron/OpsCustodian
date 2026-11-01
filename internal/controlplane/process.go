@@ -144,7 +144,16 @@ func RunProcess(ctx context.Context, config Config, buildVersion string, depende
 	if err := readiness.Update(server.ReadinessDatabase, server.ReadinessReady); err != nil {
 		return err
 	}
-	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, runtime.Store)
+	retryingPersistentAuditSink, err := audit.NewRetrySink(runtime.Store, audit.RetryPolicy{
+		MaxAttempts:    config.AuditRetryAttempts,
+		InitialBackoff: config.AuditRetryInitialBackoff,
+		MaxBackoff:     config.AuditRetryMaxBackoff,
+		Retryable:      audit.IsRetryableError,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize persistent audit retry sink: %w", err)
+	}
+	persistentAuditSink, err := audit.NewMultiSink(dependencies.AuditSink, retryingPersistentAuditSink)
 	if err != nil {
 		return fmt.Errorf("initialize persistent audit sink: %w", err)
 	}

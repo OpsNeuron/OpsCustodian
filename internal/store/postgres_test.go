@@ -68,6 +68,8 @@ type fakePostgresTransaction struct {
 	rowCalls    int
 	rowErr      error
 	execErrAt   int
+	execErr     error
+	commitErr   error
 	committed   bool
 	rolledBack  bool
 }
@@ -75,6 +77,9 @@ type fakePostgresTransaction struct {
 func (transaction *fakePostgresTransaction) ExecContext(_ context.Context, query string, args ...any) (sql.Result, error) {
 	transaction.statements = append(transaction.statements, executedStatement{query: query, args: args})
 	if transaction.execErrAt > 0 && len(transaction.statements) == transaction.execErrAt {
+		if transaction.execErr != nil {
+			return nil, transaction.execErr
+		}
 		return nil, errors.New("exec failed")
 	}
 	return fakeSQLResult(1), nil
@@ -88,7 +93,10 @@ func (transaction *fakePostgresTransaction) QueryRowContext(_ context.Context, q
 	transaction.rowCalls++
 	return fakePostgresRow{accepted: accepted, err: transaction.rowErr}
 }
-func (transaction *fakePostgresTransaction) Commit() error { transaction.committed = true; return nil }
+func (transaction *fakePostgresTransaction) Commit() error {
+	transaction.committed = true
+	return transaction.commitErr
+}
 func (transaction *fakePostgresTransaction) Rollback() error {
 	transaction.rolledBack = true
 	return nil

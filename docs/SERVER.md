@@ -284,6 +284,16 @@ through 10 years, intervals to one minute through 24 hours, and batches to
 1 through 10,000. Pruning is tenant-scoped, and a database failure stops the
 process rather than silently disabling retention.
 
+PostgreSQL audit delivery retries safe transient failures three times by
+default, starting at 50 milliseconds and capping exponential backoff at 500
+milliseconds. Operators can set `OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS` (1 through
+10), `OPSCUSTODIAN_AUDIT_RETRY_INITIAL_BACKOFF`, and
+`OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF` (up to one minute). The maximum must not
+be shorter than the initial delay. Only failures before commit that are
+explicitly classified as transient are retried; ambiguous commit failures and
+JSONL errors stop the process immediately. The safe configuration projection
+contains only these numeric and duration bounds.
+
 Snapshot history defaults to 180 days, while retaining at least the newest 10
 snapshots for every repository regardless of age. Cleanup runs at startup and
 every 24 hours in tenant-scoped batches of 500. Operators can set

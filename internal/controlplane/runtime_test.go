@@ -168,6 +168,7 @@ func validRuntimeConfig() Config {
 		MaxOpenConns:     20, MaxIdleConns: 5, ConnMaxLifetime: 30 * time.Minute,
 		SchedulerLeaseTTL: time.Minute, SchedulerRenewInterval: 20 * time.Second,
 		AuditRetention: 90 * 24 * time.Hour, AuditPruneInterval: 24 * time.Hour, AuditPruneBatch: 1000,
+		AuditRetryAttempts: 3, AuditRetryInitialBackoff: 50 * time.Millisecond, AuditRetryMaxBackoff: 500 * time.Millisecond,
 		SnapshotRetention: 180 * 24 * time.Hour, SnapshotMinimum: 10, SnapshotPruneInterval: 24 * time.Hour, SnapshotPruneBatch: 500,
 		HTTP:          defaultHTTPConfig(),
 		Authenticator: authenticator,

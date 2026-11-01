@@ -36,6 +36,9 @@ func TestConfigFromEnvironmentUsesBoundedOperationalDefaults(t *testing.T) {
 	if config.SnapshotRetention != 180*24*time.Hour || config.SnapshotMinimum != 10 || config.SnapshotPruneInterval != 24*time.Hour || config.SnapshotPruneBatch != 500 {
 		t.Fatalf("unexpected snapshot retention defaults: %#v", config.Safe())
 	}
+	if config.AuditRetryAttempts != 3 || config.AuditRetryInitialBackoff != 50*time.Millisecond || config.AuditRetryMaxBackoff != 500*time.Millisecond {
+		t.Fatalf("unexpected audit retry defaults: %#v", config.Safe())
+	}
 }
 
 func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing.T) {
@@ -56,6 +59,9 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 		"OPSCUSTODIAN_DATABASE_CONN_MAX_LIFETIME":      "2h",
 		"OPSCUSTODIAN_SCHEDULER_LEASE_TTL":             "90s",
 		"OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL":        "30s",
+		"OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS":            "4",
+		"OPSCUSTODIAN_AUDIT_RETRY_INITIAL_BACKOFF":     "75ms",
+		"OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF":         "900ms",
 		"OPSCUSTODIAN_SNAPSHOT_RETENTION":              "720h",
 		"OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY": "25",
 		"OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL":         "2h",
@@ -82,6 +88,9 @@ func TestConfigFromEnvironmentAcceptsExplicitPoolAndLifecycleSettings(t *testing
 	if config.SnapshotRetention != 30*24*time.Hour || config.SnapshotMinimum != 25 || config.SnapshotPruneInterval != 2*time.Hour || config.SnapshotPruneBatch != 250 {
 		t.Fatalf("explicit snapshot retention settings were not preserved: %#v", config.Safe())
 	}
+	if config.AuditRetryAttempts != 4 || config.AuditRetryInitialBackoff != 75*time.Millisecond || config.AuditRetryMaxBackoff != 900*time.Millisecond {
+		t.Fatalf("explicit audit retry settings were not preserved: %#v", config.Safe())
+	}
 }
 
 func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
@@ -98,6 +107,9 @@ func TestConfigRejectsInvalidOrUnsafeOperationalBounds(t *testing.T) {
 		{"idle exceeds open", "OPSCUSTODIAN_DATABASE_MAX_IDLE_CONNS", "21", "max open"},
 		{"short scheduler lease", "OPSCUSTODIAN_SCHEDULER_LEASE_TTL", "10s", "between"},
 		{"slow scheduler renewal", "OPSCUSTODIAN_SCHEDULER_RENEW_INTERVAL", "1m", "less than"},
+		{"zero audit retry", "OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS", "0", "between"},
+		{"unbounded audit retry", "OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS", "11", "between"},
+		{"inverted audit retry", "OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF", "1ms", "initial backoff"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

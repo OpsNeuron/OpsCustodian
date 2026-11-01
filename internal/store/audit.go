@@ -2,12 +2,16 @@ package store
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/opscustodian/opscustodian/internal/audit"
 )
 
@@ -22,13 +26,54 @@ func (postgres *Postgres) Record(ctx context.Context, event audit.Event) error {
 	}
 	transaction, err := postgres.database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin audit event transaction: %w", err)
+		return fmt.Errorf("begin audit event transaction: %w", classifyRetryableAuditError(err))
 	}
 	defer transaction.Rollback()
 	if _, err := transaction.ExecContext(ctx, insertAuditEventSQL, postgres.organizationID, event.Timestamp, event.EventName, event.SeverityNumber, identityID, repositoryID, payload); err != nil {
-		return fmt.Errorf("insert audit event: %w", err)
+		return fmt.Errorf("insert audit event: %w", classifyRetryableAuditError(err))
 	}
-	return transaction.Commit()
+	if err := transaction.Commit(); err != nil {
+		// A failed commit has an ambiguous outcome. Retrying could duplicate an
+		// event that PostgreSQL committed before the connection failed.
+		return fmt.Errorf("commit audit event transaction: %w", err)
+	}
+	return nil
+}
+
+type retryableAuditError struct{ err error }
+
+func (err retryableAuditError) Error() string { return err.err.Error() }
+func (err retryableAuditError) Unwrap() error { return err.err }
+func (retryableAuditError) Retryable() bool   { return true }
+
+func classifyRetryableAuditError(err error) error {
+	if !isTransientPostgresError(err) {
+		return err
+	}
+	return retryableAuditError{err: err}
+}
+
+func isTransientPostgresError(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	if errors.Is(err, driver.ErrBadConn) {
+		return true
+	}
+	var postgresError *pgconn.PgError
+	if errors.As(err, &postgresError) {
+		if len(postgresError.Code) >= 2 && postgresError.Code[:2] == "08" {
+			return true
+		}
+		switch postgresError.Code {
+		case "40001", "40P01", "57P01", "57P02", "57P03":
+			return true
+		default:
+			return false
+		}
+	}
+	var networkError *net.OpError
+	return errors.As(err, &networkError)
 }
 
 func (memory *Memory) Record(ctx context.Context, event audit.Event) error {

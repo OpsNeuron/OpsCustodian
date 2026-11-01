@@ -91,14 +91,17 @@ HTTP shutdown, and closes PostgreSQL. OpsCustodian will not silently continue
 serving unaudited requests. PostgreSQL audit history uses the configured bounded
 retention policy.
 
-The audit package provides an opt-in retry wrapper for destinations that can
-classify their own failures as transient. It requires explicit attempt and
-backoff bounds, stops on permanent errors, honors context cancellation, and
-clones the event before every attempt. `serve` does not enable this wrapper yet:
-the PostgreSQL and JSONL destinations do not currently expose a shared transient
-error contract. Durable buffering across process restarts, JSONL rotation, and
-delivery to other backends therefore remain responsibilities of the service
-supervisor or a future bounded audit exporter.
+The audit package provides a retry wrapper for destinations that can classify
+their own failures as transient. It requires explicit attempt and backoff
+bounds, stops on permanent errors, honors context cancellation, and clones the
+event before every attempt. `serve` enables it only for PostgreSQL failures that
+are safe to repeat before commit, including connection acquisition,
+serialization, deadlock, and temporary availability failures. Commit failures
+are never retried because the database outcome may be ambiguous and a second
+write could duplicate the event. JSONL failures also remain fail-fast. Durable
+buffering across process restarts, JSONL rotation, and delivery to other
+backends remain responsibilities of the service supervisor or a future bounded
+audit exporter.
 
 Credential reload events contain only organization ID and the outcome
 `succeeded` or `failed`. File paths, parser errors, credential IDs, scopes,

@@ -88,6 +88,52 @@ func TestRunProcessStopsWhenRequestAuditSinkFails(t *testing.T) {
 	}
 }
 
+func TestRunProcessRetriesOnlyMarkedPersistentAuditFailures(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	persistent := &processRetryAuditStore{Memory: store.NewMemory(), failures: 2}
+	dependencies.Database.BuildStore = func(*sql.DB, string, string) (SnapshotStore, error) {
+		return persistent, nil
+	}
+	dependencies.Serve = func(_ context.Context, _ net.Listener, managed managedHTTPServer, _ Config) error {
+		server := managed.(*http.Server)
+		response := httptest.NewRecorder()
+		server.Handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("health response = %d", response.Code)
+		}
+		return nil
+	}
+	config := validRuntimeConfig()
+	config.AuditRetryInitialBackoff = time.Nanosecond
+	config.AuditRetryMaxBackoff = time.Nanosecond
+	if err := RunProcess(context.Background(), config, "test", dependencies); err != nil {
+		t.Fatal(err)
+	}
+	if persistent.attempts != 3 {
+		t.Fatalf("persistent audit attempts = %d, want 3", persistent.attempts)
+	}
+}
+
+func TestRunProcessDoesNotRetryPermanentPersistentAuditFailure(t *testing.T) {
+	var events []string
+	dependencies := processTestDependencies(&events)
+	persistent := &processPermanentAuditStore{Memory: store.NewMemory()}
+	dependencies.Database.BuildStore = func(*sql.DB, string, string) (SnapshotStore, error) {
+		return persistent, nil
+	}
+	dependencies.Serve = func(ctx context.Context, _ net.Listener, managed managedHTTPServer, _ Config) error {
+		server := managed.(*http.Server)
+		server.Handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/healthz", nil))
+		<-ctx.Done()
+		return nil
+	}
+	err := RunProcess(context.Background(), validRuntimeConfig(), "test", dependencies)
+	if err == nil || !strings.Contains(err.Error(), "permanent audit storage failure") || persistent.attempts != 1 {
+		t.Fatalf("permanent audit result = %v, attempts = %d", err, persistent.attempts)
+	}
+}
+
 func TestRunProcessWiresCredentialWatcherAndAuditsResults(t *testing.T) {
 	var events []string
 	dependencies := processTestDependencies(&events)
@@ -292,4 +338,33 @@ type processRecordingAuditSink struct{ events []audit.Event }
 func (sink *processRecordingAuditSink) Record(_ context.Context, event audit.Event) error {
 	sink.events = append(sink.events, event)
 	return nil
+}
+
+type processRetryAuditStore struct {
+	*store.Memory
+	failures int
+	attempts int
+}
+
+func (store *processRetryAuditStore) Record(ctx context.Context, event audit.Event) error {
+	store.attempts++
+	if store.attempts <= store.failures {
+		return processRetryableAuditError{}
+	}
+	return store.Memory.Record(ctx, event)
+}
+
+type processRetryableAuditError struct{}
+
+func (processRetryableAuditError) Error() string   { return "temporary audit storage failure" }
+func (processRetryableAuditError) Retryable() bool { return true }
+
+type processPermanentAuditStore struct {
+	*store.Memory
+	attempts int
+}
+
+func (store *processPermanentAuditStore) Record(context.Context, audit.Event) error {
+	store.attempts++
+	return errors.New("permanent audit storage failure")
 }

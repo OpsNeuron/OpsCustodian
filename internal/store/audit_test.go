@@ -2,12 +2,69 @@ package store
 
 import (
 	"context"
+	"database/sql/driver"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/opscustodian/opscustodian/internal/audit"
 )
+
+func TestPostgresAuditMarksOnlySafeTransientStagesRetryable(t *testing.T) {
+	event := audit.FromCredentialReload(audit.CredentialReloadObservation{
+		OccurredAt: time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC), OrganizationID: "organization-0123456789abcdef", Succeeded: true,
+	})
+
+	beginDatabase := &fakePostgresDatabase{err: driver.ErrBadConn}
+	postgres, err := newPostgresWriter(beginDatabase, "organization-0123456789abcdef", "Agent Platform")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := postgres.Record(context.Background(), event); !audit.IsRetryableError(err) || !errors.Is(err, driver.ErrBadConn) {
+		t.Fatalf("begin error = %v, retryable = %v", err, audit.IsRetryableError(err))
+	}
+
+	execFailure := &pgconn.PgError{Code: "40001", Message: "serialization failure"}
+	execTransaction := &fakePostgresTransaction{execErrAt: 1, execErr: execFailure}
+	postgres, _ = newPostgresWriter(&fakePostgresDatabase{transaction: execTransaction}, "organization-0123456789abcdef", "Agent Platform")
+	if err := postgres.Record(context.Background(), event); !audit.IsRetryableError(err) || !errors.Is(err, execFailure) {
+		t.Fatalf("exec error = %v, retryable = %v", err, audit.IsRetryableError(err))
+	}
+
+	commitFailure := &pgconn.PgError{Code: "08006", Message: "connection failure"}
+	commitTransaction := &fakePostgresTransaction{commitErr: commitFailure}
+	postgres, _ = newPostgresWriter(&fakePostgresDatabase{transaction: commitTransaction}, "organization-0123456789abcdef", "Agent Platform")
+	if err := postgres.Record(context.Background(), event); audit.IsRetryableError(err) || !errors.Is(err, commitFailure) {
+		t.Fatalf("ambiguous commit error = %v, retryable = %v", err, audit.IsRetryableError(err))
+	}
+}
+
+func TestTransientPostgresAuditClassification(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		retryable bool
+	}{
+		{name: "bad connection", err: driver.ErrBadConn, retryable: true},
+		{name: "connection exception", err: &pgconn.PgError{Code: "08006"}, retryable: true},
+		{name: "serialization", err: &pgconn.PgError{Code: "40001"}, retryable: true},
+		{name: "deadlock", err: &pgconn.PgError{Code: "40P01"}, retryable: true},
+		{name: "cannot connect", err: &pgconn.PgError{Code: "57P03"}, retryable: true},
+		{name: "constraint", err: &pgconn.PgError{Code: "23505"}},
+		{name: "cancelled", err: context.Canceled},
+		{name: "deadline", err: context.DeadlineExceeded},
+		{name: "plain", err: errors.New("permanent failure")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isTransientPostgresError(test.err); got != test.retryable {
+				t.Fatalf("isTransientPostgresError() = %v, want %v", got, test.retryable)
+			}
+		})
+	}
+}
 
 func TestMemoryAuditRetentionPrunesOnlyBoundedExpiredEvents(t *testing.T) {
 	memory := NewMemory()

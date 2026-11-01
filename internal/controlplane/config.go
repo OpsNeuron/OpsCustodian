@@ -31,6 +31,9 @@ const (
 	defaultAuditRetention        = 90 * 24 * time.Hour
 	defaultAuditPruneInterval    = 24 * time.Hour
 	defaultAuditPruneBatch       = 1000
+	defaultAuditRetryAttempts    = 3
+	defaultAuditRetryInitial     = 50 * time.Millisecond
+	defaultAuditRetryMaximum     = 500 * time.Millisecond
 	defaultSnapshotRetention     = 180 * 24 * time.Hour
 	defaultSnapshotMinimum       = 10
 	defaultSnapshotPruneInterval = 24 * time.Hour
@@ -72,6 +75,9 @@ type Config struct {
 	AuditRetention           time.Duration
 	AuditPruneInterval       time.Duration
 	AuditPruneBatch          int
+	AuditRetryAttempts       int
+	AuditRetryInitialBackoff time.Duration
+	AuditRetryMaxBackoff     time.Duration
 	SnapshotRetention        time.Duration
 	SnapshotMinimum          int
 	SnapshotPruneInterval    time.Duration
@@ -117,6 +123,9 @@ type SafeConfig struct {
 	AuditRetention           time.Duration `json:"auditRetention"`
 	AuditPruneInterval       time.Duration `json:"auditPruneInterval"`
 	AuditPruneBatch          int           `json:"auditPruneBatch"`
+	AuditRetryAttempts       int           `json:"auditRetryAttempts"`
+	AuditRetryInitialBackoff time.Duration `json:"auditRetryInitialBackoff"`
+	AuditRetryMaxBackoff     time.Duration `json:"auditRetryMaxBackoff"`
 	SnapshotRetention        time.Duration `json:"snapshotRetention"`
 	SnapshotMinimum          int           `json:"snapshotMinimumPerRepository"`
 	SnapshotPruneInterval    time.Duration `json:"snapshotPruneInterval"`
@@ -128,28 +137,31 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 		return Config{}, fmt.Errorf("environment lookup is required")
 	}
 	config := Config{
-		OrganizationID:          environmentValue(lookup, "OPSCUSTODIAN_ORGANIZATION_ID"),
-		OrganizationDisplayName: environmentValue(lookup, "OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME"),
-		DatabaseDSN:             environmentValue(lookup, "OPSCUSTODIAN_DATABASE_DSN"),
-		ApplyMigrations:         true,
-		ConnectTimeout:          defaultConnectTimeout,
-		MigrationTimeout:        defaultMigrationTimeout,
-		ShutdownTimeout:         defaultShutdownTimeout,
-		MaxOpenConns:            defaultMaxOpenConns,
-		MaxIdleConns:            defaultMaxIdleConns,
-		ConnMaxLifetime:         defaultConnMaxLifetime,
-		SchedulerLeaseTTL:       defaultSchedulerLeaseTTL,
-		SchedulerRenewInterval:  defaultSchedulerRenewal,
-		PolicyQuery:             defaultPolicyQuery,
-		PolicyTimeout:           defaultPolicyTimeout,
-		AuditRetention:          defaultAuditRetention,
-		AuditPruneInterval:      defaultAuditPruneInterval,
-		AuditPruneBatch:         defaultAuditPruneBatch,
-		SnapshotRetention:       defaultSnapshotRetention,
-		SnapshotMinimum:         defaultSnapshotMinimum,
-		SnapshotPruneInterval:   defaultSnapshotPruneInterval,
-		SnapshotPruneBatch:      defaultSnapshotPruneBatch,
-		HTTP:                    defaultHTTPConfig(),
+		OrganizationID:           environmentValue(lookup, "OPSCUSTODIAN_ORGANIZATION_ID"),
+		OrganizationDisplayName:  environmentValue(lookup, "OPSCUSTODIAN_ORGANIZATION_DISPLAY_NAME"),
+		DatabaseDSN:              environmentValue(lookup, "OPSCUSTODIAN_DATABASE_DSN"),
+		ApplyMigrations:          true,
+		ConnectTimeout:           defaultConnectTimeout,
+		MigrationTimeout:         defaultMigrationTimeout,
+		ShutdownTimeout:          defaultShutdownTimeout,
+		MaxOpenConns:             defaultMaxOpenConns,
+		MaxIdleConns:             defaultMaxIdleConns,
+		ConnMaxLifetime:          defaultConnMaxLifetime,
+		SchedulerLeaseTTL:        defaultSchedulerLeaseTTL,
+		SchedulerRenewInterval:   defaultSchedulerRenewal,
+		PolicyQuery:              defaultPolicyQuery,
+		PolicyTimeout:            defaultPolicyTimeout,
+		AuditRetention:           defaultAuditRetention,
+		AuditPruneInterval:       defaultAuditPruneInterval,
+		AuditPruneBatch:          defaultAuditPruneBatch,
+		AuditRetryAttempts:       defaultAuditRetryAttempts,
+		AuditRetryInitialBackoff: defaultAuditRetryInitial,
+		AuditRetryMaxBackoff:     defaultAuditRetryMaximum,
+		SnapshotRetention:        defaultSnapshotRetention,
+		SnapshotMinimum:          defaultSnapshotMinimum,
+		SnapshotPruneInterval:    defaultSnapshotPruneInterval,
+		SnapshotPruneBatch:       defaultSnapshotPruneBatch,
+		HTTP:                     defaultHTTPConfig(),
 	}
 	var err error
 	credentialsJSON := environmentValue(lookup, "OPSCUSTODIAN_API_CREDENTIALS")
@@ -261,6 +273,15 @@ func ConfigFromEnvironment(lookup LookupEnv) (Config, error) {
 	if config.AuditPruneBatch, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_PRUNE_BATCH", config.AuditPruneBatch); err != nil {
 		return Config{}, err
 	}
+	if config.AuditRetryAttempts, err = environmentInt(lookup, "OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS", config.AuditRetryAttempts); err != nil {
+		return Config{}, err
+	}
+	if config.AuditRetryInitialBackoff, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_RETRY_INITIAL_BACKOFF", config.AuditRetryInitialBackoff); err != nil {
+		return Config{}, err
+	}
+	if config.AuditRetryMaxBackoff, err = environmentDuration(lookup, "OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF", config.AuditRetryMaxBackoff); err != nil {
+		return Config{}, err
+	}
 	if config.SnapshotRetention, err = environmentDuration(lookup, "OPSCUSTODIAN_SNAPSHOT_RETENTION", config.SnapshotRetention); err != nil {
 		return Config{}, err
 	}
@@ -355,6 +376,15 @@ func (config Config) Validate() error {
 	if config.AuditPruneBatch < 1 || config.AuditPruneBatch > 10000 {
 		return fmt.Errorf("OPSCUSTODIAN_AUDIT_PRUNE_BATCH must be between 1 and 10000")
 	}
+	if config.AuditRetryAttempts < 1 || config.AuditRetryAttempts > 10 {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETRY_ATTEMPTS must be between 1 and 10")
+	}
+	if config.AuditRetryInitialBackoff <= 0 || config.AuditRetryInitialBackoff > time.Minute {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETRY_INITIAL_BACKOFF must be between 1ns and 1m")
+	}
+	if config.AuditRetryMaxBackoff < config.AuditRetryInitialBackoff || config.AuditRetryMaxBackoff > time.Minute {
+		return fmt.Errorf("OPSCUSTODIAN_AUDIT_RETRY_MAX_BACKOFF must be between initial backoff and 1m")
+	}
 	if config.SnapshotRetention < 24*time.Hour || config.SnapshotRetention > 10*365*24*time.Hour {
 		return fmt.Errorf("OPSCUSTODIAN_SNAPSHOT_RETENTION must be between 24h and 87600h")
 	}
@@ -440,6 +470,9 @@ func (config Config) Safe() SafeConfig {
 		AuditRetention:           config.AuditRetention,
 		AuditPruneInterval:       config.AuditPruneInterval,
 		AuditPruneBatch:          config.AuditPruneBatch,
+		AuditRetryAttempts:       config.AuditRetryAttempts,
+		AuditRetryInitialBackoff: config.AuditRetryInitialBackoff,
+		AuditRetryMaxBackoff:     config.AuditRetryMaxBackoff,
 		SnapshotRetention:        config.SnapshotRetention,
 		SnapshotMinimum:          config.SnapshotMinimum,
 		SnapshotPruneInterval:    config.SnapshotPruneInterval,

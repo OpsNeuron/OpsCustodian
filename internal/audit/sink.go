@@ -32,6 +32,10 @@ type RetryPolicy struct {
 	Retryable      func(error) bool
 }
 
+type retryableError interface {
+	Retryable() bool
+}
+
 type RetrySink struct {
 	target Sink
 	policy RetryPolicy
@@ -42,6 +46,11 @@ type MultiSink struct{ sinks []Sink }
 
 func NewRetrySink(target Sink, policy RetryPolicy) (*RetrySink, error) {
 	return newRetrySink(target, policy, waitForRetry)
+}
+
+func IsRetryableError(err error) bool {
+	var marked retryableError
+	return errors.As(err, &marked) && marked.Retryable()
 }
 
 func newRetrySink(target Sink, policy RetryPolicy, wait func(context.Context, time.Duration) error) (*RetrySink, error) {

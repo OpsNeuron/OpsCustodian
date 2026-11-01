@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -159,6 +160,23 @@ func TestBearerCredentialRegistryUsesIndependentIdentitiesAndScopes(t *testing.T
 		if response.Code != test.status {
 			t.Fatalf("token path %s status = %d, want %d", test.path, response.Code, test.status)
 		}
+	}
+}
+
+func TestBearerCredentialIDsAreCanonicalAndSafeForEmptyRegistry(t *testing.T) {
+	authenticator, _, err := NewBearerCredentialSecurity([]BearerCredential{
+		{ID: "zeta-reader", Token: "zeta-reader-token-0123456789abcdefghijkl", Scopes: []string{ScopeInventoryRead}},
+		{ID: "alpha-reader", Token: "alpha-reader-token-0123456789abcdefghijk", Scopes: []string{ScopeFindingsRead}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := authenticator.CredentialIDs(), []string{"alpha-reader", "zeta-reader"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("CredentialIDs() = %#v, want %#v", got, want)
+	}
+	emptyRegistryAuthenticator := BearerAuthenticator{registry: &CredentialRegistry{}}
+	if emptyRegistryAuthenticator.CredentialID() != "" || emptyRegistryAuthenticator.CredentialIDs() != nil {
+		t.Fatal("empty registry exposed credential identity")
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -152,7 +153,11 @@ func (authenticator BearerAuthenticator) Configured() bool {
 }
 func (authenticator BearerAuthenticator) CredentialID() string {
 	if authenticator.registry != nil {
-		return authenticator.registry.snapshot.Load().authenticator.CredentialID()
+		snapshot := authenticator.registry.snapshot.Load()
+		if snapshot == nil {
+			return ""
+		}
+		return snapshot.authenticator.CredentialID()
 	}
 	if len(authenticator.credentials) == 1 {
 		return authenticator.credentials[0].identity
@@ -161,12 +166,17 @@ func (authenticator BearerAuthenticator) CredentialID() string {
 }
 func (authenticator BearerAuthenticator) CredentialIDs() []string {
 	if authenticator.registry != nil {
-		return authenticator.registry.snapshot.Load().authenticator.CredentialIDs()
+		snapshot := authenticator.registry.snapshot.Load()
+		if snapshot == nil {
+			return nil
+		}
+		return snapshot.authenticator.CredentialIDs()
 	}
 	identities := make([]string, 0, len(authenticator.credentials))
 	for _, credential := range authenticator.credentials {
 		identities = append(identities, credential.identity)
 	}
+	sort.Strings(identities)
 	return identities
 }
 

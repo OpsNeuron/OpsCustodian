@@ -5,7 +5,7 @@ COPY . .
 RUN go mod download
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/opscustodian ./cmd/opscustodian
 
-FROM openpolicyagent/opa:1.21.3-static@sha256:bf27411c17e72f3d16063725a74c69f711fb267eb9a4cebdae78028b72adc847 AS opa
+FROM openpolicyagent/opa:1.21.4-static@sha256:47f93480b09e24c220ae75f1e9133585ba6d698059951668d35e6a4fc32ebc82 AS opa
 
 FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS certificates
 

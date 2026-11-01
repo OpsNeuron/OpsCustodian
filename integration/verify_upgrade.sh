@@ -45,13 +45,48 @@ if [ "$source_migrations" != "1,2" ] || [ "$source_snapshot_count" -lt 1 ] || [ 
 fi
 
 compose stop opscustodian-upgrade-source
+
+# Materialize the previously released schema-3 state so the current binary
+# must exercise migration 4 rather than creating audit history from scratch.
+compose exec -T postgres-upgrade psql -v ON_ERROR_STOP=1 -U opscustodian -d opscustodian < "$repository_dir/internal/migrations/sql/000003_audit_history.up.sql"
+compose exec -T postgres-upgrade psql -v ON_ERROR_STOP=1 -U opscustodian -d opscustodian -c "INSERT INTO schema_migrations (version, name, checksum) VALUES (3, 'audit_history', 'sha256:ed85e031d05ebc954145a014ecde35db84e92153215c66cd0e2b27e5b06adc64');"
+compose exec -T postgres-upgrade psql -v ON_ERROR_STOP=1 -U opscustodian -d opscustodian <<'SQL'
+INSERT INTO audit_events
+    (organization_id, occurred_at, event_name, severity_number, event)
+VALUES (
+    'organization-0123456789abcdef',
+    '2026-10-08T12:00:00Z',
+    'opscustodian.credential.reload.completed',
+    9,
+    '{"schemaVersion":"opscustodian.dev/audit-event/v1alpha1","timestamp":"2026-10-08T12:00:00Z","eventName":"opscustodian.credential.reload.completed","severityNumber":9,"body":"Legacy audit fixture","resource":{"service.name":"opscustodian"},"instrumentationScope":{"name":"github.com/opscustodian/opscustodian/audit"},"attributes":{"opscustodian.organization.id":"organization-0123456789abcdef","opscustodian.credential.reload.result":"succeeded"}}'::jsonb
+);
+SQL
+
+compose run --rm --no-deps --build --entrypoint sh opscustodian-upgrade-target -c 'chmod 700 /audit-spool'
 compose --profile upgrade up --detach --build --wait opscustodian-upgrade-target
 
 target_migrations=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT string_agg(version::text, ',' ORDER BY version) FROM schema_migrations;")
 target_snapshot_count=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM snapshots;")
 target_snapshot_digest=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT md5(string_agg(repository_id || ':' || id || ':' || bom::text, '|' ORDER BY repository_id, id)) FROM snapshots;")
-if [ "$target_migrations" != "1,2,3" ] || [ "$target_snapshot_count" != "$source_snapshot_count" ] || [ "$target_snapshot_digest" != "$source_snapshot_digest" ]; then
-  echo "forward migration did not preserve the source snapshot history" >&2
+target_audit_backfill=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM audit_events WHERE occurred_at = '2026-10-08T12:00:00Z'::timestamptz AND event->>'body' = 'Legacy audit fixture' AND event_id ~ '^audit-[0-9a-f]{32}$' AND event->>'eventId' = event_id;")
+if [ "$target_migrations" != "1,2,3,4" ] || [ "$target_snapshot_count" != "$source_snapshot_count" ] || [ "$target_snapshot_digest" != "$source_snapshot_digest" ] || [ "$target_audit_backfill" != "1" ]; then
+  echo "forward migration did not preserve snapshots or backfill audit identity" >&2
+  exit 1
+fi
+
+# Prove restart replay and tenant-scoped idempotency with a real spool file.
+compose stop opscustodian-upgrade-target
+compose run --rm --no-deps --entrypoint sh opscustodian-upgrade-target -c 'cat > /audit-spool/audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json <<"EOF"
+{"schemaVersion":"opscustodian.dev/audit-event/v1alpha1","eventId":"audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","timestamp":"2026-10-08T12:01:00Z","eventName":"opscustodian.credential.reload.completed","severityNumber":9,"body":"Spool replay fixture","resource":{"service.name":"opscustodian"},"instrumentationScope":{"name":"github.com/opscustodian/opscustodian/audit"},"attributes":{"opscustodian.organization.id":"organization-0123456789abcdef","opscustodian.credential.reload.result":"succeeded"}}
+EOF
+chmod 600 /audit-spool/audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json'
+compose --profile upgrade up --detach --wait opscustodian-upgrade-target
+spooled_count=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM audit_events WHERE event_id = 'audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';")
+compose restart opscustodian-upgrade-target
+compose --profile upgrade up --detach --wait opscustodian-upgrade-target
+replayed_count=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM audit_events WHERE event_id = 'audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';")
+if [ "$spooled_count" != "1" ] || [ "$replayed_count" != "1" ] || compose exec -T opscustodian-upgrade-target test -e /audit-spool/audit-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.json; then
+  echo "durable audit replay was not idempotent" >&2
   exit 1
 fi
 
@@ -59,7 +94,7 @@ compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TO
 compose restart opscustodian-upgrade-target
 compose --profile upgrade up --detach --wait opscustodian-upgrade-target
 idempotent_migrations=$(compose exec -T postgres-upgrade psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM schema_migrations;")
-if [ "$idempotent_migrations" != "3" ]; then
+if [ "$idempotent_migrations" != "4" ]; then
   echo "migration reapplication changed the migration ledger" >&2
   exit 1
 fi

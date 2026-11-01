@@ -43,13 +43,17 @@ paths are not yet supported claims.
 The repository includes an opt-in Docker harness that builds the source binary
 from the immutable `v0.5.0-alpha` tag, creates a version-2 database with real
 repository data, upgrades the same volume with the current binary, compares
-snapshot count and content digest, verifies authenticated API reads, repeats
-startup for idempotency, and confirms downgrade and unknown-future rejection:
+snapshot count and content digest, verifies authenticated API reads and legacy
+audit identity backfill, replays a real pending event from the durable spool,
+repeats startup to prove migration and event idempotency, and confirms
+downgrade and unknown-future rejection:
 
 ```bash
 sh ./integration/verify_upgrade.sh
 ```
 
-The script uses a unique temporary source-image tag and a validated temporary
-build directory. It removes its container, image, network, volume, and build
-directory unless `OPSCUSTODIAN_INTEGRATION_KEEP=true` is explicitly set.
+This complete schema-2-through-schema-4 path passed on 2026-11-01. The script
+uses a unique temporary source-image tag and a validated temporary build
+directory. It removes its containers, source image, network, database and
+audit-spool volumes, and build directory unless
+`OPSCUSTODIAN_INTEGRATION_KEEP=true` is explicitly set.

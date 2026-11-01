@@ -85,6 +85,13 @@ effective-access result was also compared with live Kubernetes
 authorization for four representative namespaced, cluster-wide, non-resource,
 and wildcard-derived capabilities without discrepancy.
 
+On 2026-11-01 the upgrade profile was extended and re-run from the immutable
+`v0.5.0-alpha` schema-2 binary through current schema 4. Snapshot history and
+content digest were preserved; legacy audit identity was backfilled; a pending
+durable-spool event was replayed, acknowledged, and persisted exactly once
+across restart; both older-schema and unknown-future version skew failed
+closed; and all disposable containers and volumes were removed.
+
 Database readiness now performs bounded periodic PostgreSQL probes. A Docker
 Compose outage/recovery test observed readiness degradation with uninterrupted
 liveness, followed by readiness and authenticated API recovery after PostgreSQL

@@ -55,8 +55,9 @@ Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,
 managed-provider snapshots, and production RPO/RTO remain unvalidated.
-The direct `v0.5.0-alpha` to current schema upgrade has passed with history
-preservation and fail-closed version-skew checks. Mixed-version rolling
+The direct `v0.5.0-alpha` schema-2 to current schema-4 upgrade has passed with
+history preservation, legacy audit identity backfill, durable spool replay,
+event idempotency, and fail-closed version-skew checks. Mixed-version rolling
 upgrades, skip-version paths, in-place production downgrade, and migration
 timing on large databases remain unvalidated.
 

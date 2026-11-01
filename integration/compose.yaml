@@ -161,6 +161,8 @@ services:
       OPSCUSTODIAN_DATABASE_DSN: postgres://opscustodian:${OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD}@postgres-upgrade:5432/opscustodian?sslmode=disable
       OPSCUSTODIAN_DATABASE_ALLOW_INSECURE: "true"
       OPSCUSTODIAN_DATABASE_MIGRATE: "true"
+      OPSCUSTODIAN_AUDIT_SPOOL_DIRECTORY: /audit-spool
+      OPSCUSTODIAN_AUDIT_SPOOL_MAX_PENDING: "100"
       OPSCUSTODIAN_API_CREDENTIALS: >-
         [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","audit:read"]}]
     depends_on:
@@ -171,6 +173,8 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
+    volumes:
+      - upgrade-audit-spool:/audit-spool
     networks: [integration]
 
   opa:
@@ -191,3 +195,4 @@ volumes:
   postgres-restore-data:
   postgres-upgrade-data:
   integration-output:
+  upgrade-audit-spool:

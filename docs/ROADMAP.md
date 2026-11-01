@@ -173,7 +173,7 @@ runtime authorization system.
 - Audit retention policy. *(bounded configurable lifetime, startup/periodic tenant-scoped pruning, safe config visibility, and fail-closed runtime coordination implemented)*
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
 - PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification re-run successfully on 2026-10-08; physical backup, PITR, scale, and RPO/RTO remain open)*
-- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 to schema 3 was re-verified on 2026-10-08; the new schema-4 audit-idempotency migration still requires Docker-backed upgrade evidence, while mixed-version, skip-version, and scale gates remain open)*
+- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 through schema 4 was re-verified on 2026-11-01 with snapshot preservation, legacy audit identity backfill, durable spool replay/removal, idempotent restart, and fail-closed version-skew checks; mixed-version, skip-version, and scale gates remain open)*
 - Security fuzz gates. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, API pagination, query-filter, route-allowlist, and audit-envelope boundaries plus module-integrity checks implemented; manual two-minute-per-boundary release-candidate workflow implemented, while a passing hosted campaign remains required)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
 - Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
@@ -200,7 +200,7 @@ runtime authorization system.
 - Operational credential reload wiring. *(environment configuration, process lifecycle, minimized audit events, and fail-closed audit handling implemented; real secret rotation validation deferred)*
 - Authenticated control-plane composition. *(environment token derivation and mandatory authenticated handler wiring implemented)*
 - Control-plane process lifecycle. *(startup/resource ownership, signal-aware CLI wiring, and failure cleanup implemented; live integration pending)*
-- Request audit pipeline. *(shared bounded OTel-compatible envelope validation, synchronized JSONL stderr plus tenant-scoped PostgreSQL persistence, all-destination fan-out, fail-closed process shutdown, bounded outcomes, and retention implemented; durable retry buffering and external backend delivery remain open)*
+- Request audit pipeline. *(shared bounded OTel-compatible envelope validation, deterministic event identity, synchronized JSONL stderr plus tenant-scoped PostgreSQL persistence, all-destination fan-out, bounded retry, optional durable file-spool recovery, fail-closed process shutdown, bounded outcomes, and retention implemented; external backend delivery remains open)*
 
 Exit condition: a platform team can query reproducible inventory and Finding
 history across multiple repositories through an authenticated control plane.

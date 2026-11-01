@@ -154,17 +154,17 @@ large-database recovery time, or a production RPO/RTO.
 
 The upgrade-compatibility phase builds the immutable `v0.5.0-alpha` tag, uses
 that binary to create a schema-version-2 database with repository history, and
-then starts the current binary on the same PostgreSQL volume. The harness
-verifies migration 3, unchanged snapshot count and content digest,
-authenticated API reads, and idempotent restart. It also proves that the old
-binary rejects the newer schema and the current binary rejects an injected
+then applies the published schema-3 migration fixture before starting the
+current binary on the same PostgreSQL volume. On 2026-11-01 the harness
+verified migration 4, unchanged snapshot count and content digest,
+authenticated API reads, deterministic legacy-audit identity backfill, and
+idempotent restart. It also wrote a real pending audit event to the private
+spool volume, proved that startup persisted it exactly once and removed the
+acknowledged file, and proved a second restart did not duplicate it. The old
+binary rejected the newer schema and the current binary rejected an injected
 unknown future migration. This is a direct one-step upgrade result; mixed-
 version rolling upgrades, skip-version upgrades, production downgrade, and
 large-database migration duration remain open.
-
-Schema 4 adds audit-event idempotency and file-spool replay. The existing
-upgrade evidence predates this migration, so the harness must be extended and
-re-run before the beta upgrade gate can be checked again.
 
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
@@ -183,8 +183,9 @@ explicit gates rather than implied by a passing harness.
 
 Do not run these harnesses as part of ordinary unit tests. They pull container
 images, build OpsCustodian, and create an isolated network. The primary harness
-creates two named volumes; the recovery and upgrade profiles each add one
-isolated database volume. The verification scripts remove only resources
+creates two named volumes; the recovery profile adds one isolated database
+volume and the upgrade profile adds isolated database and audit-spool volumes.
+The verification scripts remove only resources
 belonging to the fixed Compose project. Set
 `OPSCUSTODIAN_INTEGRATION_KEEP=true` only when you need to inspect the
 disposable environment after a failure.
@@ -215,7 +216,8 @@ docker compose --project-directory integration -f integration\compose.yaml down 
 Before cleanup, `docker compose ... ps` is the read-only scope check. The blast
 radius is the `opscustodian-integration` containers, its internal network, and
 its `postgres-data`, optional `postgres-restore-data`, optional
-`postgres-upgrade-data`, and `integration-output` volumes. Volume deletion is
+`postgres-upgrade-data`, optional `upgrade-audit-spool`, and
+`integration-output` volumes. Volume deletion is
 not recoverable and must never be used against another Compose project.
 
 The committed image tags and the complete harness must be refreshed and tested

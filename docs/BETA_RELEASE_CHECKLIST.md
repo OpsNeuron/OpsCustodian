@@ -56,10 +56,11 @@ git diff --exit-code
   Docker Desktop harness on 2026-10-08.
 - [x] Backup, restore, migration rollback/reapplication, and idempotent restart
   passed in the disposable Docker Desktop harness on 2026-10-08.
-- [ ] Upgrade from the immutable `v0.5.0-alpha` schema-2 binary through the
-  current schema-4 audit-idempotency migration while preserving history. The
-  schema-2 to schema-3 path passed on 2026-10-08; schema 4 still needs retained
-  Docker-backed evidence.
+- [x] Upgrade from the immutable `v0.5.0-alpha` schema-2 binary through the
+  current schema-4 audit-idempotency migration while preserving history passed
+  in the disposable Docker Desktop harness on 2026-11-01. The run also verified
+  legacy audit identity backfill, durable spool replay/removal, and idempotent
+  restart without duplicate audit records.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, write contention, dependency outage, partial

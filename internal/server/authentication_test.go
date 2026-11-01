@@ -81,9 +81,26 @@ func TestBearerAuthenticationRejectsAmbiguousOrInvalidCredentials(t *testing.T) 
 }
 
 func TestBearerAuthenticatorValidatesSecretAndDoesNotSerializeIt(t *testing.T) {
-	for _, token := range []string{"short", strings.Repeat("x", maximumBearerTokenBytes+1), strings.Repeat("x", 31) + " "} {
+	for _, token := range []string{
+		"short",
+		strings.Repeat("x", maximumBearerTokenBytes+1),
+		strings.Repeat("x", 31) + " ",
+		strings.Repeat("x", 31) + "\x00",
+		strings.Repeat("x", 31) + "é",
+		strings.Repeat("x", 31) + "?",
+		strings.Repeat("x", 30) + "=x",
+	} {
 		if _, err := NewBearerAuthenticator(token); err == nil {
 			t.Fatalf("invalid token accepted: length %d", len(token))
+		}
+	}
+	for _, token := range []string{
+		"valid-token_0123456789.ABCDEFGHIJK",
+		"valid~token+0123456789/ABCDEFGHIJK=",
+		"valid-token-0123456789ABCDEFGHIJK==",
+	} {
+		if _, err := NewBearerAuthenticator(token); err != nil {
+			t.Fatalf("valid bearer token rejected: %v", err)
 		}
 	}
 	authenticator, err := NewBearerAuthenticator(serverTestBearerToken)

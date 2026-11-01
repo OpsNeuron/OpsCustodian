@@ -118,8 +118,11 @@ must not be connected to a listener. The runtime still cannot bind outside
 loopback.
 
 `OPSCUSTODIAN_API_TOKEN` is required by control-plane configuration and must
-contain 32 to 4096 non-whitespace bytes. It is read from the process environment
-and immediately converted into the authenticator's digest-only representation.
+contain 32 to 4096 bytes using the RFC 6750 bearer-token alphabet: ASCII letters,
+digits, `-`, `.`, `_`, `~`, `+`, or `/`, with optional trailing `=` padding.
+Whitespace, control characters, Unicode, and embedded padding are rejected. The
+token is read from the process environment and immediately converted into the
+authenticator's digest-only representation.
 `OPSCUSTODIAN_API_TOKEN_ID` is a required non-secret stable identifier containing
 3 to 63 lowercase letters, digits, or hyphens. Successful requests carry this
 identity into audit records without exposing the token or its digest.

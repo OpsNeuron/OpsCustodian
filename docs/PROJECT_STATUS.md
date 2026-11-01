@@ -227,7 +227,7 @@ Missing exit items:
 - Pinned pgx v5 PostgreSQL `database/sql` driver registration with lazy-handle construction and Go 1.25.13 minimum runtime alignment.
 - Fail-closed PostgreSQL transport validation requiring certificate and hostname verification across primary and failover hosts, with an explicit observable development-only insecure override and secret-safe errors.
 - Loopback-only HTTP runtime contract with bounded request lifecycle/header limits and deterministic graceful-shutdown orchestration over an injected listener.
-- Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.
+- Constant-time opaque Bearer authentication for all control-plane API routes, public health isolation, RFC 6750 token-alphabet enforcement, strict header parsing, secret-free authenticator state, and OpenAPI security declaration.
 - Environment-to-digest API-token configuration and fail-closed server composition that cannot construct the operational HTTP server without authentication and a Store reader.
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.

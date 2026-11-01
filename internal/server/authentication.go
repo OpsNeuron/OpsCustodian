@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"unicode"
 )
 
 var credentialIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{2,62}$`)
@@ -128,10 +127,24 @@ func validateBearerToken(token string) error {
 	if len(token) < minimumBearerTokenBytes || len(token) > maximumBearerTokenBytes {
 		return fmt.Errorf("API bearer token must contain between %d and %d bytes", minimumBearerTokenBytes, maximumBearerTokenBytes)
 	}
-	if strings.IndexFunc(token, unicode.IsSpace) >= 0 {
-		return fmt.Errorf("API bearer token must not contain whitespace")
+	padding := false
+	for _, value := range []byte(token) {
+		if value == '=' {
+			padding = true
+			continue
+		}
+		if padding || !validBearerTokenByte(value) {
+			return fmt.Errorf("API bearer token contains invalid characters")
+		}
 	}
 	return nil
+}
+
+func validBearerTokenByte(value byte) bool {
+	return value >= 'A' && value <= 'Z' ||
+		value >= 'a' && value <= 'z' ||
+		value >= '0' && value <= '9' ||
+		strings.ContainsRune("-._~+/", rune(value))
 }
 
 func (authenticator BearerAuthenticator) Configured() bool {

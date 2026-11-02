@@ -99,8 +99,11 @@ returned. On 2026-11-02 an audited-request outage additionally proved
 fail-closed process termination, private durable event retention, exactly-once
 startup replay and acknowledgement, and duplicate-free restart. A bounded
 2,000-request authenticated read baseline at concurrency 20
-completed with zero errors and healthy readiness; sustained load, capacity,
-write contention, and broader dependency failure injection remain open.
+completed with zero errors and healthy readiness. On 2026-11-02 a separate
+30-second smoke completed 4,150 reads and 1,036 writes under ten concurrent
+workers with zero request/readiness errors and no snapshot or audit-identity
+integrity violation. Sustained load, capacity, explicit write contention, and
+broader dependency failure injection remain open.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment

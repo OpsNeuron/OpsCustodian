@@ -54,6 +54,9 @@ proved fail-closed process termination, private durable retention, exactly-once
 replay after database recovery, acknowledgement, and duplicate-free restart.
 Those observations are regression evidence, not a capacity plan, soak result,
 latency objective, or availability SLA.
+The 30-second mixed read/write smoke also passed with zero request/readiness
+errors and no snapshot or audit-identity integrity violation. Its duration and
+single-host scope are insufficient for a sustained-load or capacity claim.
 Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,

@@ -17,6 +17,31 @@ capacity, soak, multi-tenant, or service-level objective claim.
 The exact integration context and remaining load gaps are recorded in
 [Integration Testing](INTEGRATION_TESTING.md).
 
+## Mixed read/write correctness smoke
+
+The disposable mixed-load harness runs authenticated repository reads and
+unique snapshot writes concurrently, polls readiness throughout the run, and
+then verifies snapshot counts, tenant-scoped audit-event identity uniqueness,
+and an empty durable spool directly against PostgreSQL:
+
+```bash
+sh ./integration/verify_load.sh
+```
+
+The default is intentionally bounded to 30 seconds, eight read workers, and two
+write workers. Operators may set
+`OPSCUSTODIAN_INTEGRATION_LOAD_DURATION_SECONDS` from 10 to 3,600 seconds,
+`OPSCUSTODIAN_INTEGRATION_LOAD_READ_WORKERS` from 1 to 64, and
+`OPSCUSTODIAN_INTEGRATION_LOAD_WRITE_WORKERS` from 1 to 16, with a combined
+ceiling of 64. The harness creates no retained report or credential file and
+removes only its fixed Compose project unless the documented keep flag is set.
+
+On 2026-11-02 the default profile completed 4,150 reads, 1,036 writes, and 29
+readiness checks without an observed error. Approximate successful throughput
+was 173 requests per second. Snapshot and audit integrity checks passed. This
+short one-host run is correctness evidence only, not a latency distribution,
+capacity envelope, saturation result, soak test, or service-level objective.
+
 ## Security-boundary microbenchmarks
 
 The source suite measures two bounded operations that occur on authenticated
@@ -41,8 +66,8 @@ compared as if they used identical hardware.
 
 ## Beta evidence still required
 
-Microbenchmarks and the bounded read baseline do not close the beta performance
-gate. Before the first beta, the supported deployment still needs sustained
+Microbenchmarks and the bounded read/mixed-write smoke tests do not close the
+beta performance gate. Before the first beta, the supported deployment still needs sustained
 read/write load, database contention, dependency outage, recovery, and resource
 saturation tests on a declared reference environment. The resulting envelope
 must state safe workload limits and observed failure behavior without implying

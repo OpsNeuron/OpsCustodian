@@ -65,6 +65,9 @@ git diff --exit-code
   2026-11-02: the control plane failed closed, retained the event in its private
   spool, replayed and acknowledged it after recovery, and did not duplicate it
   on a second restart.
+- [x] A bounded 30-second mixed read/write load smoke passed on 2026-11-02 with
+  zero request or readiness errors and no snapshot/audit integrity violation.
+  This does not replace the sustained reference-environment gate below.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, write contention, dependency outage, partial

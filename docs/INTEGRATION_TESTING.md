@@ -103,6 +103,16 @@ requests/second, and observed latency was 5.374 ms p50, 24.526 ms p95, and
 one machine, not a capacity, soak, or service-level objective claim. The
 Compose resources were removed after the run.
 
+On 2026-11-02 the separate bounded mixed-load smoke ran for 30 seconds with
+eight authenticated repository-read workers, two snapshot-write workers, and
+one readiness observer. It completed 4,150 reads, 1,036 writes, and 29 readiness
+checks with zero observed errors, approximately 173 successful requests per
+second. The post-run database check matched all generated revisions to stored
+snapshots, found no missing or mismatched audit event identity, found no
+tenant-scoped duplicate event IDs, and found an empty durable spool. This short
+correctness smoke is not sustained-load, latency, saturation, or capacity
+evidence.
+
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
@@ -206,6 +216,7 @@ Linux or CI:
 sh ./integration/verify.sh
 sh ./integration/verify_backup_restore.sh
 sh ./integration/verify_upgrade.sh
+sh ./integration/verify_load.sh
 ```
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:

@@ -214,7 +214,9 @@ history across multiple repositories through an authenticated control plane.
 - REST API and Backstage integration.
 - Signed baselines and governed exceptions.
 - Retention, upgrade, migration, and compatibility policies.
-- Security review and performance benchmarks.
+- Security review and performance benchmarks. *(bounded read-only and mixed
+  read/write Docker smoke evidence implemented; sustained reference-environment
+  load, saturation, and capacity envelopes remain open)*
 - Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race plus Windows and macOS compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, main-line tag validation, exact-commit extended-fuzz evidence enforcement, and Apache-2.0 license implemented; tagged workflow and independent Windows consumer verification passed, while the new evidence gates and hosted macOS path require hosted validation)*
 
 Exit condition: the project can be operated as a dependable organization-wide

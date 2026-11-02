@@ -87,6 +87,17 @@ peaks were 31.67% CPU for the control plane and 78.98% CPU for PostgreSQL on
 this Docker Desktop allocation. This validates the harness and a short
 reference point only; it is not the sustained beta envelope or an SLO.
 
+The default five-minute profile also passed on 2026-11-02 with 25,200 reads,
+3,000 writes, and 301 readiness checks without error. It achieved 94 completed
+requests per second against the configured ceiling of 110. Read latency was
+186.425 ms p50, 241.188 ms p95, and 278.343 ms p99; write latency was 205.797
+ms p50, 256.753 ms p95, and 296.639 ms p99. All persistence and audit checks
+passed and the spool remained empty. Across 28 resource samples, peak control
+plane CPU was 39.19% and peak PostgreSQL CPU was 114.56%, where values above
+100% represent use of more than one logical CPU. This is a useful single-host
+baseline, but five minutes remains insufficient for a beta soak or capacity
+claim.
+
 ## Security-boundary microbenchmarks
 
 The source suite measures two bounded operations that occur on authenticated

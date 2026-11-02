@@ -67,6 +67,11 @@ second without request/readiness or persistence-integrity errors and produced
 client-observed latency percentiles plus sampled container resources. The
 result is specific to one Docker Desktop allocation and is too short to define
 a supported capacity envelope, SLO, or long-duration stability claim.
+The default five-minute profile also passed with 28,200 authenticated API
+operations plus readiness checks and no integrity error, but its observed
+latency and resource peaks remain host-specific. Five minutes is not evidence
+of multi-hour stability, workload seasonality, memory-leak absence, or a safe
+production capacity limit.
 Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,

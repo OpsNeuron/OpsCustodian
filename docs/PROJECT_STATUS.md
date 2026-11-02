@@ -110,6 +110,12 @@ rate-limited 60-second latency/resource profile also completed 6,000 reads and
 600 writes without error at 110 requests per second, with read p99 71.853 ms,
 write p99 93.289 ms, and intact snapshot/audit/spool checks; this validates the
 measurement harness rather than closing the sustained beta gate.
+The default five-minute profile then completed 25,200 reads, 3,000 writes, and
+301 readiness checks without error at 94 completed requests per second. Read
+p99 was 278.343 ms, write p99 was 296.639 ms, persistence/audit/spool checks
+remained intact, and sampled PostgreSQL CPU peaked at 114.56% on the Docker
+Desktop allocation. Longer-duration reference-environment evidence remains
+open.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment

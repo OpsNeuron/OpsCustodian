@@ -133,6 +133,15 @@ duplicate event ID, or pending spool file. CPU, memory, and PID sampling also
 completed for the control plane, PostgreSQL, and Collector. This short run
 validates the reproducible measurement harness, not the sustained beta gate.
 
+The default five-minute profile subsequently completed 25,200 reads, 3,000
+writes, and 301 readiness checks without an error. It achieved 94 completed
+requests per second, with read p99 278.343 ms and write p99 296.639 ms. All
+generated snapshots were present, no orphan Finding or audit identity/duplicate
+violation existed, and the durable spool was empty. Twenty-eight resource
+samples observed peak control-plane CPU of 39.19% and peak PostgreSQL CPU of
+114.56% on this Docker Desktop allocation. This closes validation of the
+default five-minute profile, not the longer beta soak gate.
+
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the

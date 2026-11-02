@@ -76,6 +76,10 @@ git diff --exit-code
   2026-11-02 at 100 reads and 10 writes per second, with zero request or
   readiness errors and all snapshot/audit/spool integrity checks passing. This
   validates the harness but does not replace the sustained beta profile.
+- [x] The default five-minute profile passed on 2026-11-02 with 25,200 reads,
+  3,000 writes, 301 readiness checks, zero errors, and intact
+  snapshot/audit/spool state. The longer reference-environment soak remains
+  open.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, dependency outage, partial failure, and recovery

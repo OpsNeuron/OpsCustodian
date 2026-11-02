@@ -105,7 +105,11 @@ workers with zero request/readiness errors and no snapshot or audit-identity
 integrity violation. A separate controlled run accepted 32 concurrent identical
 snapshot writes, rejected 32 concurrent content conflicts, retained one
 canonical immutable snapshot, and preserved exact audit identity. Sustained
-load, capacity, and broader dependency failure injection remain open.
+load, capacity, and broader dependency failure injection remain open. A
+rate-limited 60-second latency/resource profile also completed 6,000 reads and
+600 writes without error at 110 requests per second, with read p99 71.853 ms,
+write p99 93.289 ms, and intact snapshot/audit/spool checks; this validates the
+measurement harness rather than closing the sustained beta gate.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment

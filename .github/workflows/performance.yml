@@ -48,3 +48,45 @@ jobs:
           path: evidence/
           if-no-files-found: error
           retention-days: 90
+
+  docker-soak-smoke:
+    name: Docker soak smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Run measured load smoke
+        shell: bash
+        env:
+          OPSCUSTODIAN_INTEGRATION_SOAK_DURATION_SECONDS: "60"
+          OPSCUSTODIAN_INTEGRATION_SOAK_READ_WORKERS: "8"
+          OPSCUSTODIAN_INTEGRATION_SOAK_WRITE_WORKERS: "2"
+          OPSCUSTODIAN_INTEGRATION_SOAK_READ_RPS: "100"
+          OPSCUSTODIAN_INTEGRATION_SOAK_WRITE_RPS: "10"
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          {
+            printf 'repository=%s\n' "${GITHUB_REPOSITORY}"
+            printf 'commit=%s\n' "${GITHUB_SHA}"
+            printf 'workflow_run=%s\n' "${GITHUB_RUN_ID}"
+            printf 'workflow_attempt=%s\n' "${GITHUB_RUN_ATTEMPT}"
+            docker version
+            docker compose version
+            uname -a
+          } > evidence/soak-environment.txt
+          sh ./integration/verify_soak.sh | tee evidence/soak-summary.txt
+          (cd evidence && sha256sum soak-environment.txt soak-summary.txt > SOAK_SHA256SUMS)
+      - name: Retain soak smoke evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: soak-smoke-evidence-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            evidence/soak-environment.txt
+            evidence/soak-summary.txt
+            evidence/SOAK_SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90

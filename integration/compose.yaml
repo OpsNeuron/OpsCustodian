@@ -189,6 +189,17 @@ services:
       - ../policies/builtin:/policies:ro
     networks: [integration]
 
+  loadprobe:
+    build:
+      context: ..
+      dockerfile: integration/loadprobe/Dockerfile
+    profiles: [performance]
+    environment:
+      OPSCUSTODIAN_TEST_API_TOKEN: ${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}
+    volumes:
+      - ../examples/scope-expansion:/fixtures/scope-expansion:ro
+    network_mode: service:opscustodian
+
 networks:
   integration:
     internal: true

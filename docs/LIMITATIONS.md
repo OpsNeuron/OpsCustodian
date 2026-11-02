@@ -62,6 +62,11 @@ rejected 32 concurrent conflicting writes, and preserved one canonical
 immutable snapshot with exact audit outcomes. It does not establish maximum
 safe concurrency, sustained throughput, latency objectives, or saturation
 behavior.
+A separate rate-limited 60-second measurement completed at 110 requests per
+second without request/readiness or persistence-integrity errors and produced
+client-observed latency percentiles plus sampled container resources. The
+result is specific to one Docker Desktop allocation and is too short to define
+a supported capacity envelope, SLO, or long-duration stability claim.
 Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,

@@ -59,6 +59,34 @@ conflict audit outcomes, healthy readiness, and an empty durable spool. This
 closes the bounded snapshot-write contention correctness case; it does not
 measure saturation, maximum concurrency, sustained throughput, or latency.
 
+## Measured load and soak probe
+
+The rate-limited Docker probe preserves the loopback-only server boundary by
+sharing the control-plane network namespace. It records read, write, and
+readiness success/error counts; p50, p95, p99, and maximum client-observed
+latency; snapshot/audit/spool integrity; and sampled peak CPU, memory, and PID
+usage for the control plane, PostgreSQL, and the Collector:
+
+```bash
+sh ./integration/verify_soak.sh
+```
+
+The default profile is five minutes at a maximum aggregate rate of 100 reads
+and 10 writes per second, using 16 read and four write workers. Duration,
+workers, target rates, and resource-sample interval are bounded environment
+inputs. The probe does not publish credentials or retain local evidence files.
+The manually dispatched `Performance evidence` workflow runs a 60-second
+profile and retains its environment, result, and checksums for 90 days.
+
+On 2026-11-02 a 60-second Docker Desktop validation completed 6,000 reads and
+600 writes with no request or readiness error at the target 110 requests per
+second. Read latency was 32.298 ms p50, 58.370 ms p95, and 71.853 ms p99;
+write latency was 38.955 ms p50, 74.910 ms p95, and 93.289 ms p99. Snapshot,
+audit identity, orphan-Finding, and spool checks passed. The observed sampled
+peaks were 31.67% CPU for the control plane and 78.98% CPU for PostgreSQL on
+this Docker Desktop allocation. This validates the harness and a short
+reference point only; it is not the sustained beta envelope or an SLO.
+
 ## Security-boundary microbenchmarks
 
 The source suite measures two bounded operations that occur on authenticated
@@ -83,7 +111,7 @@ compared as if they used identical hardware.
 
 ## Beta evidence still required
 
-Microbenchmarks and the bounded read/mixed-write/contention smoke tests do not
+Microbenchmarks and the bounded read/mixed-write/contention/latency smoke tests do not
 close the beta performance gate. Before the first beta, the supported
 deployment still needs sustained read/write load, dependency outage, recovery,
 and resource saturation tests on a declared reference environment. The resulting envelope

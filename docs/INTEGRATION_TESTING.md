@@ -124,6 +124,15 @@ a transaction-snapshot visibility race without weakening the immutable-row
 trigger. It is bounded correctness evidence, not sustained-load or capacity
 evidence.
 
+The rate-limited soak probe was then validated for 60 seconds at 100 reads and
+10 writes per second with eight read workers and two write workers. It
+completed 6,000 reads, 600 writes, and 61 readiness checks without error;
+measured read p99 was 71.853 ms and write p99 was 93.289 ms. The database held
+all 600 generated snapshots with no orphan Finding, audit identity violation,
+duplicate event ID, or pending spool file. CPU, memory, and PID sampling also
+completed for the control plane, PostgreSQL, and Collector. This short run
+validates the reproducible measurement harness, not the sustained beta gate.
+
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
@@ -229,6 +238,7 @@ sh ./integration/verify_backup_restore.sh
 sh ./integration/verify_upgrade.sh
 sh ./integration/verify_load.sh
 sh ./integration/verify_contention.sh
+sh ./integration/verify_soak.sh
 ```
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:

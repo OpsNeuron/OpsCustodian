@@ -72,6 +72,10 @@ git diff --exit-code
   concurrent identical writes accepted, 32 concurrent conflicting writes
   rejected, one canonical immutable snapshot retained, exact audit outcomes,
   and no orphan Finding or duplicate audit identity.
+- [x] A rate-limited latency/resource probe passed for 60 seconds on
+  2026-11-02 at 100 reads and 10 writes per second, with zero request or
+  readiness errors and all snapshot/audit/spool integrity checks passing. This
+  validates the harness but does not replace the sustained beta profile.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, dependency outage, partial failure, and recovery

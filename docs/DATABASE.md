@@ -101,6 +101,14 @@ silently overwriting history. Unit tests exercise transaction ordering,
 pre-database validation, commit, rollback, and immutable-revision conflicts
 through a driver-neutral fake transaction.
 
+Concurrent inserts preserve the same immutable contract. The writer first
+uses `INSERT ... ON CONFLICT DO NOTHING`; when another transaction already
+won the revision, it performs a fresh read to compare the committed JSONB
+content. Identical content is accepted as idempotent, different content maps
+to the typed immutable conflict, and the existing snapshot row is never
+updated. A bounded Docker-backed contention harness verifies both outcomes
+against PostgreSQL while the immutable-update trigger remains enabled.
+
 ## Snapshot reader
 
 The PostgreSQL adapter also implements the persistence-neutral `Reader`

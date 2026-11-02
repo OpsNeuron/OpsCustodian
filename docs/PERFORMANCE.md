@@ -42,6 +42,23 @@ was 173 requests per second. Snapshot and audit integrity checks passed. This
 short one-host run is correctness evidence only, not a latency distribution,
 capacity envelope, saturation result, soak test, or service-level objective.
 
+## Controlled write contention
+
+The disposable contention harness exercises one immutable repository revision
+under concurrent identical and conflicting authenticated writes:
+
+```bash
+sh ./integration/verify_contention.sh
+```
+
+The default profile uses 32 workers. On 2026-11-02 all 32 identical writes
+succeeded, all 32 conflicting writes returned the expected immutable conflict,
+and PostgreSQL retained one canonical snapshot. The harness also verified no
+orphan Findings, no duplicate audit event IDs, exactly 32 persisted and 32
+conflict audit outcomes, healthy readiness, and an empty durable spool. This
+closes the bounded snapshot-write contention correctness case; it does not
+measure saturation, maximum concurrency, sustained throughput, or latency.
+
 ## Security-boundary microbenchmarks
 
 The source suite measures two bounded operations that occur on authenticated
@@ -66,9 +83,9 @@ compared as if they used identical hardware.
 
 ## Beta evidence still required
 
-Microbenchmarks and the bounded read/mixed-write smoke tests do not close the
-beta performance gate. Before the first beta, the supported deployment still needs sustained
-read/write load, database contention, dependency outage, recovery, and resource
-saturation tests on a declared reference environment. The resulting envelope
+Microbenchmarks and the bounded read/mixed-write/contention smoke tests do not
+close the beta performance gate. Before the first beta, the supported
+deployment still needs sustained read/write load, dependency outage, recovery,
+and resource saturation tests on a declared reference environment. The resulting envelope
 must state safe workload limits and observed failure behavior without implying
 production high availability.

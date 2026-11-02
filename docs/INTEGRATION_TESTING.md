@@ -113,6 +113,17 @@ tenant-scoped duplicate event IDs, and found an empty durable spool. This short
 correctness smoke is not sustained-load, latency, saturation, or capacity
 evidence.
 
+On 2026-11-02 the controlled write-contention harness submitted 32 concurrent
+copies of one immutable snapshot and then 32 concurrent conflicting snapshots
+using the same repository revision. All identical requests returned `201`, all
+conflicting requests returned `409`, PostgreSQL retained exactly one canonical
+snapshot, and the database contained exactly 32 persisted plus 32 conflict
+audit outcomes with no orphan Findings or duplicate audit IDs. Readiness
+remained healthy and the durable spool was empty. This run exposed and closed
+a transaction-snapshot visibility race without weakening the immutable-row
+trigger. It is bounded correctness evidence, not sustained-load or capacity
+evidence.
+
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
@@ -217,6 +228,7 @@ sh ./integration/verify.sh
 sh ./integration/verify_backup_restore.sh
 sh ./integration/verify_upgrade.sh
 sh ./integration/verify_load.sh
+sh ./integration/verify_contention.sh
 ```
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:

@@ -57,6 +57,11 @@ latency objective, or availability SLA.
 The 30-second mixed read/write smoke also passed with zero request/readiness
 errors and no snapshot or audit-identity integrity violation. Its duration and
 single-host scope are insufficient for a sustained-load or capacity claim.
+A bounded contention run additionally accepted 32 concurrent identical writes,
+rejected 32 concurrent conflicting writes, and preserved one canonical
+immutable snapshot with exact audit outcomes. It does not establish maximum
+safe concurrency, sustained throughput, latency objectives, or saturation
+behavior.
 Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,

@@ -20,15 +20,12 @@ const (
 ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name`
 	upsertRepositorySQL = `INSERT INTO repositories (organization_id, id, source) VALUES ($1, $2, $3)
 ON CONFLICT (organization_id, id) DO UPDATE SET updated_at = now()`
-	verifySnapshotSQL = `WITH inserted AS (
-    INSERT INTO snapshots (organization_id, repository_id, id, revision, generated_at, api_version, normalization_version, bom)
-    VALUES ($1, $2, $3, $4, NULLIF($5, '')::timestamptz, $6, NULLIF($7, ''), $8::jsonb)
-    ON CONFLICT (organization_id, repository_id, id) DO NOTHING
-    RETURNING 1
-)
-SELECT EXISTS (SELECT 1 FROM inserted) OR EXISTS (
+	insertSnapshotSQL = `INSERT INTO snapshots (organization_id, repository_id, id, revision, generated_at, api_version, normalization_version, bom)
+VALUES ($1, $2, $3, $4, NULLIF($5, '')::timestamptz, $6, NULLIF($7, ''), $8::jsonb)
+ON CONFLICT (organization_id, repository_id, id) DO NOTHING`
+	verifySnapshotContentSQL = `SELECT EXISTS (
     SELECT 1 FROM snapshots
-    WHERE organization_id = $1 AND repository_id = $2 AND id = $3 AND bom = $8::jsonb
+    WHERE organization_id = $1 AND repository_id = $2 AND id = $3 AND bom = $4::jsonb
 )`
 	insertFindingSQL = `INSERT INTO snapshot_findings
     (organization_id, repository_id, snapshot_id, finding_id, finding_type, severity, asset_id, remediation_id, finding)
@@ -171,12 +168,26 @@ func (writer *Postgres) putSnapshot(ctx context.Context, bom model.AgentBOM, lea
 	if _, err := transaction.ExecContext(ctx, upsertRepositorySQL, writer.organizationID, repositoryID, bom.Metadata.Source); err != nil {
 		return Snapshot{}, fmt.Errorf("ensure repository: %w", err)
 	}
-	var accepted bool
-	if err := transaction.QueryRowContext(ctx, verifySnapshotSQL,
+	result, err := transaction.ExecContext(ctx, insertSnapshotSQL,
 		writer.organizationID, repositoryID, snapshotID, bom.Metadata.Revision, bom.Metadata.GeneratedAt,
 		bom.APIVersion, bom.Metadata.NormalizationVersion, bomJSON,
-	).Scan(&accepted); err != nil {
+	)
+	if err != nil {
 		return Snapshot{}, fmt.Errorf("store snapshot: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("inspect stored snapshot: %w", err)
+	}
+	accepted := rowsAffected == 1
+	if rowsAffected == 0 {
+		if err := transaction.QueryRowContext(ctx, verifySnapshotContentSQL,
+			writer.organizationID, repositoryID, snapshotID, bomJSON,
+		).Scan(&accepted); err != nil {
+			return Snapshot{}, fmt.Errorf("verify stored snapshot: %w", err)
+		}
+	} else if rowsAffected != 1 {
+		return Snapshot{}, fmt.Errorf("store snapshot: unexpected affected row count %d", rowsAffected)
 	}
 	if !accepted {
 		return Snapshot{}, fmt.Errorf("%w: snapshot %s conflicts with immutable content for revision %s", ErrConflict, snapshotID, bom.Metadata.Revision)

@@ -102,8 +102,10 @@ startup replay and acknowledgement, and duplicate-free restart. A bounded
 completed with zero errors and healthy readiness. On 2026-11-02 a separate
 30-second smoke completed 4,150 reads and 1,036 writes under ten concurrent
 workers with zero request/readiness errors and no snapshot or audit-identity
-integrity violation. Sustained load, capacity, explicit write contention, and
-broader dependency failure injection remain open.
+integrity violation. A separate controlled run accepted 32 concurrent identical
+snapshot writes, rejected 32 concurrent content conflicts, retained one
+canonical immutable snapshot, and preserved exact audit identity. Sustained
+load, capacity, and broader dependency failure injection remain open.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment
@@ -240,7 +242,7 @@ Missing exit items:
 - Lease-coordinated ingestion runtime with cryptographic per-process holder identity, healthy standby cycles, renewal during active batches, cancellation after lease loss, and transactionally fenced snapshot writes that lock and verify the active lease generation before mutation; real PostgreSQL contention tests remain pending.
 - Bounded scheduler coordination configuration and secret-free operational visibility with `leader`, `standby`, and `lease-lost` roles shared by readiness and ingestion audit summaries without exposing holder identities or fencing tokens.
 - Persistent scheduler leadership retained and renewed across batch intervals, with bounded standby acquisition retries and deterministic proof that multiple cycles use one lease generation rather than releasing ownership after every scan.
-- Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, idempotent re-ingestion, immutable revision-conflict rejection, and Finding projection.
+- Driver-neutral transactional PostgreSQL snapshot writer with pre-write Agent BOM validation, tenant/repository provisioning, contention-safe idempotent re-ingestion without immutable-row updates, immutable revision-conflict rejection, and Finding projection; bounded 32-worker identical/conflicting contention passed against PostgreSQL on 2026-11-02.
 - Tenant-scoped PostgreSQL reader for repository inventory, immutable snapshot history, current findings, and episode-aware lifecycle projections with bounded keyset pagination and persisted-BOM revalidation.
 - Environment-only control-plane database configuration with bounded connection-pool and lifecycle defaults, shared organization-ID validation, and a secret-free operational projection.
 - Driver-neutral database bootstrap with bounded ping and migration contexts, deterministic lifecycle ordering, optional migration, fail-closed cleanup, and idempotent shutdown.
@@ -294,7 +296,8 @@ The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization and rotation contracts
 exist, while real PostgreSQL TLS/migration behavior has been validated in one
 disposable environment. Provider parity, Kubernetes runtime enforcement, HA
-contention, load, recovery, and final platform/security gates remain incomplete.
+HA lease contention, sustained load, recovery breadth, and final
+platform/security gates remain incomplete.
 
 ## Remaining path to 1.0
 

@@ -62,16 +62,17 @@ type executedStatement struct {
 }
 
 type fakePostgresTransaction struct {
-	statements  []executedStatement
-	accepted    bool
-	rowAccepted []bool
-	rowCalls    int
-	rowErr      error
-	execErrAt   int
-	execErr     error
-	commitErr   error
-	committed   bool
-	rolledBack  bool
+	statements     []executedStatement
+	accepted       bool
+	rowAccepted    []bool
+	rowCalls       int
+	rowErr         error
+	rowsAffectedAt map[int]int64
+	execErrAt      int
+	execErr        error
+	commitErr      error
+	committed      bool
+	rolledBack     bool
 }
 
 func (transaction *fakePostgresTransaction) ExecContext(_ context.Context, query string, args ...any) (sql.Result, error) {
@@ -81,6 +82,9 @@ func (transaction *fakePostgresTransaction) ExecContext(_ context.Context, query
 			return nil, transaction.execErr
 		}
 		return nil, errors.New("exec failed")
+	}
+	if affected, ok := transaction.rowsAffectedAt[len(transaction.statements)]; ok {
+		return fakeSQLResult(affected), nil
 	}
 	return fakeSQLResult(1), nil
 }
@@ -186,7 +190,7 @@ func TestPostgresWriterStoresValidatedImmutableSnapshotTransactionally(t *testin
 	if len(transaction.statements) != 4 {
 		t.Fatalf("statement count = %d, want organization, repository, snapshot, and finding", len(transaction.statements))
 	}
-	if !strings.Contains(transaction.statements[2].query, "ON CONFLICT") || !strings.Contains(transaction.statements[2].query, "snapshots") {
+	if !strings.Contains(transaction.statements[2].query, "ON CONFLICT") || !strings.Contains(transaction.statements[2].query, "DO NOTHING") {
 		t.Fatalf("snapshot statement is not idempotent: %s", transaction.statements[2].query)
 	}
 	if !strings.Contains(transaction.statements[3].query, "snapshot_findings") {
@@ -195,7 +199,7 @@ func TestPostgresWriterStoresValidatedImmutableSnapshotTransactionally(t *testin
 }
 
 func TestPostgresWriterRejectsImmutableRevisionConflict(t *testing.T) {
-	transaction := &fakePostgresTransaction{accepted: false}
+	transaction := &fakePostgresTransaction{accepted: false, rowsAffectedAt: map[int]int64{3: 0}}
 	writer, err := newPostgresWriter(&fakePostgresDatabase{transaction: transaction}, "organization-0123456789abcdef", "Acme")
 	if err != nil {
 		t.Fatal(err)
@@ -206,6 +210,23 @@ func TestPostgresWriterRejectsImmutableRevisionConflict(t *testing.T) {
 	}
 	if transaction.committed || !transaction.rolledBack {
 		t.Fatalf("conflicting snapshot transaction was not rolled back: %#v", transaction)
+	}
+}
+
+func TestPostgresWriterAcceptsIdenticalSnapshotAfterInsertContention(t *testing.T) {
+	transaction := &fakePostgresTransaction{accepted: true, rowsAffectedAt: map[int]int64{3: 0}}
+	writer, err := newPostgresWriter(&fakePostgresDatabase{transaction: transaction}, "organization-0123456789abcdef", "Acme")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writer.PutSnapshot(context.Background(), postgresTestBOM()); err != nil {
+		t.Fatalf("PutSnapshot(): %v", err)
+	}
+	if !transaction.committed || transaction.rowCalls != 1 || len(transaction.statements) != 5 {
+		t.Fatalf("idempotent contention transaction = %#v", transaction)
+	}
+	if !strings.Contains(transaction.statements[3].query, "bom = $4::jsonb") {
+		t.Fatalf("stored snapshot content was not verified: %s", transaction.statements[3].query)
 	}
 }
 

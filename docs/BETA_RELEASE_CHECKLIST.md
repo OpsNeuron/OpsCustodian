@@ -68,10 +68,15 @@ git diff --exit-code
 - [x] A bounded 30-second mixed read/write load smoke passed on 2026-11-02 with
   zero request or readiness errors and no snapshot/audit integrity violation.
   This does not replace the sustained reference-environment gate below.
+- [x] Controlled snapshot-write contention passed on 2026-11-02 with 32
+  concurrent identical writes accepted, 32 concurrent conflicting writes
+  rejected, one canonical immutable snapshot retained, exact audit outcomes,
+  and no orphan Finding or duplicate audit identity.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
-- [ ] Exercise sustained load, write contention, dependency outage, partial
-  failure, and recovery without data-integrity or authorization failure.
+- [ ] Exercise sustained load, dependency outage, partial failure, and recovery
+  without data-integrity or authorization failure on the declared reference
+  environment.
 - [ ] Define and test the supported skip-version upgrade path, or explicitly
   state that only consecutive-version upgrades are supported.
 

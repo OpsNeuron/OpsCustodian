@@ -95,7 +95,10 @@ closed; and all disposable containers and volumes were removed.
 Database readiness now performs bounded periodic PostgreSQL probes. A Docker
 Compose outage/recovery test observed readiness degradation with uninterrupted
 liveness, followed by readiness and authenticated API recovery after PostgreSQL
-returned. A bounded 2,000-request authenticated read baseline at concurrency 20
+returned. On 2026-11-02 an audited-request outage additionally proved
+fail-closed process termination, private durable event retention, exactly-once
+startup replay and acknowledgement, and duplicate-free restart. A bounded
+2,000-request authenticated read baseline at concurrency 20
 completed with zero errors and healthy readiness; sustained load, capacity,
 write contention, and broader dependency failure injection remain open.
 Repeatable source benchmarks now cover constant-time authentication at the full
@@ -246,7 +249,7 @@ Missing exit items:
 - Deterministic control-plane process orchestration across PostgreSQL bootstrap, authenticated server construction, listener acquisition, serving, and ordered resource cleanup with joined failure preservation.
 - Experimental `serve` CLI with environment-only configuration, secret-free no-I/O config inspection, interrupt/termination context cancellation, and default pgx/TCP process dependencies.
 - Versioned secret-minimized HTTP request audit events, shared bounded envelope validation before delivery, synchronized JSONL stderr and PostgreSQL fan-out that attempts every destination, and fail-closed process wiring with server-generated correlation IDs, canonical routes, authentication outcomes, status, and latency.
-- Bounded PostgreSQL audit retry with deterministic tenant-scoped event idempotency, capped exponential backoff, cancellation-aware shutdown, and an optional private bounded file spool replayed before serving; real crash/recovery and scale evidence remain open.
+- Bounded PostgreSQL audit retry with deterministic tenant-scoped event idempotency, capped exponential backoff, cancellation-aware shutdown, and an optional private bounded file spool replayed before serving; real single-event database-outage crash/recovery passed on 2026-11-02, while sustained and scale evidence remain open.
 - Authenticated fail-closed policy-evaluation API backed by a locally executed, timeout-bounded OPA runtime with secret-safe configuration and a pinned container executable.
 - Minimized policy request audit summaries containing only bounded outcomes and deny/warn counts, with policy input, decision text, rules, evidence, remediation, and evaluator errors excluded.
 - Explicit scope-based API authorization with granular contracts, inventory, and findings read permissions plus a `control-plane:read` umbrella, separate `401`/`403` semantics, fail-closed environment validation, OpenAPI declarations, and authorization audit outcomes.

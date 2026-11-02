@@ -61,6 +61,10 @@ git diff --exit-code
   in the disposable Docker Desktop harness on 2026-11-01. The run also verified
   legacy audit identity backfill, durable spool replay/removal, and idempotent
   restart without duplicate audit records.
+- [x] PostgreSQL outage during an authenticated audited request passed on
+  2026-11-02: the control plane failed closed, retained the event in its private
+  spool, replayed and acknowledged it after recovery, and did not duplicate it
+  on a second restart.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, write contention, dependency outage, partial

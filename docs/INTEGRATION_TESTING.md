@@ -85,6 +85,16 @@ liveness. Restarting PostgreSQL restored readiness and authenticated repository
 reads without restarting the control plane. The Compose containers, network,
 and volumes were removed after the successful recovery.
 
+On 2026-11-02 the primary harness also exercised durable audit crash recovery.
+It isolated scheduler and health-check traffic, stopped PostgreSQL, and issued
+one authenticated repository request. The request returned `500`; bounded
+audit delivery exhausted its retries; and the control plane stopped fail
+closed while retaining exactly one private spool file. After PostgreSQL
+recovery, startup replayed the validated event before serving, persisted it
+exactly once, removed the acknowledged file, and remained duplicate-free after
+a second restart. The harness then removed its containers, network, and named
+volumes.
+
 A bounded read-load baseline sent 2,000 authenticated repository-list requests
 at concurrency 20 through the control plane loopback boundary. All 2,000
 requests succeeded, readiness remained healthy, throughput was 2,407.6
@@ -183,7 +193,7 @@ explicit gates rather than implied by a passing harness.
 
 Do not run these harnesses as part of ordinary unit tests. They pull container
 images, build OpsCustodian, and create an isolated network. The primary harness
-creates two named volumes; the recovery profile adds one isolated database
+creates three named volumes; the recovery profile adds one isolated database
 volume and the upgrade profile adds isolated database and audit-spool volumes.
 The verification scripts remove only resources
 belonging to the fixed Compose project. Set
@@ -203,6 +213,7 @@ Windows CMD manual startup uses ephemeral values supplied by the operator:
 ```cmd
 set OPSCUSTODIAN_INTEGRATION_DATABASE_PASSWORD=REPLACE_EPHEMERAL_DATABASE_PASSWORD
 set OPSCUSTODIAN_INTEGRATION_API_TOKEN=REPLACE_EPHEMERAL_API_TOKEN_AT_LEAST_32_CHARACTERS
+docker compose --project-directory integration -f integration\compose.yaml run --rm --no-deps --build --entrypoint sh opscustodian -c "chmod 700 /audit-spool"
 docker compose --project-directory integration -f integration\compose.yaml up --detach --build --wait postgres collector opscustodian
 docker compose --project-directory integration -f integration\compose.yaml ps
 ```
@@ -215,7 +226,7 @@ docker compose --project-directory integration -f integration\compose.yaml down 
 
 Before cleanup, `docker compose ... ps` is the read-only scope check. The blast
 radius is the `opscustodian-integration` containers, its internal network, and
-its `postgres-data`, optional `postgres-restore-data`, optional
+its `postgres-data`, `audit-spool`, optional `postgres-restore-data`, optional
 `postgres-upgrade-data`, optional `upgrade-audit-spool`, and
 `integration-output` volumes. Volume deletion is
 not recoverable and must never be used against another Compose project.

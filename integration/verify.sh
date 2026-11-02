@@ -22,6 +22,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+compose run --rm --no-deps --build --entrypoint sh opscustodian -c 'chmod 700 /audit-spool'
 compose up --detach --build --wait postgres collector opscustodian
 compose exec -T postgres psql -v ON_ERROR_STOP=1 -U opscustodian -d opscustodian -c "SELECT version, name FROM schema_migrations ORDER BY version;"
 
@@ -103,5 +104,68 @@ until compose logs collector | grep -q 'OpsCustodian repository scan completed';
   fi
   sleep 1
 done
+
+echo "Verifying durable audit recovery after PostgreSQL outage"
+export OPSCUSTODIAN_INTEGRATION_REPOSITORY_SET_FILE=
+export OPSCUSTODIAN_INTEGRATION_HEALTHCHECK_INTERVAL=10m
+compose up --detach --force-recreate opscustodian
+attempt=0
+until compose exec -T opscustodian wget -q -O - http://127.0.0.1:8080/readyz | grep -q '"status":"ready"'; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 30 ]; then
+    echo "isolated audit-recovery process did not become ready" >&2
+    compose logs opscustodian >&2
+    exit 1
+  fi
+  sleep 1
+done
+compose stop postgres
+compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian sh -c 'wget -q -O /dev/null --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories' || true
+
+attempt=0
+while compose ps --status running --services | grep -qx 'opscustodian'; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 30 ]; then
+    echo "control plane did not fail closed after durable audit delivery failed" >&2
+    compose logs opscustodian >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+spooled_event_id=$(compose run --rm --no-deps --entrypoint sh opscustodian -c '
+  set -- /audit-spool/audit-*.json
+  if [ "$#" -ne 1 ] || [ ! -f "$1" ]; then
+    echo "expected exactly one durable audit event" >&2
+    exit 1
+  fi
+  basename "$1" .json
+')
+if ! printf '%s\n' "$spooled_event_id" | grep -Eq '^audit-[0-9a-f]{32}$'; then
+  echo "durable audit event ID is invalid" >&2
+  exit 1
+fi
+
+compose start postgres
+unset OPSCUSTODIAN_INTEGRATION_REPOSITORY_SET_FILE
+unset OPSCUSTODIAN_INTEGRATION_HEALTHCHECK_INTERVAL
+compose up --detach --force-recreate --wait opscustodian
+replayed_count=$(compose exec -T postgres psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM audit_events WHERE event_id = '$spooled_event_id';")
+pending_count=$(compose run --rm --no-deps --entrypoint sh opscustodian -c '
+  set -- /audit-spool/audit-*.json
+  if [ -e "$1" ]; then echo "$#"; else echo 0; fi
+')
+if [ "$replayed_count" != "1" ] || [ "$pending_count" != "0" ]; then
+  echo "durable audit recovery did not acknowledge exactly one persisted event" >&2
+  exit 1
+fi
+
+compose restart opscustodian
+compose up --detach --wait opscustodian
+restart_count=$(compose exec -T postgres psql -At -U opscustodian -d opscustodian -c "SELECT count(*) FROM audit_events WHERE event_id = '$spooled_event_id';")
+if [ "$restart_count" != "1" ]; then
+  echo "durable audit recovery duplicated the replayed event after restart" >&2
+  exit 1
+fi
 
 echo "OpsCustodian disposable integration harness passed."

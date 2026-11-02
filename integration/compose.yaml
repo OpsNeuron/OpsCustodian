@@ -69,13 +69,15 @@ services:
       OPSCUSTODIAN_DATABASE_MIGRATE: "true"
       OPSCUSTODIAN_API_CREDENTIALS: >-
         [{"id":"integration-operator","token":"${OPSCUSTODIAN_INTEGRATION_API_TOKEN:?set an ephemeral integration API token}","scopes":["control-plane:read","snapshots:write","policy:evaluate","audit:read"],"repositories":["repository-d19526261c01a8e3","repository-4b70fe32f822b795"]}]
-      OPSCUSTODIAN_REPOSITORY_SET_FILE: /config/repository-set.json
+      OPSCUSTODIAN_REPOSITORY_SET_FILE: ${OPSCUSTODIAN_INTEGRATION_REPOSITORY_SET_FILE-/config/repository-set.json}
       OPSCUSTODIAN_POLICY_PATH: /policies
       OPSCUSTODIAN_POLICY_TIMEOUT: 5s
       OPSCUSTODIAN_SNAPSHOT_RETENTION: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_RETENTION:-4320h}
       OPSCUSTODIAN_SNAPSHOT_MINIMUM_PER_REPOSITORY: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_MINIMUM:-10}
       OPSCUSTODIAN_SNAPSHOT_PRUNE_INTERVAL: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_PRUNE_INTERVAL:-24h}
       OPSCUSTODIAN_SNAPSHOT_PRUNE_BATCH: ${OPSCUSTODIAN_INTEGRATION_SNAPSHOT_PRUNE_BATCH:-500}
+      OPSCUSTODIAN_AUDIT_SPOOL_DIRECTORY: /audit-spool
+      OPSCUSTODIAN_AUDIT_SPOOL_MAX_PENDING: "100"
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,7 +85,7 @@ services:
         condition: service_started
     healthcheck:
       test: [CMD-SHELL, wget -q -O - http://127.0.0.1:8080/healthz | grep -q '"status":"ok"']
-      interval: 2s
+      interval: ${OPSCUSTODIAN_INTEGRATION_HEALTHCHECK_INTERVAL:-2s}
       timeout: 2s
       retries: 30
     volumes:
@@ -93,6 +95,7 @@ services:
       - ../policies/builtin:/policies:ro
       - ./policy-input.json:/config/policy-input.json:ro
       - integration-output:/work
+      - audit-spool:/audit-spool
     working_dir: /work
     networks: [integration]
 
@@ -192,6 +195,7 @@ networks:
 
 volumes:
   postgres-data:
+  audit-spool:
   postgres-restore-data:
   postgres-upgrade-data:
   integration-output:

@@ -142,6 +142,17 @@ samples observed peak control-plane CPU of 39.19% and peak PostgreSQL CPU of
 114.56% on this Docker Desktop allocation. This closes validation of the
 default five-minute profile, not the longer beta soak gate.
 
+The active-load failure/recovery harness then disabled scheduled ingestion,
+ran authenticated reads and unique writes, and stopped PostgreSQL after ten
+seconds. Before fail-closed shutdown it completed 192 reads and 19 writes; the
+probe subsequently observed 108 read failures, 12 write failures, and
+readiness failure. Eleven private audit-spool events were replayed exactly once
+after PostgreSQL recovery. A post-recovery profile completed 399 reads and 39
+writes without error, every generated post-recovery snapshot was present, and
+no orphan Finding, audit identity violation, duplicate event ID, or pending
+spool entry remained. A second application restart did not duplicate any
+replayed event.
+
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
 called the authenticated `POST /api/v1/policy/evaluate` endpoint through the
@@ -248,7 +259,13 @@ sh ./integration/verify_upgrade.sh
 sh ./integration/verify_load.sh
 sh ./integration/verify_contention.sh
 sh ./integration/verify_soak.sh
+sh ./integration/verify_failure_recovery.sh
 ```
+
+When dependency downloads require an operator-controlled HTTP proxy, the
+failure/recovery harness accepts its URL only through the optional
+`OPSCUSTODIAN_INTEGRATION_BUILD_PROXY` environment variable and does not retain
+it in evidence or repository files.
 
 Windows CMD manual startup uses ephemeral values supplied by the operator:
 

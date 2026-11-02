@@ -218,7 +218,9 @@ history across multiple repositories through an authenticated control plane.
   read/write, and 32-worker immutable snapshot-contention Docker evidence
   implemented; a rate-limited latency/resource probe is reproducible and a
   default five-minute Docker profile passed, while sustained
-  reference-environment load, saturation, and capacity envelopes remain open)*
+  reference-environment load, saturation, and capacity envelopes remain open;
+  hard PostgreSQL failure under active load and clean replay/recovery passed,
+  while slow and partial dependency failures remain open)*
 - Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race plus Windows and macOS compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, main-line tag validation, exact-commit extended-fuzz evidence enforcement, and Apache-2.0 license implemented; tagged workflow and independent Windows consumer verification passed, while the new evidence gates and hosted macOS path require hosted validation)*
 
 Exit condition: the project can be operated as a dependable organization-wide

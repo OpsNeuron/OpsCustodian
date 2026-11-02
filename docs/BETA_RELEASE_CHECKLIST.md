@@ -80,6 +80,10 @@ git diff --exit-code
   3,000 writes, 301 readiness checks, zero errors, and intact
   snapshot/audit/spool state. The longer reference-environment soak remains
   open.
+- [x] PostgreSQL failure under active read/write load passed on 2026-11-02:
+  the service failed closed, retained 11 bounded audit events, replayed each
+  exactly once after recovery, then completed 399 reads and 39 writes without
+  error or snapshot/audit/spool integrity violation.
 - [ ] Repeat fresh install, upgrade, rollback, backup, and restore on every
   environment in the published beta support matrix.
 - [ ] Exercise sustained load, dependency outage, partial failure, and recovery

@@ -98,6 +98,25 @@ plane CPU was 39.19% and peak PostgreSQL CPU was 114.56%, where values above
 baseline, but five minutes remains insufficient for a beta soak or capacity
 claim.
 
+## Dependency failure under load
+
+The disposable failure/recovery harness runs a bounded healthy phase, stops
+PostgreSQL while authenticated reads and writes remain active, requires the
+control plane to fail closed, validates every private spool entry, restores the
+database, and runs a second healthy load phase:
+
+```bash
+sh ./integration/verify_failure_recovery.sh
+```
+
+On 2026-11-02 the pre-failure phase completed 192 reads and 19 writes before
+the outage produced 108 read failures and 12 write failures. Eleven spooled
+audit events were replayed exactly once. The recovery phase completed 399 reads
+and 39 writes without error, with intact snapshot, Finding, audit-identity,
+duplicate, readiness, and spool invariants. This proves one controlled hard
+database outage and restart path; it is not evidence for packet loss,
+connection exhaustion, slow queries, storage stalls, or regional failure.
+
 ## Security-boundary microbenchmarks
 
 The source suite measures two bounded operations that occur on authenticated

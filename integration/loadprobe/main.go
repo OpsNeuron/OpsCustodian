@@ -46,6 +46,7 @@ type probeSummary struct {
 	WriteWorkers      int            `json:"writeWorkers"`
 	TargetReadRPS     int            `json:"targetReadRequestsPerSecond"`
 	TargetWriteRPS    int            `json:"targetWriteRequestsPerSecond"`
+	ExpectedFailures  bool           `json:"expectedFailures"`
 	RequestsPerSecond float64        `json:"requestsPerSecond"`
 	Read              metricsSummary `json:"read"`
 	Write             metricsSummary `json:"write"`
@@ -62,6 +63,7 @@ type probeConfig struct {
 	fixturePath    string
 	revisionPrefix string
 	token          string
+	expectFailures bool
 }
 
 func main() {
@@ -98,6 +100,7 @@ func parseConfig() (probeConfig, error) {
 	flag.IntVar(&config.writeRPS, "write-rps", 10, "maximum aggregate snapshot writes per second")
 	flag.StringVar(&config.fixturePath, "fixture", "/fixtures/scope-expansion/agentbom.after.json", "Agent BOM fixture")
 	flag.StringVar(&config.revisionPrefix, "revision-prefix", "soak", "generated revision prefix")
+	flag.BoolVar(&config.expectFailures, "expect-failures", false, "require read, write, and readiness failures")
 	flag.Parse()
 
 	config.baseURL = strings.TrimRight(config.baseURL, "/")
@@ -235,16 +238,32 @@ func runProbe(config probeConfig, fixture map[string]any) (probeSummary, error) 
 	summary := probeSummary{
 		StartedAt: started.Format(time.RFC3339Nano), FinishedAt: finished.Format(time.RFC3339Nano),
 		DurationSeconds: int(config.duration / time.Second), ReadWorkers: config.readWorkers, WriteWorkers: config.writeWorkers,
-		TargetReadRPS: config.readRPS, TargetWriteRPS: config.writeRPS,
+		TargetReadRPS: config.readRPS, TargetWriteRPS: config.writeRPS, ExpectedFailures: config.expectFailures,
 		RequestsPerSecond: float64(total) / config.duration.Seconds(), Read: read, Write: write, Readiness: readiness,
 	}
-	if read.Errors != 0 || write.Errors != 0 || readiness.Errors != 0 {
-		return summary, errors.New("one or more requests failed")
-	}
-	if read.Successes < int64(config.readWorkers) || write.Successes < int64(config.writeWorkers) || readiness.Successes < 1 {
-		return summary, errors.New("insufficient successful requests")
+	if err := validateProbeMetrics(config, read, write, readiness); err != nil {
+		return summary, err
 	}
 	return summary, nil
+}
+
+func validateProbeMetrics(config probeConfig, read, write, readiness metricsSummary) error {
+	if config.expectFailures {
+		if read.Successes < int64(config.readWorkers) || write.Successes < int64(config.writeWorkers) || readiness.Successes < 1 {
+			return errors.New("insufficient successful requests before failure")
+		}
+		if read.Errors == 0 || write.Errors == 0 || readiness.Errors == 0 {
+			return errors.New("expected read, write, and readiness failures were not all observed")
+		}
+		return nil
+	}
+	if read.Errors != 0 || write.Errors != 0 || readiness.Errors != 0 {
+		return errors.New("one or more requests failed")
+	}
+	if read.Successes < int64(config.readWorkers) || write.Successes < int64(config.writeWorkers) || readiness.Successes < 1 {
+		return errors.New("insufficient successful requests")
+	}
+	return nil
 }
 
 func workerInterval(workers, requestsPerSecond int) time.Duration {

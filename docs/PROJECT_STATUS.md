@@ -116,6 +116,12 @@ p99 was 278.343 ms, write p99 was 296.639 ms, persistence/audit/spool checks
 remained intact, and sampled PostgreSQL CPU peaked at 114.56% on the Docker
 Desktop allocation. Longer-duration reference-environment evidence remains
 open.
+An active-load PostgreSQL outage then produced the expected read, write, and
+readiness failures and stopped the process fail-closed. Eleven private audit
+events replayed exactly once after recovery; a subsequent profile completed
+399 reads and 39 writes without error, preserved all snapshot/audit/spool
+invariants, and remained duplicate-free after another restart. Slow-failure,
+connection-exhaustion, and broader partial-dependency injection remain open.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment

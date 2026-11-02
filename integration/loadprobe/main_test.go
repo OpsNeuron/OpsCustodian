@@ -69,3 +69,27 @@ func TestWorkerIntervalCapsAggregateRate(t *testing.T) {
 		t.Fatalf("minimum worker interval = %s", got)
 	}
 }
+
+func TestValidateProbeMetricsExpectedFailureMode(t *testing.T) {
+	config := probeConfig{readWorkers: 2, writeWorkers: 1, expectFailures: true}
+	read := metricsSummary{Successes: 10, Errors: 3}
+	write := metricsSummary{Successes: 2, Errors: 1}
+	readiness := metricsSummary{Successes: 1, Errors: 2}
+	if err := validateProbeMetrics(config, read, write, readiness); err != nil {
+		t.Fatalf("validateProbeMetrics(): %v", err)
+	}
+	read.Errors = 0
+	if err := validateProbeMetrics(config, read, write, readiness); err == nil {
+		t.Fatal("validateProbeMetrics() accepted a missing read failure")
+	}
+}
+
+func TestValidateProbeMetricsNormalModeRejectsErrors(t *testing.T) {
+	config := probeConfig{readWorkers: 1, writeWorkers: 1}
+	read := metricsSummary{Successes: 1, Errors: 1}
+	write := metricsSummary{Successes: 1}
+	readiness := metricsSummary{Successes: 1}
+	if err := validateProbeMetrics(config, read, write, readiness); err == nil {
+		t.Fatal("validateProbeMetrics() accepted an unexpected error")
+	}
+}

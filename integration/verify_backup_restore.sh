@@ -18,6 +18,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# Docker creates named-volume roots with broad default permissions. The server
+# deliberately rejects a non-private audit spool, so establish the reviewed
+# 0700 boundary before starting the application on a fresh volume.
+compose --profile recovery run --rm --no-deps --build --entrypoint sh opscustodian -c 'chmod 700 /audit-spool'
 compose --profile recovery up --detach --build --wait postgres collector opscustodian postgres-restore
 
 attempt=0
@@ -72,7 +76,7 @@ if [ "$tenant_count" != "1" ]; then
   exit 1
 fi
 
-compose --profile recovery up --detach --wait opscustodian-restore
+compose --profile recovery up --detach --build --wait opscustodian-restore
 compose exec -T -e OPSCUSTODIAN_TEST_API_TOKEN="$OPSCUSTODIAN_INTEGRATION_API_TOKEN" opscustodian-restore sh -c 'wget -q -O - --header="Authorization: Bearer $OPSCUSTODIAN_TEST_API_TOKEN" http://127.0.0.1:8080/api/v1/repositories' | grep -q 'integration:scan-input'
 
 echo "OpsCustodian PostgreSQL backup and restore verification passed."

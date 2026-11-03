@@ -145,6 +145,23 @@ func TestOperatorRehearsalRequiresCleanIsolatedEndToEndRun(t *testing.T) {
 	}
 }
 
+func TestBackupRestoreInitializesPrivateAuditSpool(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "integration", "verify_backup_restore.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(content)
+	permissionSetup := "run --rm --no-deps --build --entrypoint sh opscustodian -c 'chmod 700 /audit-spool'"
+	applicationStart := "up --detach --build --wait postgres collector opscustodian postgres-restore"
+	setupIndex, startIndex := strings.Index(text, permissionSetup), strings.Index(text, applicationStart)
+	if setupIndex < 0 || startIndex < 0 || setupIndex > startIndex {
+		t.Fatal("backup/restore harness must initialize the private audit spool before starting the application")
+	}
+	if !strings.Contains(text, "up --detach --build --wait opscustodian-restore") {
+		t.Fatal("backup/restore harness must rebuild the restore service from the candidate source")
+	}
+}
+
 func validateOPAImageAlignment(dockerfile, compose []byte) error {
 	dockerReference := regexp.MustCompile(`(?m)^FROM openpolicyagent/opa:([0-9]+\.[0-9]+\.[0-9]+)-static@sha256:([0-9a-f]{64}) AS opa\r?$`).FindSubmatch(dockerfile)
 	composeReference := regexp.MustCompile(`(?m)^\s+image: openpolicyagent/opa:([0-9]+\.[0-9]+\.[0-9]+)-static@sha256:([0-9a-f]{64})\r?$`).FindSubmatch(compose)

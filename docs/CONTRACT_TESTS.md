@@ -8,6 +8,11 @@ tests lock representative byte-level output for:
 - current-state findings SARIF; and
 - policy decision JSON.
 
+The central contract registry and the authenticated `/api/v1/contracts`
+response additionally lock every public contract version listed in
+[`BETA_CONTRACT_FREEZE.md`](BETA_CONTRACT_FREEZE.md). The OpenAPI schema names
+the complete response rather than accepting an unspecified success envelope.
+
 Run the contract suite with:
 
 ```bash

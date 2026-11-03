@@ -44,4 +44,8 @@ publish an explicit support window and migration policy.
 Beta releases freeze the core semantic contracts except for changes delivered
 through a new contract version with tested migration guidance. See the
 [release maturity gates](ROADMAP.md#release-maturity-gates) for the evidence
-required to enter beta and stable stages.
+required to enter beta and stable stages. The platform, dependency, provider,
+and upgrade boundaries for the first beta are defined in the
+[Beta support matrix](BETA_SUPPORT_MATRIX.md). The exact machine-readable
+interface inventory and change procedure are maintained in the
+[First-beta contract freeze](BETA_CONTRACT_FREEZE.md).

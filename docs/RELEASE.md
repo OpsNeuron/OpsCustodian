@@ -10,16 +10,29 @@ The first beta is governed separately by the
 release does not imply that the beta operational and adoption gates have passed.
 
 The tagged commit must be reachable from `origin/main`. The release verification
-job also queries GitHub Actions for a successful `Extended security fuzzing` run
-whose commit exactly equals the tagged commit. A run for an earlier commit does
-not satisfy this gate, and build or publication jobs cannot start when either
-lineage or fuzz evidence is missing. The matching run must still retain exactly
-twelve non-expired `fuzz-evidence-*` artifacts; a successful run whose evidence
-has expired is deliberately insufficient for release.
+job also queries GitHub Actions for successful `CI`, Go vulnerability, license,
+container vulnerability, CodeQL, and `Extended security fuzzing` runs whose
+commit exactly equals the tagged commit. The first five must be `push` runs on
+`main`; the manually dispatched fuzz run must retain exactly twelve non-expired
+`fuzz-evidence-*` artifacts. A run for an earlier commit, a pull-request-only
+run, or a successful fuzz run whose evidence expired is deliberately
+insufficient, and build or publication jobs cannot start when any required
+evidence is missing.
 
-Release notes may be committed as `docs/releases/<tag>.md`. The publish job
-uses that reviewed file when present and otherwise falls back to GitHub's
-generated notes. The first alpha notes are
+After verifying those run identities, the workflow retains a checksummed,
+secret-free `release-candidate.json` artifact for 90 days. It binds the tag and
+repository to the exact commit plus the six reviewed workflow run IDs and fuzz
+artifact count. This manifest records provenance of the gate decision; it does
+not replace inspection of hosted logs, generated artifacts, or attestations.
+
+Release notes must be committed as `docs/releases/<tag>.md`. The verification
+job checks the exact tag heading and required installation section before any
+build begins; beta tags additionally require explicit support, upgrade,
+rollback, known-limitation, single-replica, consecutive-upgrade, and
+unsupported-mode language. Unreviewed generated-note fallback is prohibited.
+Start beta notes from [`BETA_TEMPLATE.md`](releases/BETA_TEMPLATE.md), replace
+every placeholder, and keep the file in review with the candidate. The first
+alpha notes are
 [`docs/releases/v0.5.0-alpha.md`](releases/v0.5.0-alpha.md).
 The workflow independently repeats formatting, vet, unit/contract tests, and
 the Linux race detector before building artifacts.
@@ -40,6 +53,22 @@ Every binary is built with `-trimpath` and its tag is injected into the version
 contract. Release assets include SHA-256 checksums, a CycloneDX module SBOM, and
 GitHub artifact provenance. v0 tags are published as prereleases.
 
+Before provenance is generated or any asset is published, the release workflow
+runs the repository's cross-platform release verifier. It requires exactly five
+supported-platform archives, one populated CycloneDX SBOM, and one checksum
+manifest. Every checksum must match, every archive must contain exactly the
+versioned root, executable, `README.md`, `SECURITY.md`, and `LICENSE`, and
+metadata is rejected when it contains a private-key marker, recognizable hosted
+token, signed URL, or user-specific absolute path. Unexpected directories,
+files, archive paths, symlinks, and platform assets fail the release.
+
+Maintainers can reproduce the same check after placing the generated assets and
+`SHA256SUMS` in one directory:
+
+```bash
+go run ./cmd/opscustodian-releasecheck --dist ./dist --tag v0.6.0-beta.1
+```
+
 GitHub Actions have root `contents: read` permission, use full commit SHA pins,
 and disable checkout credential persistence. Only the final publish job obtains
 scoped `contents: write`, `id-token: write`, and `attestations: write` access.
@@ -56,6 +85,9 @@ Before creating a public tag:
    secret-free result with the release evidence;
 3. verify the committed Apache-2.0 `LICENSE` is included in every archive;
 4. require the CI workflow and review on the protected `main` branch;
+   release automation additionally requires exact-commit successful push runs
+   for CI, Go vulnerability, dependency-license, container-vulnerability, and
+   CodeQL workflows;
 5. run the deferred real PostgreSQL migration/rollback and container tests;
 6. run `opa fmt --fail policies/builtin` and `opa test policies/builtin -v`;
 7. validate a real OpenTelemetry Collector/backend path;

@@ -2,9 +2,11 @@
 
 ## Project status
 
-OpsCustodian is alpha software and is not suitable as a sole production
-security control. Findings should be reviewed by a human until a stable release
-and its threat model are published.
+OpsCustodian is pre-stable software and is not suitable as a sole production
+security control. Findings should be reviewed by a human. The narrow first-beta
+boundary and its accepted residual risks are documented in the
+[first-beta threat model](docs/THREAT_MODEL.md) and
+[beta support matrix](docs/BETA_SUPPORT_MATRIX.md).
 
 ## Sensitive-data guarantees
 
@@ -29,11 +31,13 @@ unnecessary exploit payloads in any report.
 
 ## Threat-model scope
 
-The implementation will treat repositories, configuration files, parser input,
-policy bundles, and external connector responses as untrusted. The initial
-threat model will cover path traversal, symlink escape, resource exhaustion,
-malformed serialization, secret leakage, policy tampering, baseline tampering,
-and unsafe terminal/SARIF rendering.
+The implementation treats repositories, configuration files, parser input,
+and external connector responses as untrusted. Policy bundles and local runtime
+dependencies are operator-controlled trusted inputs whose integrity is an
+explicit residual risk. The current focused review covers path traversal,
+symlink escape, resource exhaustion, malformed serialization, secret leakage,
+policy tampering, tenant isolation, credential lifecycle, ingestion, audit
+integrity, and unsafe report rendering.
 
 The current bounded fuzzing, dependency-integrity, reachable Go vulnerability,
 final-container vulnerability, and dependency-license gates are documented in

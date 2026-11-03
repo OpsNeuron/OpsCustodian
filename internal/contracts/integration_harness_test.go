@@ -113,6 +113,38 @@ func TestOPAImageContractAllowsPinnedPatchUpgrades(t *testing.T) {
 	}
 }
 
+func TestOperatorRehearsalRequiresCleanIsolatedEndToEndRun(t *testing.T) {
+	content, err := os.ReadFile(filepath.Join("..", "..", "integration", "verify_operator_rehearsal.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(content)
+	for _, required := range []string{
+		"status --porcelain --untracked-files=all",
+		"git clone --quiet --no-local --no-checkout",
+		"checkout --quiet --detach \"$commit\"",
+		"go run ./cmd/opscustodian-repocheck --root .",
+		"./bin/opscustodian scan",
+		"./bin/opscustodian report",
+		"./bin/opscustodian diff",
+		"sh ./integration/verify.sh",
+		"sh ./integration/verify_backup_restore.sh",
+		"sh ./integration/verify_upgrade.sh",
+		"sh ./integration/verify_failure_recovery.sh",
+		"down --volumes --remove-orphans",
+		"operator evidence must be written outside the repository",
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("operator rehearsal is missing reviewed contract %q", required)
+		}
+	}
+	for _, forbidden := range []string{"OPSCUSTODIAN_INTEGRATION_KEEP=true", "git reset --hard", "docker system prune"} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("operator rehearsal contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
 func validateOPAImageAlignment(dockerfile, compose []byte) error {
 	dockerReference := regexp.MustCompile(`(?m)^FROM openpolicyagent/opa:([0-9]+\.[0-9]+\.[0-9]+)-static@sha256:([0-9a-f]{64}) AS opa\r?$`).FindSubmatch(dockerfile)
 	composeReference := regexp.MustCompile(`(?m)^\s+image: openpolicyagent/opa:([0-9]+\.[0-9]+\.[0-9]+)-static@sha256:([0-9a-f]{64})\r?$`).FindSubmatch(compose)

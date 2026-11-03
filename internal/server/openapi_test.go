@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/opscustodian/opscustodian/internal/contracts"
@@ -29,6 +30,23 @@ func TestOpenAPIDocumentsEveryReadOnlyRoute(t *testing.T) {
 	}
 	if document.OpenAPI != "3.1.0" || document.APIVersion != contracts.ControlPlaneAPIVersion {
 		t.Fatalf("unexpected OpenAPI contract: %#v", document)
+	}
+	for name, version := range map[string]string{
+		"agentBOM":       contracts.AgentBOMAPIVersion,
+		"normalization":  contracts.NormalizationVersion,
+		"findings":       contracts.FindingsAPIVersion,
+		"policyInput":    contracts.PolicyInputAPIVersion,
+		"policyDecision": contracts.PolicyDecisionVersion,
+		"auditEvent":     contracts.AuditEventAPIVersion,
+		"controlPlane":   contracts.ControlPlaneAPIVersion,
+		"repositorySet":  contracts.RepositorySetAPIVersion,
+		"preflight":      contracts.PreflightAPIVersion,
+		"sarif":          contracts.SARIFVersion,
+	} {
+		literal := name + ": { const: " + version + " }"
+		if !strings.Contains(string(content), literal) {
+			t.Errorf("OpenAPI contract discovery is missing %q", literal)
+		}
 	}
 	if len(document.Security) != 1 || document.Security[0]["bearerAuth"] == nil || document.Components.SecuritySchemes["bearerAuth"]["scheme"] != "bearer" {
 		t.Fatalf("OpenAPI bearer security contract is missing: %#v", document.Security)

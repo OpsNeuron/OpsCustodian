@@ -12,10 +12,11 @@ import (
 	"unicode"
 
 	"github.com/opscustodian/opscustodian/internal/boundary"
+	"github.com/opscustodian/opscustodian/internal/contracts"
 )
 
 const (
-	RepositorySetAPIVersion       = "opscustodian.dev/ingestion/v1alpha1"
+	RepositorySetAPIVersion       = contracts.RepositorySetAPIVersion
 	RepositorySetKind             = "RepositorySet"
 	MaximumRepositorySetFileBytes = 1 << 20
 	maximumRepositoryFileSize     = 100 << 20

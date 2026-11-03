@@ -72,11 +72,46 @@ operations plus readiness checks and no integrity error, but its observed
 latency and resource peaks remain host-specific. Five minutes is not evidence
 of multi-hour stability, workload seasonality, memory-leak absence, or a safe
 production capacity limit.
+A fixed 30-minute profile subsequently completed 145,425 reads, 17,991 writes,
+and 1,800 readiness checks without error on a Docker Desktop allocation with 16
+logical CPUs and 33,534,070,784 bytes of memory. Snapshot, Finding, audit, and
+spool invariants remained intact. Its measured 90.787 aggregate requests per
+second stayed below the configured 110-request ceiling, so this is sustained
+single-host correctness evidence rather than a safe capacity, saturation,
+multi-hour stability, or SLO claim.
+A progressive capacity ramp subsequently sustained 107.2 requests per second
+for two minutes at 97.455% target attainment, then found its first boundary at
+a configured 220-request ceiling where only 93.317 requests per second and
+42.417% attainment were observed. Both profiles were error-free and preserved
+data integrity; a low-pressure recovery profile returned to 99.697% attainment.
+This publishes an allocation-specific operating envelope, not a universal safe
+tenant count, production throughput guarantee, or demonstrated CPU/memory
+saturation point.
 One hard PostgreSQL stop under active read/write load has also passed with
 fail-closed shutdown, bounded durable audit replay, clean restart, and healthy
-post-recovery load. This does not cover latency injection, packet loss,
-connection-pool exhaustion, read-only database states, storage stalls, or
+post-recovery load. A separate controlled 200 ms snapshot-write delay remained
+available without request or readiness errors and returned to baseline latency
+after removal while preserving all persistence and audit invariants. These
+tests do not cover packet loss, storage saturation, regional failure, or
 managed-database failover behavior.
+A separate two-slot application-pool test subsequently observed a bounded
+9,779 ms authenticated-read wait and a ready-to-degraded-to-ready database
+readiness transition, followed by clean load recovery without restart. This
+does not establish a safe production pool size, global server connection-limit
+behavior, fairness under a large queue, or overload admission control.
+A controlled primary read-only transition also rejected a snapshot without
+partial persistence, retained its failed audit event durably, stopped
+fail-closed, replayed exactly once after read-write restoration, and passed
+recovery load. Public health requests are audited too, so an active liveness
+probe can intentionally become the first fail-closed trigger when persistent
+audit storage becomes read-only. This test does not cover read-replica routing,
+standby promotion, managed failover, or multi-endpoint database topologies.
+A server-enforced runtime-role test also rejected new connections with
+`SQLSTATE 53300`, retained the failed authenticated request audit durably,
+stopped fail-closed, and recovered cleanly after restoring the role limit. This
+does not cover exhaustion of global `max_connections`, PostgreSQL reserved
+slots, a large waiter population, PgBouncer or another proxy, or managed
+service admission behavior.
 Custom-format logical backup and restore between isolated PostgreSQL 17.4
 volumes has also passed with content fingerprint and authenticated API checks.
 Physical backups, WAL-based point-in-time recovery, cross-version restore,

@@ -142,6 +142,31 @@ samples observed peak control-plane CPU of 39.19% and peak PostgreSQL CPU of
 114.56% on this Docker Desktop allocation. This closes validation of the
 default five-minute profile, not the longer beta soak gate.
 
+On 2026-11-03 the fixed `beta-reference-v1` profile ran for 30 minutes on
+Docker Desktop 28.3.2 with 16 logical CPUs and 33,534,070,784 bytes assigned
+memory. It completed 145,425 reads, 17,991 writes, and 1,800 readiness checks
+without error. Read p99 was 340.654 ms, write p99 was 374.199 ms, and readiness
+p99 was 371.652 ms. All 17,991 generated snapshots were retained, with no
+orphan Finding, audit identity violation, duplicate event ID, or pending spool
+entry. Across 166 samples, control-plane CPU peaked at 37.14% and PostgreSQL
+CPU at 114.43%; control-plane and PostgreSQL memory peaked at 0.20% and 0.91%
+of the Docker allocation respectively. The measured aggregate completion rate
+was 90.787 requests per second, below the configured aggregate ceiling of 110,
+so this closes the sustained correctness profile but not the saturation or
+safe-capacity boundary.
+
+The `capacity-ramp-v1` harness then increased rate ceilings and concurrency in
+two-minute steps. Its 110-request ceiling profile achieved 107.2 requests per
+second, or 97.455% of target, without request/readiness errors or data-integrity
+violations; read and write p99 were 345.461 ms and 346.896 ms. The next
+220-request ceiling profile remained error-free and preserved every invariant,
+but achieved 93.317 requests per second, or 42.417% of target, and therefore
+became the first boundary under the harness's 95% attainment criterion. Its
+read/write/readiness p99 remained near 592 ms, so this was throughput target
+non-attainment rather than timeout, corruption, or demonstrated resource
+saturation. A one-minute recovery profile then achieved 99.697% of its
+55-request ceiling with zero errors and clean snapshot/audit/spool state.
+
 The active-load failure/recovery harness then disabled scheduled ingestion,
 ran authenticated reads and unique writes, and stopped PostgreSQL after ten
 seconds. Before fail-closed shutdown it completed 192 reads and 19 writes; the
@@ -152,6 +177,64 @@ writes without error, every generated post-recovery snapshot was present, and
 no orphan Finding, audit identity violation, duplicate event ID, or pending
 spool entry remained. A second application restart did not duplicate any
 replayed event.
+
+The controlled latency/recovery harness then kept PostgreSQL available while
+adding 200 ms only to probe-generated snapshot inserts. The baseline write p50
+was 11.292 ms; the delayed phase completed without read, write, or readiness
+errors at 212.085 ms write p50 and 238.325 ms write p99; and write p50 returned
+to 10.553 ms after removing the delay. Delayed read p99 was 39.2 ms and maximum
+readiness latency was 10.789 ms. PostgreSQL retained exactly 39 baseline, 59
+delayed, and 40 recovery snapshots, matching every successful write, with no
+orphan Finding, audit identity violation, duplicate event ID, or pending spool
+entry. This proves one bounded slow-write and clean-recovery path, not storage
+saturation, packet loss, connection-pool exhaustion, or managed-database
+failover behavior.
+
+The connection-pool recovery harness then recreated the application with two
+database connections and held both slots with authenticated snapshot
+transactions for ten seconds. PostgreSQL directly reported two active
+application queries, including one delayed snapshot insert; the second
+transaction was waiting on the shared organization-row lock. An authenticated
+repository read waited 9,779 ms, database readiness transitioned from ready to
+degraded after the bounded two-second ping timeout, and both recovered without
+an application restart after the transactions completed. A post-recovery
+profile completed 196 reads, 19 writes, and ten readiness checks without error;
+all 20 baseline, two holder, and 19 recovery snapshots were retained with no
+orphan Finding, audit identity violation, duplicate event ID, or pending spool
+entry. This proves one bounded two-slot pool-exhaustion and recovery path, not
+PostgreSQL server connection-limit exhaustion, unbounded queue behavior,
+storage saturation, or managed-database failover.
+
+The read-only recovery harness then changed the disposable PostgreSQL database
+default for new sessions to `transaction_read_only=on`, terminated old pooled
+connections, and proved that the database remained reachable for queries. An
+authenticated snapshot request returned `500`, persisted no partial snapshot,
+and left exactly one minimized failed-ingestion audit event in the private
+spool before the process stopped fail-closed. After restoring read-write mode,
+startup replayed the event exactly once and emptied the spool. A recovery
+profile completed 200 reads, 20 writes, and 11 readiness checks without error;
+all 20 snapshots were present and no orphan Finding, audit identity violation,
+or duplicate event ID existed. A second restart did not duplicate the replayed
+event. Because public health endpoints are also audited, the harness lengthens
+the automatic Docker healthcheck interval only after verified startup so the
+explicit snapshot request remains the deterministic failure trigger. This
+proves one controlled primary read-only transition, not replica routing,
+managed failover, or recovery from an actual standby promotion.
+
+The server-enforced connection-limit harness then created a separately
+privileged runtime login after owner-led bootstrap and migrations, verified
+that it could persist an audited health request, set its PostgreSQL
+`CONNECTION LIMIT` to zero, and terminated its existing sessions. An
+authenticated repository read returned `500`; PostgreSQL reported
+`SQLSTATE 53300`, one minimized authenticated/authorized request event remained
+in the private spool, and the process stopped fail-closed. Restoring the role
+limit to 20 allowed startup to replay the event exactly once. A recovery
+profile completed 199 reads, 19 writes, and 11 readiness checks without error;
+all 19 snapshots were retained with no orphan Finding, audit identity
+violation, duplicate event ID, or pending spool entry. A second restart did not
+duplicate the replayed event. This proves runtime-role connection admission and
+recovery; it does not exercise global `max_connections`, reserved connection
+slots, a large waiter population, or a managed connection proxy.
 
 The policy-runtime phase then rebuilt the application image with the pinned OPA
 1.7.1 executable, mounted the reviewed built-in policy bundle read-only, and
@@ -229,14 +312,15 @@ large-database migration duration remain open.
 This is one environment-backed result, not a compatibility matrix or a
 production-readiness claim. Re-run it from the exact release candidate.
 
-The committed Compose harness itself does not cover GitHub PAT/App provider
-behavior, PostgreSQL TLS/CA compatibility, migration rollback, Kubernetes
-workload readiness, load, or failure injection. The supplemental result above
-closes the TLS, rollback, policy-runtime, Kubernetes API-admission, and listed
-GitHub App checks for this environment only. Certificate rotation/trust
+The primary `verify.sh` Compose path does not itself cover GitHub PAT/App
+provider behavior, PostgreSQL TLS/CA compatibility, migration rollback,
+Kubernetes workload readiness, sustained load, or failure injection. The
+supplemental scripts and results above close the listed load/failure cases plus
+TLS, rollback, policy-runtime, Kubernetes API-admission, and GitHub App checks
+for this environment only. Certificate rotation/trust
 validation, PAT parity, expiry-driven App refresh, real-provider redirect,
 cancellation and rate-limit observations, broader authorization compatibility,
-HA contention, sustained/maximum load, and broader failure injection remain
+HA contention, maximum load, and broader failure injection remain
 explicit gates rather than implied by a passing harness.
 
 ## Execution boundary
@@ -259,11 +343,52 @@ sh ./integration/verify_upgrade.sh
 sh ./integration/verify_load.sh
 sh ./integration/verify_contention.sh
 sh ./integration/verify_soak.sh
+sh ./integration/verify_beta_soak.sh
+sh ./integration/verify_capacity.sh
 sh ./integration/verify_failure_recovery.sh
+sh ./integration/verify_latency_recovery.sh
+sh ./integration/verify_pool_recovery.sh
+sh ./integration/verify_readonly_recovery.sh
+sh ./integration/verify_connection_limit_recovery.sh
 ```
 
-When dependency downloads require an operator-controlled HTTP proxy, the
-failure/recovery harness accepts its URL only through the optional
+## Clean operator rehearsal
+
+The final beta candidate must be exercised from a committed, clean worktree
+rather than from a developer directory containing uncommitted source. The
+operator rehearsal refuses dirty tracked or untracked state, resolves the exact
+commit, creates an isolated local clone without network access, and runs source
+validation, the offline Quick Start, base integration, backup/restore,
+consecutive upgrade, and active-outage recovery in sequence:
+
+```bash
+sh ./integration/verify_operator_rehearsal.sh
+```
+
+The run requires Docker, Git, Go, `tar`, `od`, and `mktemp`. It refuses to start
+when resources labeled for the `opscustodian-integration` Compose project
+already exist. Every child phase uses ephemeral credentials and destructive
+cleanup is limited to that disposable Compose project and the validated
+temporary clone. The final check fails if a project container or volume
+remains.
+
+By default the evidence summary is written only to standard output and contains
+the commit, UTC start/end timestamps, tool versions, completed stage names, and
+cleanup result. To retain it, provide a pre-existing absolute destination
+outside the repository:
+
+```bash
+OPSCUSTODIAN_OPERATOR_EVIDENCE_FILE=/secure/evidence/operator-rehearsal.txt \
+  sh ./integration/verify_operator_rehearsal.sh
+```
+
+The script intentionally cannot satisfy the beta checklist before the candidate
+changes are committed. Its successful output must be retained from the exact
+release-candidate commit.
+
+When dependency downloads require an operator-controlled HTTP proxy, the soak,
+failure/recovery, latency/recovery, pool-recovery, read-only-recovery, and
+connection-limit harnesses accept its URL only through the optional
 `OPSCUSTODIAN_INTEGRATION_BUILD_PROXY` environment variable and does not retain
 it in evidence or repository files.
 

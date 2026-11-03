@@ -8,12 +8,13 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/opscustodian/opscustodian/internal/contracts"
 	"github.com/opscustodian/opscustodian/internal/controlplane"
 	"github.com/opscustodian/opscustodian/internal/ingestion"
 )
 
 const (
-	APIVersion = "opscustodian.dev/preflight/v1alpha1"
+	APIVersion = contracts.PreflightAPIVersion
 	Kind       = "PreflightReport"
 
 	StatusPassed  = "passed"
@@ -74,6 +75,10 @@ func Evaluate(options Options) Report {
 		report.Checks = append(report.Checks,
 			fileCheck("license", filepath.Join(options.Root, "LICENSE"), true, options.Stat),
 			fileCheck("beta-checklist", filepath.Join(options.Root, "docs", "BETA_RELEASE_CHECKLIST.md"), true, options.Stat),
+			fileCheck("beta-contract-freeze", filepath.Join(options.Root, "docs", "BETA_CONTRACT_FREEZE.md"), true, options.Stat),
+			fileCheck("beta-finding-review", filepath.Join(options.Root, "docs", "BETA_FINDING_REVIEW.md"), true, options.Stat),
+			fileCheck("beta-support-matrix", filepath.Join(options.Root, "docs", "BETA_SUPPORT_MATRIX.md"), true, options.Stat),
+			fileCheck("beta-threat-model", filepath.Join(options.Root, "docs", "THREAT_MODEL.md"), true, options.Stat),
 			fileCheck("integration-runbook", filepath.Join(options.Root, "docs", "INTEGRATION_TESTING.md"), true, options.Stat),
 			fileCheck("release-runbook", filepath.Join(options.Root, "docs", "RELEASE.md"), true, options.Stat),
 			fileCheck("extended-fuzz-workflow", filepath.Join(options.Root, ".github", "workflows", "fuzz-extended.yml"), true, options.Stat),

@@ -173,7 +173,7 @@ func TestCodeQLWorkflowKeepsReviewedSecurityCoverage(t *testing.T) {
 	}
 }
 
-func TestReleaseWorkflowRequiresMainLineageAndCommitBoundFuzzEvidence(t *testing.T) {
+func TestReleaseWorkflowRequiresMainLineageAndCommitBoundCandidateEvidence(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "release.yml"))
 	if err != nil {
 		t.Fatal(err)
@@ -184,15 +184,31 @@ func TestReleaseWorkflowRequiresMainLineageAndCommitBoundFuzzEvidence(t *testing
 		"fetch-depth: 0",
 		"git fetch --no-tags origin main:refs/remotes/origin/main",
 		"git merge-base --is-ancestor \"${GITHUB_SHA}\" origin/main",
+		"--branch main --event push --status success",
+		"ci.yml vulnerability-scan.yml license-scan.yml container-security.yml codeql.yml",
 		"gh run list --workflow fuzz-extended.yml --commit \"${GITHUB_SHA}\" --status success --limit 1",
 		"test -n \"${fuzz_run_id}\"",
 		"actions/runs/${fuzz_run_id}/artifacts",
 		"startswith(\"fuzz-evidence-\")",
 		"[[ \"${fuzz_artifact_count}\" == \"12\" ]]",
+		"candidate-evidence/release-candidate.json",
+		"candidate-evidence-${{ github.sha }}",
+		"retention-days: 90",
+		"go run ./cmd/opscustodian-repocheck --root .",
+		"go run ./cmd/opscustodian-release-notescheck --root . --tag \"${GITHUB_REF_NAME}\"",
+		"go run ./cmd/opscustodian-releasecheck --dist dist --tag \"${RELEASE_TAG}\"",
+		"Verify release asset contract",
+		"--notes-file \"${notes_path}\"",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("release workflow is missing reviewed gate %q", required)
 		}
+	}
+	if strings.Contains(text, "--generate-notes") {
+		t.Fatal("release workflow permits unreviewed generated release notes")
+	}
+	if strings.Contains(text, "name: release-candidate-evidence-") {
+		t.Fatal("candidate evidence would be mixed into the release-* asset download")
 	}
 }
 
@@ -211,6 +227,7 @@ func TestCIExercisesEverySupportedDesktopPlatform(t *testing.T) {
 		"name: macOS compatibility",
 		"GOOS=darwin GOARCH=amd64",
 		"GOOS=darwin GOARCH=arm64",
+		"go run ./cmd/opscustodian-repocheck --root .",
 	} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("CI workflow is missing supported-platform contract %q", required)

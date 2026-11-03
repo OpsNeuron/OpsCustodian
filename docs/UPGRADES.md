@@ -38,6 +38,28 @@ that restored database. Mixed-version rolling upgrades, in-place production
 schema downgrade, multi-replica migration contention, and skip-version upgrade
 paths are not yet supported claims.
 
+## Beta compatibility policy
+
+The first beta supports exactly one database-bearing source release:
+`v0.5.0-alpha`. The verified path upgrades its schema-version-2 database
+through the complete first-beta migration plan. A fresh first-beta installation
+is also supported because it applies the same contiguous migration catalog from
+an empty database.
+
+After the first beta, only consecutive published beta upgrades are supported by
+default. For example, an operator on beta N must upgrade to beta N+1 before
+beta N+2 unless the N+2 release notes and retained integration evidence
+explicitly name N as a supported source. A version that is not named in the
+release's source-version table is unsupported even if startup appears to apply
+its migrations successfully.
+
+There is no supported skip-version path in the first-beta contract. This is a
+deliberate support decision rather than an untested promise: take and restore-
+test a logical backup, upgrade one published release at a time, validate the
+ledger and API after every step, and retain the previous backup until the next
+step is accepted. The complete matrix is maintained in
+[Beta support matrix](BETA_SUPPORT_MATRIX.md).
+
 ## Disposable verification
 
 The repository includes an opt-in Docker harness that builds the source binary

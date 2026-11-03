@@ -204,7 +204,13 @@ func TestAuditHistoryIsScopeAndRepositoryAuthorized(t *testing.T) {
 func TestReadOnlyAPIExposesContractsAndSecurityHeaders(t *testing.T) {
 	handler := NewHandler(store.NewMemory(), "v0.5.0-test")
 	response := performRequest(t, handler, http.MethodGet, "/api/v1/contracts")
-	assertResponse(t, response, http.StatusOK, `"version":"v0.5.0-test"`, `"controlPlane":"`+contracts.ControlPlaneAPIVersion+`"`)
+	assertResponse(t, response, http.StatusOK,
+		`"version":"v0.5.0-test"`,
+		`"controlPlane":"`+contracts.ControlPlaneAPIVersion+`"`,
+		`"policyDecision":"`+contracts.PolicyDecisionVersion+`"`,
+		`"repositorySet":"`+contracts.RepositorySetAPIVersion+`"`,
+		`"preflight":"`+contracts.PreflightAPIVersion+`"`,
+	)
 	for name, expected := range map[string]string{
 		"Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
 		"X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",

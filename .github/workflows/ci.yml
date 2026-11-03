@@ -34,6 +34,8 @@ jobs:
         run: go mod verify
       - name: Check module graph drift
         run: go mod tidy -diff
+      - name: Verify repository hygiene
+        run: go run ./cmd/opscustodian-repocheck --root .
       - name: Vet
         run: go vet ./...
       - name: Test

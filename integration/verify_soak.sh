@@ -52,9 +52,24 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-compose --profile performance build opscustodian loadprobe
+if [ -n "${OPSCUSTODIAN_INTEGRATION_BUILD_PROXY:-}" ]; then
+  compose --profile performance build \
+    --build-arg HTTP_PROXY="$OPSCUSTODIAN_INTEGRATION_BUILD_PROXY" \
+    --build-arg HTTPS_PROXY="$OPSCUSTODIAN_INTEGRATION_BUILD_PROXY" \
+    opscustodian loadprobe
+else
+  compose --profile performance build opscustodian loadprobe
+fi
 compose run --rm --no-deps --entrypoint sh opscustodian -c 'chmod 700 /audit-spool'
 compose up --detach --wait postgres collector opscustodian
+
+docker_environment=$(docker info --format '{{.NCPU}}|{{.MemTotal}}|{{.ServerVersion}}|{{.OperatingSystem}}|{{.OSType}}|{{.Architecture}}')
+docker_cpus=$(printf '%s\n' "$docker_environment" | cut -d'|' -f1)
+docker_memory_bytes=$(printf '%s\n' "$docker_environment" | cut -d'|' -f2)
+docker_server_version=$(printf '%s\n' "$docker_environment" | cut -d'|' -f3)
+docker_operating_system=$(printf '%s\n' "$docker_environment" | cut -d'|' -f4)
+docker_os_type=$(printf '%s\n' "$docker_environment" | cut -d'|' -f5)
+docker_architecture=$(printf '%s\n' "$docker_environment" | cut -d'|' -f6)
 
 compose --profile performance run --rm --no-deps loadprobe \
   -duration-seconds "$OPSCUSTODIAN_INTEGRATION_SOAK_DURATION_SECONDS" \
@@ -130,4 +145,20 @@ resource_summary() {
 app_resources=$(resource_summary opscustodian)
 postgres_resources=$(resource_summary postgres)
 collector_resources=$(resource_summary collector)
-printf 'OpsCustodian soak probe passed: %s snapshots=%s %s %s %s\n' "$summary" "$snapshot_count" "$app_resources" "$postgres_resources" "$collector_resources"
+printf 'OpsCustodian soak probe passed: profile_duration_seconds=%s target_read_rps=%s target_write_rps=%s read_workers=%s write_workers=%s docker_cpus=%s docker_memory_bytes=%s docker_server_version=%s docker_operating_system="%s" docker_os_type=%s docker_architecture=%s %s snapshots=%s %s %s %s\n' \
+  "$OPSCUSTODIAN_INTEGRATION_SOAK_DURATION_SECONDS" \
+  "$OPSCUSTODIAN_INTEGRATION_SOAK_READ_RPS" \
+  "$OPSCUSTODIAN_INTEGRATION_SOAK_WRITE_RPS" \
+  "$OPSCUSTODIAN_INTEGRATION_SOAK_READ_WORKERS" \
+  "$OPSCUSTODIAN_INTEGRATION_SOAK_WRITE_WORKERS" \
+  "$docker_cpus" \
+  "$docker_memory_bytes" \
+  "$docker_server_version" \
+  "$docker_operating_system" \
+  "$docker_os_type" \
+  "$docker_architecture" \
+  "$summary" \
+  "$snapshot_count" \
+  "$app_resources" \
+  "$postgres_resources" \
+  "$collector_resources"

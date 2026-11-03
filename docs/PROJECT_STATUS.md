@@ -3,17 +3,26 @@
 This document distinguishes implementation from validation. A capability marked
 implemented is present in source code; it is not considered production-ready
 until its build, automated tests, fixtures, and integration gates pass.
-The current public support boundary is maintained in
-[Public Alpha Limitations](LIMITATIONS.md).
+The current public support boundary is maintained in the
+[Beta support matrix](BETA_SUPPORT_MATRIX.md), with residual alpha and
+experimental constraints explained in [Limitations](LIMITATIONS.md).
 
 ## Current position
 
-The immediate delivery phase is **public-alpha adoption and evidence-backed
-hardening**. The offline onboarding path, tagged release, and current Docker
-Desktop integration, backup/restore, and upgrade-compatibility gates have
-passed. The current priority is compatibility, real-provider evidence, and
-closing the remaining runtime Kubernetes and operational gates without
-expanding the public HA claim.
+The immediate delivery phase is **first-beta contract freeze and
+release-candidate evidence closure**. The offline onboarding path, tagged alpha
+release, Docker Desktop integration, backup/restore, consecutive upgrade,
+failure-recovery, sustained-load, and capacity-envelope gates have passed. The
+support promise is now deliberately restricted to the offline CLI platforms
+and single-replica control-plane reference listed in the beta matrix. The
+focused tenant/credential/policy/ingestion/audit threat review, sustained-load,
+capacity-envelope, and representative false-positive review work are closed
+for the declared boundary. The reviewed mixed fixture produces 11 intentional,
+evidence-backed Findings and is regression-locked against silent identity,
+severity, source, remediation, or evidence-count drift. The current priority
+is hosted candidate evidence, GitHub App failure-mode evidence, operator-runbook
+review, artifact inspection, and independent-user adoption evidence;
+Kubernetes and HA do not silently expand the beta scope.
 
 OpsCustodian has completed the offline/core implementation scope of the `v0.4`
 effective-access milestone. Deterministic tests, browser report inspection,
@@ -34,6 +43,44 @@ CycloneDX SBOM, provenance attestation, and dependency updates for
 `v0.5.0-alpha`. It now also defines a native macOS compatibility gate. Passing
 release automation does not imply that every real-provider or
 production-runtime gate has passed.
+
+Release publication now also fails closed through a cross-platform Go verifier
+before provenance and upload. It checks the exact supported asset set,
+SHA-256 manifest, archive paths and contents, populated CycloneDX shape, and
+obvious private-key, hosted-token, signed-URL, or user-path leakage. This is a
+deterministic publication control; the exact beta candidate still requires an
+independent disposable-consumer verification of archives and provenance.
+
+Tag verification now binds hosted candidate evidence to the exact tagged
+commit. Successful `main` push runs are required for CI, Go vulnerability,
+dependency-license, container-vulnerability, and CodeQL workflows, together
+with the twelve-artifact extended-fuzz run. The workflow retains a checksummed,
+secret-free manifest of the repository, tag, commit, run IDs, and fuzz artifact
+count for 90 days; earlier-commit or pull-request-only success cannot satisfy
+the gate.
+
+Tag publication no longer falls back to generated release notes. An exact
+`docs/releases/<tag>.md` file must pass the release-note verifier before the
+build starts; beta notes must name the support matrix, threat model,
+consecutive-upgrade/restore path, known limitations, single-replica boundary,
+and unsupported modes without unresolved placeholders. The final beta tag and
+its reviewed note file remain release-candidate work. The complete
+`v0.6.0-beta.1` candidate notes now pass that verifier and await final comparison
+with the exact candidate diff.
+
+Pull-request and tag workflows now also scan the exact `git ls-files` source
+manifest with a secret-safe hygiene verifier. It rejects generated root output,
+the local presentation draft, unsafe tracked paths, unexpected binary content,
+and recognizable private-key, hosted-token, signed-URL, or user-home patterns
+without echoing matched content. Hosted logs and generated workflow artifacts
+still require inspection on the exact candidate.
+
+The operator-runbook gate now has one fail-closed rehearsal entry point. It
+requires a clean committed worktree, creates a detached local clone, and runs
+source validation, the offline Quick Start, base integration, logical
+backup/restore, consecutive upgrade, and active database-outage recovery before
+confirming project-scoped Docker cleanup. The harness is implemented and
+contract-tested; its exact-candidate run remains an open beta evidence item.
 
 The published Windows amd64 archive has also passed an independent consumer
 check: its digest matched `SHA256SUMS`, the archive contained the binary,
@@ -104,8 +151,8 @@ completed with zero errors and healthy readiness. On 2026-11-02 a separate
 workers with zero request/readiness errors and no snapshot or audit-identity
 integrity violation. A separate controlled run accepted 32 concurrent identical
 snapshot writes, rejected 32 concurrent content conflicts, retained one
-canonical immutable snapshot, and preserved exact audit identity. Sustained
-load, capacity, and broader dependency failure injection remain open. A
+canonical immutable snapshot, and preserved exact audit identity. Broader
+dependency failure injection remains open. A
 rate-limited 60-second latency/resource profile also completed 6,000 reads and
 600 writes without error at 110 requests per second, with read p99 71.853 ms,
 write p99 93.289 ms, and intact snapshot/audit/spool checks; this validates the
@@ -114,18 +161,55 @@ The default five-minute profile then completed 25,200 reads, 3,000 writes, and
 301 readiness checks without error at 94 completed requests per second. Read
 p99 was 278.343 ms, write p99 was 296.639 ms, persistence/audit/spool checks
 remained intact, and sampled PostgreSQL CPU peaked at 114.56% on the Docker
-Desktop allocation. Longer-duration reference-environment evidence remains
-open.
+Desktop allocation.
+The fixed 30-minute `beta-reference-v1` profile subsequently completed 145,425
+reads, 17,991 writes, and 1,800 readiness checks without error on a 16-CPU,
+33,534,070,784-byte Docker Desktop allocation. Read p99 was 340.654 ms, write
+p99 was 374.199 ms, persistence/audit/spool checks remained intact, and sampled
+PostgreSQL CPU peaked at 114.43%. The observed aggregate completion rate of
+90.787 requests per second remained below the configured 110-request ceiling,
+so sustained correctness is closed and the capacity experiment below defines
+the first measured boundary.
+The fixed capacity ramp then validated 107.2 requests per second for two
+minutes at 97.455% target attainment and found the first boundary at the
+220-request configured ceiling, where only 93.317 requests per second and
+42.417% attainment were observed without request, readiness, or integrity
+failure. A low-pressure recovery profile returned to 99.697% attainment with
+clean state. The measured single-host envelope is now published; a true
+CPU/memory saturation point and production SLO remain intentionally undefined.
 An active-load PostgreSQL outage then produced the expected read, write, and
 readiness failures and stopped the process fail-closed. Eleven private audit
 events replayed exactly once after recovery; a subsequent profile completed
 399 reads and 39 writes without error, preserved all snapshot/audit/spool
-invariants, and remained duplicate-free after another restart. Slow-failure,
-connection-exhaustion, and broader partial-dependency injection remain open.
+invariants, and remained duplicate-free after another restart. A controlled
+200 ms snapshot-write delay subsequently raised write p50 from 11.292 ms to
+212.085 ms without read, write, or readiness errors and returned to 10.553 ms
+after removal; every phase preserved exact snapshot, audit, and spool
+invariants. A separate two-connection application-pool test directly observed
+both slots occupied, a 9,779 ms authenticated-read wait, degraded database
+readiness, and recovery without restart; the subsequent 196-read/19-write
+profile passed without error or integrity violation. PostgreSQL server-level
+connection limits, large wait queues, packet loss, storage saturation, and
+broader partial-dependency injection remain open.
+A controlled read-only transition then rejected an authenticated snapshot with
+`500`, retained no partial snapshot, durably spooled one failed-ingestion audit
+event, and stopped fail-closed. Restoring read-write mode replayed the event
+exactly once; a 200-read/20-write recovery profile and another restart remained
+free of persistence, audit, or spool violations. Replica routing, promotion,
+and managed-database failover remain open.
+A separately privileged PostgreSQL runtime role was then reduced to a
+server-enforced zero connection limit. The resulting authenticated read
+returned `500` with `SQLSTATE 53300`, its audit event survived fail-closed
+shutdown, and restoring the limit replayed it exactly once. A subsequent
+199-read/19-write profile and second restart passed without request, readiness,
+persistence, audit, or spool violation. Global `max_connections`, reserved
+slots, large connection queues, and managed proxies remain open.
 Repeatable source benchmarks now cover constant-time authentication at the full
 100-credential boundary, atomic credential reload, and bounded audit-envelope
 validation. A manual hosted workflow retains raw benchmark and environment
-evidence, while the sustained reference-environment gate remains open.
+evidence. The fixed sustained reference profile and progressive capacity ramp
+now pass, and their allocation-specific envelope is published without implying
+a production SLO.
 
 A restricted Kubernetes/Kustomize deployment contract now preserves the
 loopback server boundary through a TLS 1.3 Envoy sidecar and defines probes,
@@ -244,6 +328,7 @@ Missing exit items:
 - Byte-stable golden tests for Agent BOM JSON, findings JSON, findings SARIF, and policy decision JSON public contracts.
 - Deterministic Finding deduplication with evidence union, highest-severity preservation, stable signal identity, and explicit snapshot lifecycle semantics.
 - Central public-contract version registry, machine-readable CLI version output, and normalization compatibility enforcement with legacy-read support.
+- Reviewed first-beta contract freeze covering public JSON, API, ingestion, preflight, SARIF, and database migration boundaries, with complete CLI/API contract discovery.
 
 ### v0.5 Organization control plane — started
 
@@ -310,9 +395,10 @@ Missing exit items:
 
 The server can now be started explicitly, but remains restricted to loopback
 and is not production-ready. Fine-grained authorization and rotation contracts
-exist, while real PostgreSQL TLS/migration behavior has been validated in one
-disposable environment. Provider parity, Kubernetes runtime enforcement, HA
-HA lease contention, sustained load, recovery breadth, and final
+exist, while real PostgreSQL TLS/migration behavior and a fixed 30-minute
+single-host reference profile have been validated in one disposable
+environment. Provider parity, Kubernetes runtime enforcement, HA lease
+contention, broader saturation behavior, recovery breadth, and final
 platform/security gates remain incomplete.
 
 ## Remaining path to 1.0

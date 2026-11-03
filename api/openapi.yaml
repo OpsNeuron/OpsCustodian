@@ -44,7 +44,11 @@ paths:
       operationId: getContracts
       x-opscustodian-required-scope: contracts:read
       responses:
-        "200": { $ref: "#/components/responses/JSONSuccess" }
+        "200":
+          description: Build version and public machine-readable contract versions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContractsResponse" }
   /api/v1/snapshots:
     post:
       operationId: ingestSnapshot
@@ -267,6 +271,43 @@ components:
       description: Opaque versioned keyset cursor returned by the previous page.
       schema: { type: string, maxLength: 700 }
   schemas:
+    ContractsResponse:
+      type: object
+      additionalProperties: false
+      required: [apiVersion, value]
+      properties:
+        apiVersion: { const: opscustodian.dev/control-plane/v1alpha1 }
+        value:
+          type: object
+          additionalProperties: false
+          required: [version, contracts]
+          properties:
+            version: { type: string, minLength: 1 }
+            contracts:
+              type: object
+              additionalProperties: false
+              required:
+                - agentBOM
+                - normalization
+                - findings
+                - policyInput
+                - policyDecision
+                - auditEvent
+                - controlPlane
+                - repositorySet
+                - preflight
+                - sarif
+              properties:
+                agentBOM: { const: opscustodian.dev/v1alpha1 }
+                normalization: { const: v1alpha1 }
+                findings: { const: opscustodian.dev/findings/v1alpha1 }
+                policyInput: { const: opscustodian.dev/policy-input/v1alpha1 }
+                policyDecision: { const: v1alpha1 }
+                auditEvent: { const: opscustodian.dev/audit-event/v1alpha1 }
+                controlPlane: { const: opscustodian.dev/control-plane/v1alpha1 }
+                repositorySet: { const: opscustodian.dev/ingestion/v1alpha1 }
+                preflight: { const: opscustodian.dev/preflight/v1alpha1 }
+                sarif: { const: 2.1.0 }
     Readiness:
       type: object
       additionalProperties: false

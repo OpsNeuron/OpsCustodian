@@ -3,13 +3,15 @@
 The roadmap is outcome-based. Dates will be assigned only after the foundation
 is reviewed and implementation capacity is known.
 
-## Current delivery focus — alpha adoption
+## Current delivery focus — first-beta candidate closure
 
-Before expanding organization-server or HA scope, OpsCustodian prioritizes a
-short, reproducible first-user journey: build one binary, scan an offline demo,
-open one self-contained report, and observe one explainable critical drift.
-Documentation, representative fixtures, release packaging, and final
-integration evidence take precedence over new distributed-system features.
+Before expanding organization-server or HA scope, OpsCustodian prioritizes the
+remaining alpha-exit and first-beta evidence: an independent-user Quick Start,
+exact-candidate hosted checks, provider failure-mode evidence, operator
+rehearsal, artifact inspection, and external adoption. The representative
+Finding set is reviewed and regression-locked; documentation, release
+packaging, and final candidate evidence take precedence over new
+distributed-system features.
 
 The two-replica deployment remains an explicitly experimental artifact. The
 default deployment stays single-replica until product adoption demonstrates a
@@ -173,7 +175,7 @@ runtime authorization system.
 - Audit retention policy. *(bounded configurable lifetime, startup/periodic tenant-scoped pruning, safe config visibility, and fail-closed runtime coordination implemented)*
 - Snapshot retention policy. *(server-time age, per-repository minimum history, latest-snapshot preservation, bounded tenant-scoped deletion, and fail-closed runtime coordination implemented)*
 - PostgreSQL logical backup and restore. *(documented custom-format procedure and isolated Docker source/destination verification re-run successfully on 2026-10-08; physical backup, PITR, scale, and RPO/RTO remain open)*
-- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 through schema 4 was re-verified on 2026-11-01 with snapshot preservation, legacy audit identity backfill, durable spool replay/removal, idempotent restart, and fail-closed version-skew checks; mixed-version, skip-version, and scale gates remain open)*
+- Database upgrade compatibility. *(`v0.5.0-alpha` schema 2 through schema 4 was re-verified on 2026-11-01 with snapshot preservation, legacy audit identity backfill, durable spool replay/removal, idempotent restart, and fail-closed version-skew checks. The first-beta contract now supports only consecutive upgrades; mixed-version and skip-version operation are explicitly unsupported rather than open support claims.)*
 - Security fuzz gates. *(credential, ingestion, policy, GitHub Actions, Kubernetes, MCP, agent Markdown, GitHub Agentic Workflows, API pagination, query-filter, route-allowlist, and audit-envelope boundaries plus module-integrity checks implemented; manual two-minute-per-boundary release-candidate workflow implemented, while a passing hosted campaign remains required)*
 - Reachable Go vulnerability gate. *(pinned scanner, pull-request and main-branch enforcement, weekly advisory refresh, and local reproduction implemented)*
 - Final container vulnerability gate. *(digest-pinned base images, checksum-verified Grype 0.119.0, high/critical pull-request enforcement, weekly database refresh, and Docker reproduction implemented)*
@@ -214,13 +216,24 @@ history across multiple repositories through an authenticated control plane.
 - REST API and Backstage integration.
 - Signed baselines and governed exceptions.
 - Retention, upgrade, migration, and compatibility policies.
-- Security review and performance benchmarks. *(bounded read-only, mixed
-  read/write, and 32-worker immutable snapshot-contention Docker evidence
-  implemented; a rate-limited latency/resource probe is reproducible and a
-  default five-minute Docker profile passed, while sustained
-  reference-environment load, saturation, and capacity envelopes remain open;
+- Security review and performance benchmarks. *(the focused first-beta threat
+  model now covers tenant isolation, credential lifecycle, policy failure,
+  ingestion, and audit integrity with explicit accepted residual risks; this
+  is not a penetration-test claim. Bounded read-only, mixed read/write, and
+  32-worker immutable snapshot-contention Docker evidence is implemented; a
+  rate-limited latency/resource probe is reproducible and a
+  default five-minute Docker profile and a fixed 30-minute reference profile
+  passed, and a progressive ramp now publishes sustained/burst operating points
+  plus the first target-attainment boundary; true resource saturation and a
+  production SLO remain outside the current evidence;
   hard PostgreSQL failure under active load and clean replay/recovery passed,
-  while slow and partial dependency failures remain open)*
+  controlled PostgreSQL write latency plus clean recovery passed, and bounded
+  two-slot application-pool exhaustion recovered without restart; a controlled
+  read-only transition also preserved failed audit evidence and recovered
+  cleanly; a server-enforced runtime-role connection limit also failed closed
+  and recovered cleanly, while global connection limits, reserved slots, large
+  wait queues, packet loss, storage saturation, replica promotion, and broader
+  partial dependency failures remain open)*
 - Hardened release pipeline. *(SHA-pinned least-privilege CI, Linux race plus Windows and macOS compatibility jobs, cross-platform archives, checksums, CycloneDX SBOM, provenance, main-line tag validation, exact-commit extended-fuzz evidence enforcement, and Apache-2.0 license implemented; tagged workflow and independent Windows consumer verification passed, while the new evidence gates and hosted macOS path require hosted validation)*
 
 Exit condition: the project can be operated as a dependable organization-wide

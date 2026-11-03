@@ -1,5 +1,27 @@
 # Security testing
 
+## Repository and release hygiene
+
+Pull-request CI and the tag workflow run a tracked-file hygiene verifier before
+building. It obtains the exact source manifest from `git ls-files`, rejects
+unsafe or duplicate manifest paths, symlinks, unexpected binary content,
+oversized text, generated root artifacts, the local presentation draft, and
+recognizable private-key, hosted-token, signed-URL, or user-home path patterns.
+The verifier reports only the rule and repository-relative path, never matching
+content. Intentional Agent BOM and SARIF fixtures under `examples` and
+`testdata` remain valid source contracts.
+
+Run the same source check locally with:
+
+```bash
+go run ./cmd/opscustodian-repocheck --root .
+```
+
+The publication workflow separately runs `opscustodian-releasecheck` after
+checksums are generated and before provenance or upload. These deterministic
+checks reduce accidental disclosure; they do not replace secret scanning of
+hosted logs and exact-candidate workflow artifacts.
+
 Security tests complement, but do not replace, review of trust boundaries and
 deployment-specific penetration testing. Repositories, parser input,
 configuration documents, policy output, connector responses, and persisted

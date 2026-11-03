@@ -23,6 +23,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Verify reviewed release notes
+        run: go run ./cmd/opscustodian-release-notescheck --root . --tag "${GITHUB_REF_NAME}"
       - name: Validate release tag and legal files
         shell: bash
         env:
@@ -36,6 +38,20 @@ jobs:
             echo "release tag must point to a commit reachable from origin/main" >&2
             exit 1
           }
+          declare -A candidate_runs
+          require_successful_push_run() {
+            local workflow="$1"
+            local run_id
+            run_id="$(gh run list --workflow "${workflow}" --commit "${GITHUB_SHA}" --branch main --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            test -n "${run_id}" || {
+              echo "a successful ${workflow} push run on main is required for commit ${GITHUB_SHA}" >&2
+              exit 1
+            }
+            candidate_runs["${workflow}"]="${run_id}"
+          }
+          for workflow in ci.yml vulnerability-scan.yml license-scan.yml container-security.yml codeql.yml; do
+            require_successful_push_run "${workflow}"
+          done
           fuzz_run_id="$(gh run list --workflow fuzz-extended.yml --commit "${GITHUB_SHA}" --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
           test -n "${fuzz_run_id}" || {
             echo "a successful Extended security fuzzing run is required for commit ${GITHUB_SHA}" >&2
@@ -47,15 +63,38 @@ jobs:
             exit 1
           }
           printf 'verified extended fuzz run: %s with %s evidence artifacts\n' "${fuzz_run_id}" "${fuzz_artifact_count}"
+          mkdir -p candidate-evidence
+          jq -n \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg commit "${GITHUB_SHA}" \
+            --arg tag "${GITHUB_REF_NAME}" \
+            --arg ci "${candidate_runs[ci.yml]}" \
+            --arg vulnerability "${candidate_runs[vulnerability-scan.yml]}" \
+            --arg license "${candidate_runs[license-scan.yml]}" \
+            --arg container "${candidate_runs[container-security.yml]}" \
+            --arg codeql "${candidate_runs[codeql.yml]}" \
+            --arg fuzz "${fuzz_run_id}" \
+            --argjson fuzzArtifacts "${fuzz_artifact_count}" \
+            '{schemaVersion:"v1alpha1", repository:$repository, commit:$commit, tag:$tag, verifiedRuns:{ci:$ci, vulnerability:$vulnerability, license:$license, container:$container, codeql:$codeql, extendedFuzz:$fuzz}, fuzzArtifactCount:$fuzzArtifacts}' \
+            > candidate-evidence/release-candidate.json
+          (cd candidate-evidence && sha256sum release-candidate.json > SHA256SUMS)
       - name: Verify source
         run: |
           test -z "$(gofmt -l .)"
+          go run ./cmd/opscustodian-repocheck --root .
           go vet ./...
           go test -count=1 ./...
       - name: Run race detector
         env:
           CGO_ENABLED: "1"
         run: go test -race -count=1 ./...
+      - name: Retain release-candidate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: candidate-evidence-${{ github.sha }}
+          path: candidate-evidence/
+          if-no-files-found: error
+          retention-days: 90
 
   build:
     name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
@@ -152,6 +191,11 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: Download release artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -161,6 +205,10 @@ jobs:
       - name: Generate checksums
         working-directory: dist
         run: sha256sum * | sort -k2 > SHA256SUMS
+      - name: Verify release asset contract
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: go run ./cmd/opscustodian-releasecheck --dist dist --tag "${RELEASE_TAG}"
       - name: Attest build provenance
         uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
         with:
@@ -173,11 +221,5 @@ jobs:
           set -euo pipefail
           release_flags=()
           if [[ "${RELEASE_TAG}" == v0.* ]]; then release_flags+=(--prerelease); fi
-          release_notes=()
           notes_path="docs/releases/${RELEASE_TAG}.md"
-          if [[ -f "${notes_path}" ]]; then
-            release_notes+=(--notes-file "${notes_path}")
-          else
-            release_notes+=(--generate-notes)
-          fi
-          gh release create "${RELEASE_TAG}" dist/* --verify-tag "${release_flags[@]}" "${release_notes[@]}"
+          gh release create "${RELEASE_TAG}" dist/* --verify-tag "${release_flags[@]}" --notes-file "${notes_path}"

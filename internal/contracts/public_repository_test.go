@@ -29,23 +29,33 @@ func TestPublicRepositorySurface(t *testing.T) {
 		}
 	}
 	if _, err := os.Stat(filepath.Join(root, ".github", "ISSUE_TEMPLATE", "alpha-feedback.yml")); !os.IsNotExist(err) {
-		t.Error("obsolete alpha feedback template must not remain in the beta candidate")
+		t.Error("obsolete alpha feedback template must not remain in the public beta")
 	}
 
 	assertPublicText(t, filepath.Join(root, "README.md"), []string{
-		"First-beta release candidate under validation",
+		"is the current public beta",
 		"docs/BETA_SUPPORT_MATRIX.md",
 		"CODE_OF_CONDUCT.md",
 		"SUPPORT.md",
-	}, []string{"Public alpha under active development"})
+	}, []string{
+		"Public alpha under active development",
+		"First-beta release candidate under validation",
+	})
 	assertPublicText(t, filepath.Join(root, "CONTRIBUTING.md"), []string{
-		"preparing its first public beta",
+		"in its first public beta",
 		"Code of Conduct",
-	}, []string{"OpsCustodian is a public alpha"})
+	}, []string{
+		"OpsCustodian is a public alpha",
+		"preparing its first public beta",
+	})
 	assertPublicText(t, filepath.Join(root, "docs", "LIMITATIONS.md"), []string{
-		"# First-beta candidate limitations",
+		"# First-public-beta limitations",
 		"pre-v1 interfaces",
-	}, []string{"# Public alpha limitations"})
+	}, []string{
+		"# Public alpha limitations",
+		"# First-beta candidate limitations",
+		"latest published release remains `v0.5.0-alpha`",
+	})
 
 	for _, name := range []string{
 		filepath.Join(".github", "ISSUE_TEMPLATE", "bug.yml"),

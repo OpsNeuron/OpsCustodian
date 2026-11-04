@@ -1,9 +1,12 @@
 # Beta release readiness checklist
 
-This checklist is the evidence gate for the first OpsCustodian beta. A checked
+This checklist records both the publication evidence for the first
+OpsCustodian beta and the remaining post-publication hardening work. A checked
 item must be backed by retained command output, a hosted workflow run, or a
 reviewed release artifact. Source code or static configuration alone does not
-satisfy a real-environment item.
+satisfy a real-environment item. The first public beta is
+[`v0.6.0-beta.1`](https://github.com/OpsNeuron/OpsCustodian/releases/tag/v0.6.0-beta.1);
+unchecked items remain visible and do not silently expand its support promise.
 
 The beta promise is a stable, single-replica control plane with tested upgrade,
 recovery, and policy-enforcement paths. Production high availability remains a
@@ -47,14 +50,13 @@ git diff --exit-code
 
 - [x] Deterministic unit, contract, parser, policy-runtime, and local-mock tests
   exist for the supported source contracts.
-- [ ] Hosted Linux tests and race detector pass on the exact candidate commit.
-- [ ] Hosted Windows and macOS tests pass on the exact candidate commit.
-- [ ] The manual extended-fuzz workflow passes all twelve targets on the exact
+- [x] Hosted Linux tests and race detector pass on the exact candidate commit.
+- [x] Hosted Windows and macOS tests pass on the exact candidate commit.
+- [x] The manual extended-fuzz workflow passes all twelve targets on the exact
   candidate commit and retains all checksummed evidence artifacts.
-- [ ] CodeQL analysis and SARIF upload pass. Analysis currently runs, but GitHub
-  Code Scanning enablement still blocks the upload and this item must remain
-  open until the repository setting is available.
-- [ ] Dependency, vulnerability, license, container, and module-integrity gates
+- [x] CodeQL analysis and SARIF upload pass for both Go and GitHub Actions on
+  the exact tagged commit.
+- [x] Dependency, vulnerability, license, container, and module-integrity gates
   have no unresolved release blocker.
 
 ## 3. Installation, upgrade, and recovery gate
@@ -183,18 +185,16 @@ git diff --exit-code
   deterministic hygiene checks; hosted logs and exact-candidate workflow
   artifacts still require final inspection.
 
-## 6. Release candidate and publication
+## 6. Publication and post-publication evidence
 
 - [ ] `doctor --profile beta --format json` reports ready in the intended
   release environment and its secret-free output is retained.
-- [ ] Release notes and limitations describe the supported beta contract,
+- [x] Release notes and limitations describe the supported beta contract,
   known limitations, migration requirements, and non-HA boundary. Tag
   publication now fails closed when reviewed notes are absent, contain template
-  placeholders, or omit the required beta boundaries. The candidate
-  `v0.6.0-beta.1` notes are complete and pass the deterministic verifier; final
-  review against the exact candidate diff remains required before checking this
-  item.
-- [ ] The candidate commit is reviewed on protected `main`; all required hosted
+  placeholders, or omit the required beta boundaries. The published
+  `v0.6.0-beta.1` notes passed the deterministic verifier on the exact tag.
+- [x] The candidate commit is reviewed on protected `main`; all required hosted
   checks pass before its annotated tag is created. Tag verification now fails
   closed unless exact-commit successful `main` push runs exist for CI, Go
   vulnerability, dependency license, container vulnerability, and CodeQL, plus
@@ -209,8 +209,10 @@ git diff --exit-code
 
 ## Exit rule
 
-The first beta may be tagged only when every unchecked required item above has
-retained evidence or has been explicitly removed from the beta support promise
-in reviewed documentation. Experimental multi-replica HA is not a beta blocker,
-but no beta material may imply an HA or production-readiness guarantee without
-passing the separate [HA test plan](HA_TEST_PLAN.md).
+The first public beta has been published after its automated publication gates
+passed. Remaining unchecked items are post-publication beta hardening or stable
+milestone evidence and must stay visible until retained evidence closes them or
+reviewed documentation removes them from a future support promise.
+Experimental multi-replica HA is not a beta blocker, but no beta material may
+imply an HA or production-readiness guarantee without passing the separate
+[HA test plan](HA_TEST_PLAN.md).

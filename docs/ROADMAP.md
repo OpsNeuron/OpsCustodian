@@ -3,14 +3,14 @@
 The roadmap is outcome-based. Dates will be assigned only after the foundation
 is reviewed and implementation capacity is known.
 
-## Current delivery focus — first-beta candidate closure
+## Current delivery focus — public-beta adoption and evidence closure
 
 Before expanding organization-server or HA scope, OpsCustodian prioritizes the
-remaining alpha-exit and first-beta evidence: an independent-user Quick Start,
-exact-candidate hosted checks, provider failure-mode evidence, operator
-rehearsal, artifact inspection, and external adoption. The representative
-Finding set is reviewed and regression-locked; documentation, release
-packaging, and final candidate evidence take precedence over new
+remaining public-beta evidence: an independent-user Quick Start, disposable
+consumption of the published archives and provenance, provider failure-mode
+evidence, an exact-tag operator rehearsal, and external adoption. The
+representative Finding set is reviewed and regression-locked; compatibility,
+operational evidence, and adopter feedback take precedence over new
 distributed-system features.
 
 The two-replica deployment remains an explicitly experimental artifact. The

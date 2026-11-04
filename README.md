@@ -1,5 +1,9 @@
 # OpsCustodian
 
+[![CI](https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/OpsNeuron/OpsCustodian?include_prereleases&sort=semver)](https://github.com/OpsNeuron/OpsCustodian/releases)
+
 OpsCustodian is an evidence-based control plane for AI agents operating in
 software delivery and infrastructure environments.
 
@@ -113,12 +117,13 @@ For monorepositories, assign assets to explicit component boundaries:
 opscustodian scan --boundary services/payments=payments --output agentbom.json .
 ```
 
-The first public alpha includes offline artifact discovery,
-GitHub Actions and MCP configuration parsing, Agent BOM validation, non-fatal
-parser diagnostics, JSON/YAML output, stable finding IDs, semantic `diff`, CI
-severity thresholds, finding explanations, and OPA/Rego policy evaluation.
-The release also includes a GitHub Action contract with SARIF output; review the
-[public alpha limitations](docs/LIMITATIONS.md) before use.
+The first-beta candidate includes offline artifact discovery, GitHub Actions,
+MCP, agent, and Kubernetes configuration parsing, Agent BOM validation,
+evidence-backed access paths and findings, semantic `diff`, CI severity
+thresholds, OPA/Rego policy evaluation, SARIF output, and a deliberately narrow
+single-replica control-plane reference. Review the
+[beta support matrix](docs/BETA_SUPPORT_MATRIX.md) and
+[current limitations](docs/LIMITATIONS.md) before use.
 
 The experimental organization control-plane server is configured exclusively
 through environment variables and binds only to loopback. Validate its
@@ -204,10 +209,10 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [GitHub Agentic Workflows coverage](docs/GH_AW.md)
 - [Current project status](docs/PROJECT_STATUS.md)
 - [Installation](docs/INSTALLATION.md)
-- [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
 - [Beta release readiness checklist](docs/BETA_RELEASE_CHECKLIST.md)
-- [Public launch checklist](docs/PUBLIC_LAUNCH_CHECKLIST.md)
-- [Public alpha launch kit](docs/LAUNCH_KIT.md)
+- [First-beta release notes](docs/releases/v0.6.0-beta.1.md)
+- [Historical alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
+- [Historical public alpha launch kit](docs/LAUNCH_KIT.md)
 - [Two-minute demo](docs/DEMO.md)
 - [Ownership resolution](docs/OWNERSHIP.md)
 - [Explainable risk model](docs/RISK_MODEL.md)
@@ -236,15 +241,19 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - [Agent BOM v1alpha1 schema](schemas/agentbom-v1alpha1.schema.json)
 - [Policy decision schema](schemas/policy-decision-v1alpha1.schema.json)
 - [Contributing](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
+- [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
 
 ## Status
 
-Public alpha under active development. The offline CLI is ready for local
-evaluation; file formats and server APIs may still change. Organization-server,
-HA, and real-provider operation are experimental and must not be treated as
-production-ready. See [current project status](docs/PROJECT_STATUS.md) and the
-[public alpha limitations](docs/LIMITATIONS.md).
+First-beta release candidate under validation. The offline CLI is ready for
+local evaluation, while the supported server reference remains single-replica
+and deliberately narrow. Public contracts remain pre-v1 and may still change.
+HA and unsupported provider modes must not be treated as production-ready. See
+[current project status](docs/PROJECT_STATUS.md), the
+[beta support matrix](docs/BETA_SUPPORT_MATRIX.md), and
+[current limitations](docs/LIMITATIONS.md).
 
 ## License
 

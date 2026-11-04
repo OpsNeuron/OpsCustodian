@@ -1,16 +1,20 @@
-# Public alpha limitations
+# First-beta candidate limitations
 
-OpsCustodian `v0.5.0-alpha` is intended for evaluation, local analysis, CI
-feedback, and compatibility testing. It is not yet a sole production security
-control or an availability-critical authorization service.
+OpsCustodian `v0.6.0-beta.1` is a release candidate intended for evaluation,
+local analysis, CI feedback, and compatibility testing. It is not a sole
+production security control or an availability-critical authorization service.
+Until that candidate is tagged and its release workflow succeeds, the latest
+published release remains `v0.5.0-alpha`; candidate documentation is not
+evidence that beta archives or provenance have been published.
 
 ## Supported evaluation scope
 
 - The offline CLI is the primary supported path: scan repositories, generate an
   Agent BOM, inspect HTML/SARIF output, evaluate built-in policy, and compare
   semantic drift.
-- Released archives, checksums, CycloneDX SBOM, and provenance have passed the
-  documented release verification process.
+- Published `v0.5.0-alpha` archives, checksums, CycloneDX SBOM, and provenance
+  passed the documented release verification process. The beta candidate must
+  pass the same publication gate on its final exact commit.
 - The single-replica control plane, PostgreSQL persistence, OPA execution,
   OTLP export, GitHub App ingestion, and Kubernetes deployment have passed
   disposable environment tests documented in
@@ -19,7 +23,7 @@ control or an availability-critical authorization service.
 ## Contracts may change
 
 The Agent BOM, findings, policy decision, audit event, HTTP API, configuration,
-and database contracts are alpha interfaces. Changes before `v1.0` may require
+and database contracts are pre-v1 interfaces. Changes before `v1.0` may require
 regenerating baselines or updating integrations. Release notes will identify
 intentional compatibility breaks.
 
@@ -146,12 +150,12 @@ tests cover those paths but do not replace real-provider evidence.
 Use disposable or sanitized repositories for evaluation. Keep credentials in
 the documented secret boundaries, review generated reports before sharing, and
 retain an independent authorization and deployment control. Do not treat an
-alpha finding, policy decision, or lack of findings as the sole basis for a
+beta finding, policy decision, or lack of findings as the sole basis for a
 production change.
 
-## Exit criteria for a later stability milestone
+## Exit criteria for a stable milestone
 
-A later beta or stable claim requires broader parser/provider compatibility,
+A stable claim requires broader parser/provider compatibility,
 fresh real-provider credential tests, sustained read/write and failure testing,
 upgrade and rollback evidence, documented support boundaries, and feedback from
 independent repositories. Production HA remains a separate milestone unless it

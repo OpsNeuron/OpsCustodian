@@ -1,4 +1,4 @@
-name: Alpha experience
+name: Beta experience
 description: Share first-run feedback without filing a specific defect.
 title: "feedback: "
 labels:
@@ -21,7 +21,7 @@ body:
     id: version
     attributes:
       label: OpsCustodian version
-      placeholder: v0.5.0-alpha
+      placeholder: v0.6.0-beta.1
     validations:
       required: true
   - type: textarea

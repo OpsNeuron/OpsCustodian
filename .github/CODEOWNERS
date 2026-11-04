@@ -1,0 +1,13 @@
+# Default ownership until dedicated maintainer teams are introduced.
+* @OpsNeuron
+
+# Security-sensitive and public-contract surfaces.
+/.github/ @OpsNeuron
+/api/ @OpsNeuron
+/schemas/ @OpsNeuron
+/internal/server/ @OpsNeuron
+/internal/controlplane/ @OpsNeuron
+/internal/ingestion/ @OpsNeuron
+/internal/policy/ @OpsNeuron
+/internal/store/ @OpsNeuron
+/deploy/ @OpsNeuron

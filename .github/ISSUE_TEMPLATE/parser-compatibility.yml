@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: OpsCustodian version
-      placeholder: v0.5.0-alpha
+      placeholder: v0.6.0-beta.1
     validations:
       required: true
   - type: textarea

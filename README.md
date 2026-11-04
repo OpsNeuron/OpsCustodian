@@ -281,6 +281,13 @@ HA and unsupported provider modes must not be treated as production-ready. See
 [beta support matrix](docs/BETA_SUPPORT_MATRIX.md), and
 [current limitations](docs/LIMITATIONS.md).
 
+## Creator and maintainer
+
+OpsCustodian was created and is maintained by
+**Mohammadreza Tahari (محمدرضا طهری)**
+([@OpsNeuron](https://github.com/OpsNeuron)), a DevOps Engineer interested in
+applying AI to infrastructure, software delivery, and operational safety.
+
 ## License
 
 OpsCustodian is licensed under the [Apache License 2.0](LICENSE).

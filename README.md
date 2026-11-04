@@ -1,16 +1,62 @@
-# OpsCustodian
+<div align="center">
+  <img src="docs/images/opscustodian-logo.png" alt="OpsCustodian shield and access graph logo" width="180">
+  <h1>OpsCustodian</h1>
+  <p><strong>Evidence-based control for agentic DevOps.</strong></p>
+  <p>
+    Discover what agents can reach, explain how they got access, and stop
+    dangerous permission drift before production.
+  </p>
+  <p>
+    <a href="https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml"><img src="https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+    <a href="https://github.com/OpsNeuron/OpsCustodian/releases"><img src="https://img.shields.io/github/v/release/OpsNeuron/OpsCustodian?include_prereleases&sort=semver" alt="Latest release"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-2563eb.svg" alt="Apache 2.0 license"></a>
+    <img src="https://img.shields.io/badge/status-beta%20candidate-06b6d4.svg" alt="Beta candidate status">
+    <img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8.svg" alt="Go 1.26 or newer">
+  </p>
+  <p>
+    <a href="docs/QUICKSTART.md">Quick start</a> ·
+    <a href="docs/DEMO.md">Two-minute demo</a> ·
+    <a href="docs/ARCHITECTURE.md">Architecture</a> ·
+    <a href="docs/BETA_SUPPORT_MATRIX.md">Support matrix</a> ·
+    <a href="CONTRIBUTING.md">Contributing</a>
+  </p>
+</div>
 
-[![CI](https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/OpsNeuron/OpsCustodian?include_prereleases&sort=semver)](https://github.com/OpsNeuron/OpsCustodian/releases)
+---
 
 OpsCustodian is an evidence-based control plane for AI agents operating in
-software delivery and infrastructure environments.
+software delivery and infrastructure environments. It discovers agentic
+assets, normalizes their effective access into a vendor-neutral Agent Bill of
+Materials (Agent BOM), detects semantic permission drift, and evaluates
+organizational policy before risky changes reach production.
 
-It discovers agentic assets, normalizes their effective access into a
-vendor-neutral Agent Bill of Materials (Agent BOM), detects semantic permission
-drift, and evaluates organizational policy before risky changes reach
-production.
+> **Release status:** the offline CLI is a first-beta release candidate. The
+> control-plane server is an experimental, single-replica reference. Review the
+> [support matrix](docs/BETA_SUPPORT_MATRIX.md) and
+> [current limitations](docs/LIMITATIONS.md) before operational use.
+
+## Why OpsCustodian
+
+| Inventory | Explain | Detect | Enforce |
+| --- | --- | --- | --- |
+| Find agents, workflows, skills, MCP servers, identities, and Kubernetes workloads. | Trace effective access back to source evidence, credentials, and relationships. | Identify semantic permission drift instead of noisy text changes. | Apply severity thresholds, OPA policy, SARIF, and CI decisions. |
+
+OpsCustodian answers one operational question:
+
+> **Which agent, using which identity, can access which tool, credential,
+> repository, and environment—and did that access become more dangerous?**
+
+```text
+Repository configuration
+        ↓
+Discovery and source evidence
+        ↓
+Normalized Agent BOM and access graph
+        ↓
+Semantic drift and policy decision
+        ↓
+CLI · CI · SARIF · GitHub Check · HTML report
+```
 
 ## See OpsCustodian in action
 
@@ -26,14 +72,7 @@ which resources it can reach, and where that access came from.
 
 ![OpsCustodian agent capabilities](docs/images/opscustodian-agent-capabilities.png)
 
-## Product promise
-
-OpsCustodian answers one operational question:
-
-> Which agent, using which identity, can access which tool, credential,
-> repository, and environment—and did that access become more dangerous?
-
-## See the value in five minutes
+## Try it in five minutes
 
 You do not need an AI model, Kubernetes cluster, database, or cloud account for
 the first run. The demo scans intentionally risky repository fixtures entirely
@@ -85,16 +124,9 @@ Agent BOM inventories typed `assets`: agents, workflows, MCP servers, skills,
 and instruction sets. Different ecosystem objects remain distinct while still
 participating in one evidence and access graph.
 
-The initial product wedge is GitHub-first permission drift detection:
-
-```text
-repository configuration
-        -> discovery and evidence
-        -> normalized Agent BOM
-        -> semantic baseline diff
-        -> policy decision and remediation
-        -> CLI / CI / SARIF / GitHub Check
-```
+The initial product wedge is GitHub-first permission drift detection, built on
+provider-neutral contracts that can grow without collapsing different asset
+types into one generic automation record.
 
 ## CLI experience
 
@@ -200,50 +232,44 @@ workflow does not hide successfully parsed assets elsewhere in the scan.
 - Explainable enforcement: every denial must include its reason and remediation.
 - Open contracts: the Agent BOM schema and core policy interfaces remain open.
 
-## Project documents
+## Documentation map
 
-- [Vision](docs/VISION.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Agentic asset model](docs/ASSET_MODEL.md)
-- [Relationship graph](docs/RELATIONSHIP_GRAPH.md)
-- [GitHub Agentic Workflows coverage](docs/GH_AW.md)
-- [Current project status](docs/PROJECT_STATUS.md)
-- [Installation](docs/INSTALLATION.md)
-- [Beta release readiness checklist](docs/BETA_RELEASE_CHECKLIST.md)
-- [First-beta release notes](docs/releases/v0.6.0-beta.1.md)
-- [Historical alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
-- [Historical public alpha launch kit](docs/LAUNCH_KIT.md)
-- [Two-minute demo](docs/DEMO.md)
-- [Ownership resolution](docs/OWNERSHIP.md)
-- [Explainable risk model](docs/RISK_MODEL.md)
-- [Canonical normalization](docs/NORMALIZATION.md)
-- [Local inventory report](docs/LOCAL_REPORT.md)
-- [Monorepo boundaries](docs/MONOREPO.md)
-- [Parser extension contract](docs/PARSER_EXTENSIONS.md)
+| Start here | Model and analysis | Security and policy | Operations and integration |
+| --- | --- | --- | --- |
+| [Quick start](docs/QUICKSTART.md)<br>[Installation](docs/INSTALLATION.md)<br>[Two-minute demo](docs/DEMO.md)<br>[Current status](docs/PROJECT_STATUS.md)<br>[Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md)<br>[Agentic asset model](docs/ASSET_MODEL.md)<br>[Relationship graph](docs/RELATIONSHIP_GRAPH.md)<br>[Normalization](docs/NORMALIZATION.md)<br>[Findings](docs/FINDINGS.md)<br>[Risk model](docs/RISK_MODEL.md) | [Policy enforcement](docs/POLICY.md)<br>[Threat model](docs/THREAT_MODEL.md)<br>[Remediations](docs/REMEDIATIONS.md)<br>[Contract tests](docs/CONTRACT_TESTS.md)<br>[Security policy](SECURITY.md) | [Server](docs/SERVER.md)<br>[OpenAPI 3.1](api/openapi.yaml)<br>[Database](docs/DATABASE.md)<br>[Upgrades](docs/UPGRADES.md)<br>[Backup and restore](docs/BACKUP_RESTORE.md)<br>[GitHub Action](docs/GITHUB_ACTION.md) |
+
+### Ecosystem coverage
+
+- [GitHub Agentic Workflows](docs/GH_AW.md)
 - [Kubernetes effective access](docs/KUBERNETES.md)
 - [MCP server provenance and pinning](docs/MCP.md)
+- [Ownership resolution](docs/OWNERSHIP.md)
+- [Monorepo boundaries](docs/MONOREPO.md)
+- [Parser extension contract](docs/PARSER_EXTENSIONS.md)
 - [OpenTelemetry-compatible audit events](docs/AUDIT_EVENTS.md)
 - [Performance evidence](docs/PERFORMANCE.md)
-- [Current-state findings](docs/FINDINGS.md)
-- [Public contract tests](docs/CONTRACT_TESTS.md)
+
+### Contracts and release evidence
+
+- [Agent BOM v1alpha1 schema](schemas/agentbom-v1alpha1.schema.json)
+- [Policy decision v1alpha1 schema](schemas/policy-decision-v1alpha1.schema.json)
 - [Compatibility and versioning](docs/COMPATIBILITY.md)
 - [Beta support matrix](docs/BETA_SUPPORT_MATRIX.md)
+- [Beta release readiness checklist](docs/BETA_RELEASE_CHECKLIST.md)
 - [First-beta contract freeze](docs/BETA_CONTRACT_FREEZE.md)
 - [First-beta representative Finding review](docs/BETA_FINDING_REVIEW.md)
-- [First-beta threat model](docs/THREAT_MODEL.md)
-- [Read-only server foundation](docs/SERVER.md)
-- [Control-plane OpenAPI 3.1](api/openapi.yaml)
-- [PostgreSQL persistence and migrations](docs/DATABASE.md)
-- [Stable remediation identifiers](docs/REMEDIATIONS.md)
-- [Roadmap](docs/ROADMAP.md)
-- [Policy enforcement](docs/POLICY.md)
-- [GitHub Action integration](docs/GITHUB_ACTION.md)
-- [Agent BOM v1alpha1 schema](schemas/agentbom-v1alpha1.schema.json)
-- [Policy decision schema](schemas/policy-decision-v1alpha1.schema.json)
-- [Contributing](CONTRIBUTING.md)
-- [Code of conduct](CODE_OF_CONDUCT.md)
-- [Support](SUPPORT.md)
-- [Security policy](SECURITY.md)
+- [First-beta release notes](docs/releases/v0.6.0-beta.1.md)
+
+<details>
+<summary>Historical alpha release evidence</summary>
+
+- [Alpha release checklist](docs/ALPHA_RELEASE_CHECKLIST.md)
+- [Public alpha launch kit](docs/LAUNCH_KIT.md)
+
+</details>
+
+For community and project governance, see [Contributing](CONTRIBUTING.md), the
+[Code of conduct](CODE_OF_CONDUCT.md), and [Support](SUPPORT.md).
 
 ## Status
 

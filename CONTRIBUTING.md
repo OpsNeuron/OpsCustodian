@@ -1,8 +1,8 @@
 # Contributing
 
-OpsCustodian is a pre-v1 project preparing its first public beta. Contributions
-should improve the offline first-user journey, accuracy, evidence,
-compatibility, and security rather than broadly adding platform names.
+OpsCustodian is a pre-v1 project in its first public beta. Contributions should
+improve the offline first-user journey, accuracy, evidence, compatibility, and
+security rather than broadly adding platform names.
 
 Use the repository issue forms for reproducible bugs, sanitized parser
 compatibility examples, and first-user feedback. Never attach credentials,

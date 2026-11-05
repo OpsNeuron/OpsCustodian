@@ -10,7 +10,7 @@
     <a href="https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml"><img src="https://github.com/OpsNeuron/OpsCustodian/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
     <a href="https://github.com/OpsNeuron/OpsCustodian/releases"><img src="https://img.shields.io/github/v/release/OpsNeuron/OpsCustodian?include_prereleases&sort=semver" alt="Latest release"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-2563eb.svg" alt="Apache 2.0 license"></a>
-    <img src="https://img.shields.io/badge/status-beta%20candidate-06b6d4.svg" alt="Beta candidate status">
+    <img src="https://img.shields.io/badge/status-public%20beta-06b6d4.svg" alt="Public beta status">
     <img src="https://img.shields.io/badge/Go-1.26%2B-00ADD8.svg" alt="Go 1.26 or newer">
   </p>
   <p>
@@ -30,9 +30,10 @@ assets, normalizes their effective access into a vendor-neutral Agent Bill of
 Materials (Agent BOM), detects semantic permission drift, and evaluates
 organizational policy before risky changes reach production.
 
-> **Release status:** the offline CLI is a first-beta release candidate. The
-> control-plane server is an experimental, single-replica reference. Review the
-> [support matrix](docs/BETA_SUPPORT_MATRIX.md) and
+> **Release status:** [`v0.6.0-beta.1`](https://github.com/OpsNeuron/OpsCustodian/releases/tag/v0.6.0-beta.1)
+> is the first public beta. The offline CLI is the primary supported evaluation
+> path; the control-plane server remains an experimental, single-replica
+> reference. Review the [support matrix](docs/BETA_SUPPORT_MATRIX.md) and
 > [current limitations](docs/LIMITATIONS.md) before operational use.
 
 ## Why OpsCustodian
@@ -149,7 +150,7 @@ For monorepositories, assign assets to explicit component boundaries:
 opscustodian scan --boundary services/payments=payments --output agentbom.json .
 ```
 
-The first-beta candidate includes offline artifact discovery, GitHub Actions,
+The first public beta includes offline artifact discovery, GitHub Actions,
 MCP, agent, and Kubernetes configuration parsing, Agent BOM validation,
 evidence-backed access paths and findings, semantic `diff`, CI severity
 thresholds, OPA/Rego policy evaluation, SARIF output, and a deliberately narrow
@@ -273,11 +274,12 @@ For community and project governance, see [Contributing](CONTRIBUTING.md), the
 
 ## Status
 
-First-beta release candidate under validation. The offline CLI is ready for
-local evaluation, while the supported server reference remains single-replica
-and deliberately narrow. Public contracts remain pre-v1 and may still change.
-HA and unsupported provider modes must not be treated as production-ready. See
-[current project status](docs/PROJECT_STATUS.md), the
+[`v0.6.0-beta.1`](https://github.com/OpsNeuron/OpsCustodian/releases/tag/v0.6.0-beta.1)
+is the current public beta. The offline CLI is ready for local evaluation,
+while the supported server reference remains single-replica and deliberately
+narrow. Public contracts remain pre-v1 and may still change. HA and unsupported
+provider modes must not be treated as production-ready. See [current project
+status](docs/PROJECT_STATUS.md), the
 [beta support matrix](docs/BETA_SUPPORT_MATRIX.md), and
 [current limitations](docs/LIMITATIONS.md).
 

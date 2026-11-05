@@ -4,25 +4,24 @@ This document distinguishes implementation from validation. A capability marked
 implemented is present in source code; it is not considered production-ready
 until its build, automated tests, fixtures, and integration gates pass.
 The current public support boundary is maintained in the
-[Beta support matrix](BETA_SUPPORT_MATRIX.md), with residual alpha and
+[Beta support matrix](BETA_SUPPORT_MATRIX.md), with residual pre-v1 and
 experimental constraints explained in [Limitations](LIMITATIONS.md).
 
 ## Current position
 
-The immediate delivery phase is **first-beta contract freeze and
-release-candidate evidence closure**. The offline onboarding path, tagged alpha
-release, Docker Desktop integration, backup/restore, consecutive upgrade,
-failure-recovery, sustained-load, and capacity-envelope gates have passed. The
-support promise is now deliberately restricted to the offline CLI platforms
-and single-replica control-plane reference listed in the beta matrix. The
-focused tenant/credential/policy/ingestion/audit threat review, sustained-load,
-capacity-envelope, and representative false-positive review work are closed
-for the declared boundary. The reviewed mixed fixture produces 11 intentional,
-evidence-backed Findings and is regression-locked against silent identity,
-severity, source, remediation, or evidence-count drift. The current priority
-is hosted candidate evidence, GitHub App failure-mode evidence, operator-runbook
-review, artifact inspection, and independent-user adoption evidence;
-Kubernetes and HA do not silently expand the beta scope.
+The immediate delivery phase is **public-beta adoption and post-release
+evidence closure**. The [`v0.6.0-beta.1`](https://github.com/OpsNeuron/OpsCustodian/releases/tag/v0.6.0-beta.1)
+prerelease has been published with cross-platform archives, checksums, a
+CycloneDX SBOM, and build provenance after exact-commit hosted CI, CodeQL,
+container, dependency, license, and twelve-artifact extended-fuzz gates passed.
+The support promise remains deliberately restricted to the offline CLI
+platforms and single-replica control-plane reference listed in the beta matrix.
+The reviewed mixed fixture produces 11 intentional, evidence-backed Findings
+and is regression-locked against silent identity, severity, source,
+remediation, or evidence-count drift. The current priorities are independent
+artifact consumption, remaining real-provider failure-mode evidence,
+operator-runbook review, and external-adopter feedback; Kubernetes and HA do
+not silently expand the beta scope.
 
 OpsCustodian has completed the offline/core implementation scope of the `v0.4`
 effective-access milestone. Deterministic tests, browser report inspection,
@@ -37,19 +36,18 @@ bounded dependency readiness (`/readyz`). Database bootstrap, scheduled
 ingestion outcomes, and GitHub App authentication update fixed low-cardinality
 component states without exposing repository, credential, path, or error data.
 
-Release automation has executed SHA-pinned least-privilege CI, Linux race and
-Windows compatibility gates, cross-platform tagged builds, checksums,
-CycloneDX SBOM, provenance attestation, and dependency updates for
-`v0.5.0-alpha`. It now also defines a native macOS compatibility gate. Passing
-release automation does not imply that every real-provider or
-production-runtime gate has passed.
+Release automation has executed SHA-pinned least-privilege CI, Linux race,
+Windows, and macOS compatibility gates plus cross-platform tagged builds,
+checksums, CycloneDX SBOM generation, and provenance attestation for
+`v0.6.0-beta.1`. Passing release automation does not imply that every
+real-provider or production-runtime gate has passed.
 
 Release publication now also fails closed through a cross-platform Go verifier
 before provenance and upload. It checks the exact supported asset set,
 SHA-256 manifest, archive paths and contents, populated CycloneDX shape, and
-obvious private-key, hosted-token, signed-URL, or user-path leakage. This is a
-deterministic publication control; the exact beta candidate still requires an
-independent disposable-consumer verification of archives and provenance.
+obvious private-key, hosted-token, signed-URL, or user-path leakage. The
+published beta passed this deterministic control; an independent disposable
+consumer verification of its archives and provenance remains open.
 
 Tag verification now binds hosted candidate evidence to the exact tagged
 commit. Successful `main` push runs are required for CI, Go vulnerability,
@@ -57,16 +55,15 @@ dependency-license, container-vulnerability, and CodeQL workflows, together
 with the twelve-artifact extended-fuzz run. The workflow retains a checksummed,
 secret-free manifest of the repository, tag, commit, run IDs, and fuzz artifact
 count for 90 days; earlier-commit or pull-request-only success cannot satisfy
-the gate.
+the gate. The published `v0.6.0-beta.1` tag satisfied this exact-commit gate.
 
 Tag publication no longer falls back to generated release notes. An exact
 `docs/releases/<tag>.md` file must pass the release-note verifier before the
 build starts; beta notes must name the support matrix, threat model,
 consecutive-upgrade/restore path, known limitations, single-replica boundary,
 and unsupported modes without unresolved placeholders. The final beta tag and
-its reviewed note file remain release-candidate work. The complete
-`v0.6.0-beta.1` candidate notes now pass that verifier and await final comparison
-with the exact candidate diff.
+its reviewed note file are now published. The complete `v0.6.0-beta.1` notes
+passed that verifier on the exact tagged commit.
 
 Pull-request and tag workflows now also scan the exact `git ls-files` source
 manifest with a secret-safe hygiene verifier. It rejects generated root output,
@@ -87,13 +84,13 @@ check: its digest matched `SHA256SUMS`, the archive contained the binary,
 license, README, and security policy, the binary reported `v0.5.0-alpha`, the
 CycloneDX 1.6 SBOM was populated, and GitHub returned an in-toto SLSA provenance
 statement whose subject matched the downloaded archive digest and tagged
-release workflow. The macOS compatibility gate is implemented and awaits its
-first hosted-runner evidence.
+release workflow. The macOS compatibility gate has now passed on a hosted
+runner for the exact public-beta commit.
 
-The custom CodeQL workflow is implemented for Go and GitHub Actions, but its
-first SARIF upload remains blocked until the organization security
-configuration permits advanced setup. This external enablement is deferred and
-must not be reported as a passing gate.
+The custom CodeQL workflow is active for Go and GitHub Actions. Both analyses
+successfully uploaded results for the exact public-beta commit and satisfied
+the release evidence gate. Future changes must keep the advanced workflow
+active and must not enable a conflicting default CodeQL configuration.
 
 The `doctor` command provides versioned terminal/JSON offline preflight profiles
 for server configuration, RepositorySet/GitHub App consistency, OPA/policy
